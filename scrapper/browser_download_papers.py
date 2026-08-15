@@ -93,24 +93,55 @@ def list_papers(page, venueid: str) -> list[dict]:
     return papers
 
 
-def download_pdf(page, url: str) -> bytes:
-    result = page.evaluate(
-        """async (url) => {
-            const r = await fetch(url, {credentials: 'include'});
-            if (!r.ok) return {status: r.status};
-            const bytes = new Uint8Array(await r.arrayBuffer());
-            let binary = '';
-            for (let i = 0; i < bytes.length; i += 0x8000) {
-                binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+# In-page worker pool: N workers pull urls from a shared queue, so a new
+# download starts the moment any lane frees up (no batch barrier). Each
+# finished PDF is streamed back to Python immediately via window.savePdf.
+# HTTP 429 (rate limit) triggers a shared cooldown honoring Retry-After,
+# with exponential backoff and unlimited retries for that url.
+WORKER_POOL_JS = """async ({urls, workers, delayMs}) => {
+    let next = 0;
+    let pauseUntil = 0;
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const worker = async () => {
+        while (next < urls.length) {
+            const url = urls[next++];
+            let attempt = 0;
+            while (true) {
+                const wait = pauseUntil - Date.now();
+                if (wait > 0) await sleep(wait);
+                if (delayMs) await sleep(delayMs);
+                try {
+                    const r = await fetch(url, {credentials: 'include'});
+                    if (r.status === 429) {
+                        attempt++;
+                        const retryAfter = parseFloat(r.headers.get('retry-after'));
+                        const backoff = retryAfter ? retryAfter * 1000
+                            : Math.min(120000, 2000 * 2 ** Math.min(attempt, 6));
+                        // pause ALL workers, not just this one
+                        pauseUntil = Math.max(pauseUntil, Date.now() + backoff);
+                        await window.reportRateLimit(backoff, attempt);
+                        continue;
+                    }
+                    if (!r.ok) {
+                        await window.savePdf(url, r.status, null, null);
+                        break;
+                    }
+                    const bytes = new Uint8Array(await r.arrayBuffer());
+                    let binary = '';
+                    for (let j = 0; j < bytes.length; j += 0x8000) {
+                        binary += String.fromCharCode(...bytes.subarray(j, j + 0x8000));
+                    }
+                    await window.savePdf(url, r.status, btoa(binary), null);
+                    break;
+                } catch (e) {
+                    await window.savePdf(url, 0, null, String(e));
+                    break;
+                }
             }
-            return {status: r.status, b64: btoa(binary)};
-        }""", url)
-    if result["status"] != 200:
-        raise RuntimeError(f"HTTP {result['status']}")
-    data = base64.b64decode(result["b64"])
-    if data[:5] != b"%PDF-":
-        raise RuntimeError("response is not a PDF")
-    return data
+        }
+    };
+    await Promise.all(Array.from({length: workers}, worker));
+}"""
 
 
 def main() -> None:
@@ -127,6 +158,11 @@ def main() -> None:
                         help="Output directory (default: papers/ at the repo root)")
     parser.add_argument("--limit", type=int, default=None,
                         help="Stop after downloading this many papers (for testing)")
+    parser.add_argument("--concurrency", type=int, default=4,
+                        help="Number of PDFs to download in parallel (default: 4)")
+    parser.add_argument("--delay", type=float, default=0.25,
+                        help="Seconds each worker waits before starting a "
+                             "download, to stay under rate limits (default: 0.25)")
     args = parser.parse_args()
 
     out_dir = Path(args.out)
@@ -169,21 +205,50 @@ def main() -> None:
         (out_dir / "metadata.json").write_text(json.dumps(papers, indent=2))
         print(f"Saved metadata to {out_dir / 'metadata.json'}")
 
-        failed = []
-        for i, paper in enumerate(papers, 1):
+        # Skip papers already on disk, then hand the rest to the in-page
+        # worker pool, which keeps --concurrency downloads in flight at once.
+        pending = {}
+        for paper in papers:
             venue_dir = out_dir / sanitize_filename(paper["venueid"])
             venue_dir.mkdir(parents=True, exist_ok=True)
             fname = venue_dir / f"{sanitize_filename(paper['title'])}.pdf"
-            if fname.exists():
-                print(f"[{i}/{len(papers)}] Already downloaded: {fname.name}")
-                continue
+            if not fname.exists():
+                pending[paper["pdf_url"]] = (paper, fname)
+        skipped = len(papers) - len(pending)
+        if skipped:
+            print(f"{skipped} papers already downloaded, {len(pending)} to go.")
+
+        failed = []
+        progress = {"done": skipped}
+
+        def save_pdf(url, status, b64, error):
+            paper, fname = pending[url]
+            progress["done"] += 1
             try:
-                fname.write_bytes(download_pdf(page, paper["pdf_url"]))
-                print(f"[{i}/{len(papers)}] Downloaded: {fname.name}")
+                if status != 200:
+                    raise RuntimeError(error or f"HTTP {status}")
+                data = base64.b64decode(b64)
+                if data[:5] != b"%PDF-":
+                    raise RuntimeError("response is not a PDF")
+                fname.write_bytes(data)
+                print(f"[{progress['done']}/{len(papers)}] Downloaded: {fname.name}")
             except Exception as e:
                 failed.append(paper)
-                print(f"[{i}/{len(papers)}] FAILED ({e}): {paper['title']}")
-            time.sleep(0.5)  # be polite to the server
+                print(f"[{progress['done']}/{len(papers)}] FAILED ({e}): "
+                      f"{paper['title']}")
+
+        def report_rate_limit(backoff_ms, attempt):
+            print(f"Rate limited (HTTP 429); pausing all downloads for "
+                  f"{backoff_ms / 1000:.0f}s (attempt {attempt})...")
+
+        if pending:
+            page.expose_function("savePdf", save_pdf)
+            page.expose_function("reportRateLimit", report_rate_limit)
+            page.evaluate(WORKER_POOL_JS, {
+                "urls": list(pending.keys()),
+                "workers": max(1, args.concurrency),
+                "delayMs": int(args.delay * 1000),
+            })
 
         browser.close()
 

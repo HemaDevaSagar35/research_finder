@@ -22,7 +22,7 @@ import json
 import os
 import re
 import sys
-import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import openreview
@@ -50,6 +50,8 @@ def main() -> None:
                         help="Output directory (default: papers/ at the repo root)")
     parser.add_argument("--limit", type=int, default=None,
                         help="Stop after downloading this many papers (for testing)")
+    parser.add_argument("--concurrency", type=int, default=8,
+                        help="Number of PDFs to download in parallel (default: 8)")
     args = parser.parse_args()
 
     username = os.environ.get("OPENREVIEW_USERNAME")
@@ -96,24 +98,36 @@ def main() -> None:
     (out_dir / "metadata.json").write_text(json.dumps(papers, indent=2))
     print(f"Saved metadata to {out_dir / 'metadata.json'}")
 
-    failed = []
-    for i, paper in enumerate(papers, 1):
+    pending = []
+    for paper in papers:
         venue_dir = out_dir / sanitize_filename(paper["venueid"])
         venue_dir.mkdir(parents=True, exist_ok=True)
         fname = venue_dir / f"{sanitize_filename(paper['title'])}.pdf"
-        if fname.exists():
-            print(f"[{i}/{len(papers)}] Already downloaded: {fname.name}")
-            continue
-        try:
-            data = client.get_attachment(paper["id"], "pdf")
-            if data[:5] != b"%PDF-":
-                raise RuntimeError("response is not a PDF")
-            fname.write_bytes(data)
-            print(f"[{i}/{len(papers)}] Downloaded: {fname.name}")
-        except Exception as e:
-            failed.append(paper)
-            print(f"[{i}/{len(papers)}] FAILED ({e}): {paper['title']}")
-        time.sleep(0.5)  # be polite to the server
+        if not fname.exists():
+            pending.append((paper, fname))
+    skipped = len(papers) - len(pending)
+    if skipped:
+        print(f"{skipped} papers already downloaded, {len(pending)} to go.")
+
+    def fetch_one(paper: dict, fname: Path) -> None:
+        data = client.get_attachment(paper["id"], "pdf")
+        if data[:5] != b"%PDF-":
+            raise RuntimeError("response is not a PDF")
+        fname.write_bytes(data)
+
+    failed, done = [], skipped
+    with ThreadPoolExecutor(max_workers=max(1, args.concurrency)) as pool:
+        futures = {pool.submit(fetch_one, paper, fname): (paper, fname)
+                   for paper, fname in pending}
+        for future in as_completed(futures):
+            paper, fname = futures[future]
+            done += 1
+            try:
+                future.result()
+                print(f"[{done}/{len(papers)}] Downloaded: {fname.name}")
+            except Exception as e:
+                failed.append(paper)
+                print(f"[{done}/{len(papers)}] FAILED ({e}): {paper['title']}")
 
     print(f"\nDone. {len(papers) - len(failed)} downloaded, {len(failed)} failed, "
           f"saved in {out_dir.resolve()}")
