@@ -847,6 +847,7 @@ dependencies = [
     { name = "openai" },
     { name = "openreview-py" },
     { name = "playwright" },
+    { name = "pydantic" },
     { name = "pymupdf" },
     { name = "python-dotenv" },
 ]
@@ -856,6 +857,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.60" },
     { name = "openreview-py", specifier = ">=1.40" },
     { name = "playwright", specifier = ">=1.45" },
+    { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pymupdf", specifier = ">=1.24" },
     { name = "python-dotenv", specifier = ">=1.0" },
 ]

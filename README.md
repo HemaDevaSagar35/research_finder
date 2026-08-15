@@ -5,10 +5,12 @@ Tools for finding and downloading research papers.
 - `scrapper/` — downloads accepted papers (e.g. ICML 2026 spotlights) from
   OpenReview. See `scrapper/README.md`.
 - `extraction/` — converts PDF pages (e.g. downloaded papers) to Markdown
-  using a vision LLM via `llm_client`:
+  using a vision LLM via `llm_client`, then turns a paper's Markdown pages
+  into a single machine-readable JSON record (for RAG):
 
   ```bash
-  uv run python -m extraction.extract paper.pdf --pages 1-3 --out paper.md
+  uv run python -m extraction.pdf_to_markdown paper.pdf --out-dir markdown
+  uv run python -m extraction.research_extract "markdown/<paper_folder>"
   ```
 - `llm_client/` — unified client for OpenAI, Gemini, and DeepSeek chat APIs.
   Set `OPENAI_API_KEY` / `GEMINI_API_KEY` / `DEEPSEEK_API_KEY`, then:

@@ -10,4 +10,5 @@ dependencies = [
     "python-dotenv>=1.0",
     "openreview-py>=1.40",
     "playwright>=1.45",
+    "pydantic>=2.13.4",
 ]
