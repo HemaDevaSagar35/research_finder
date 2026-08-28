@@ -11,4 +11,9 @@ dependencies = [
     "openreview-py>=1.40",
     "playwright>=1.45",
     "pydantic>=2.13.4",
+    "faiss-cpu<1.10",
+    "bm25s>=0.3.11",
+    "numpy>=2.2.6",
+    "fastembed>=0.7.4",
+    "onnxruntime<1.22",
 ]

@@ -103,8 +103,19 @@ def paper_id(title: str, venue: str, year: int) -> str:
   stages read the recorded value instead of re-deriving it.
 - Source-specific ids (`openreview_id`, `arxiv_id`, ...) are kept as ordinary
   metadata fields, not as the primary key.
-- Output folders are named by id (`markdown/<paper_id>/`), which also fixes the
-  special-character mess in title-derived folder names.
+- Everything about a paper lives in one id-named folder:
+
+  ```text
+  markdown/<paper_id>/
+    01.md, 02.md, ...   # per-page markdown (evidence store)
+    paper.json          # structured extraction
+    summary.md          # detailed summary
+  ```
+
+  (`pdf_to_markdown --folder-name <paper_id>` sets the folder; the batch
+  driver will pass it automatically. This also fixes the special-character
+  mess in title-derived folder names. The flattener still resolves old
+  title-named folders as a fallback.)
 
 ### 5. All index artifacts are local files, keyed by paper_id
 
@@ -143,14 +154,29 @@ Requirements for portability:
 | PDF → Markdown (+ page classification) | done; run on 1 test paper (pages 03/05/08/10 failed, need rerun) |
 | paper.json extraction (`PaperAnalysis`) | done; run on 1 test paper |
 | summary.md extraction | done; run on 1 test paper |
-| paper_id scheme + metadata linkage | decided (above), not implemented |
+| paper_id scheme + metadata linkage | done — `indexing/ids.py`; both scrapper scripts stamp `paper_id` into metadata.json; flattener falls back to computing it for older metadata |
+| Flattener (paper.json → records) | done — `indexing/flatten.py` (~70 typed records per paper) |
+| Vector + BM25 + metadata index | done — `indexing/build_index.py` (FAISS + bm25s + SQLite, embedding cache for incremental rebuilds) |
+| Hybrid search CLI | done — `indexing/search.py` (RRF fusion, paper rollup) |
 | Batch driver (corpus-scale, resumable) | not implemented |
-| Flattener (paper.json → records) | not implemented |
-| Vector + BM25 + metadata index | not implemented |
 
-Next steps, in order:
+Embeddings: `EMBED_PROVIDER` = `openai`, `gemini`, or `local` (fastembed with
+`BAAI/bge-small-en-v1.5`, no API key needed — currently the default since only
+a DeepSeek key is configured and DeepSeek has no embeddings API). The provider
+and model that built the index are recorded in `index_meta.json` and reused
+for queries; switching providers means re-embedding (cache is per-model).
 
-1. paper_id + batch driver (extraction is expensive — get linkage/resume solid
-   before running ~2,600 papers through it);
-2. flattener;
-3. hybrid index build.
+Platform note: this machine is on macOS 13, which pins `faiss-cpu<1.10` and
+`onnxruntime<1.22` (newer wheels require macOS 14).
+
+Usage:
+
+```bash
+uv run python -m indexing.flatten --roots markdown   # paper.json -> records
+uv run python -m indexing.build_index                # records -> index/
+uv run python -m indexing.search "efficient MoE inference"
+```
+
+Remaining next step: the batch driver that walks all downloaded PDFs through
+markdown → paper.json → summary.md with resume and failure tracking, naming
+output folders by paper_id.

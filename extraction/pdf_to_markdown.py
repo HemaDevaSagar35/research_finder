@@ -56,6 +56,7 @@ def page_text(pdf_path: str | Path, page_number: int) -> str:
 
 
 def convert_pdf(pdf_path: Path, out_root: Path, *,
+                folder_name: str | None = None,
                 mode: str = "auto",
                 provider: str | None = None,
                 model: str | None = None,
@@ -70,7 +71,7 @@ def convert_pdf(pdf_path: Path, out_root: Path, *,
     print(f"Provider: {client.provider} | model: "
           f"{model or client.default_model} | mode: {mode}")
 
-    out_dir = out_root / pdf_path.stem.replace(" ", "_")
+    out_dir = out_root / (folder_name or pdf_path.stem.replace(" ", "_"))
     out_dir.mkdir(parents=True, exist_ok=True)
 
     total = page_count(pdf_path)
@@ -141,6 +142,9 @@ def main() -> None:
     parser.add_argument("--out-root",
                         default=str(Path(__file__).resolve().parent.parent / "markdown"),
                         help="Root output directory (default: markdown/ at repo root)")
+    parser.add_argument("--folder-name", default=None,
+                        help="Output folder name inside out-root (e.g. the "
+                             "paper_id; default: derived from the PDF name)")
     parser.add_argument("--mode", choices=["auto", "image", "text"], default="auto",
                         help="Extraction mode (default: auto — image for "
                              "openai/gemini, text otherwise)")
@@ -161,8 +165,8 @@ def main() -> None:
     if not pdf_path.exists():
         sys.exit(f"PDF not found: {pdf_path}")
 
-    convert_pdf(pdf_path, Path(args.out_root), mode=args.mode,
-                provider=args.provider, model=args.model,
+    convert_pdf(pdf_path, Path(args.out_root), folder_name=args.folder_name,
+                mode=args.mode, provider=args.provider, model=args.model,
                 dpi=args.dpi, concurrency=args.concurrency,
                 classify=not args.all_pages)
 

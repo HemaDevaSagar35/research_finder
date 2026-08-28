@@ -27,6 +27,9 @@ from pathlib import Path
 
 import openreview
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from indexing.ids import openreview_paper_id
+
 API_BASE = "https://api2.openreview.net"
 SITE_BASE = "https://openreview.net"
 
@@ -70,9 +73,11 @@ def main() -> None:
         print(f"[{venueid}] found {len(notes)} accepted papers.")
         for note in notes:
             content = note.content
+            title = content.get("title", {}).get("value", "untitled")
             papers.append({
                 "id": note.id,
-                "title": content.get("title", {}).get("value", "untitled"),
+                "paper_id": openreview_paper_id(title, venueid),
+                "title": title,
                 "authors": content.get("authors", {}).get("value", []),
                 "venue": content.get("venue", {}).get("value", ""),
                 "venueid": venueid,

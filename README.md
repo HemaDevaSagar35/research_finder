@@ -12,6 +12,15 @@ Tools for finding and downloading research papers.
   uv run python -m extraction.pdf_to_markdown paper.pdf --out-dir markdown
   uv run python -m extraction.research_extract "markdown/<paper_folder>"
   ```
+- `indexing/` — flattens extracted `paper.json` files into typed retrieval
+  records and builds a local hybrid index (FAISS vectors + BM25 + SQLite
+  metadata). See `docs/offline_ingestion_design.md`:
+
+  ```bash
+  uv run python -m indexing.flatten --roots markdown
+  uv run python -m indexing.build_index
+  uv run python -m indexing.search "efficient MoE inference"
+  ```
 - `llm_client/` — unified client for OpenAI, Gemini, and DeepSeek chat APIs.
   Set `OPENAI_API_KEY` / `GEMINI_API_KEY` / `DEEPSEEK_API_KEY`, then:
 

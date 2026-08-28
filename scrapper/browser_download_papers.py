@@ -27,6 +27,9 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from indexing.ids import openreview_paper_id
+
 API_BASE = "https://api2.openreview.net"
 SITE_BASE = "https://openreview.net"
 PAGE_SIZE = 1000
@@ -80,9 +83,11 @@ def list_papers(page, venueid: str) -> list[dict]:
     papers = []
     for note in notes:
         content = note.get("content", {})
+        title = content.get("title", {}).get("value", "untitled")
         papers.append({
             "id": note["id"],
-            "title": content.get("title", {}).get("value", "untitled"),
+            "paper_id": openreview_paper_id(title, venueid),
+            "title": title,
             "authors": content.get("authors", {}).get("value", []),
             "venue": content.get("venue", {}).get("value", ""),
             "venueid": venueid,
