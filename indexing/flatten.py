@@ -22,12 +22,42 @@ Usage:
 
 import argparse
 import json
+import os
+import re
 import sys
 from pathlib import Path
 
 from .ids import markdown_folder_name, openreview_paper_id, paper_id
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Records longer than this are split into sentence-aligned chunks (same type
+# and source_locations, record_id suffixed #p0, #p1, ...). Keeps every record
+# inside the embedding model's window: the local bge model silently truncates
+# past 512 tokens (~2k chars), and OpenAI embeddings error past 8191 tokens.
+# Records are single statements and normally never hit this.
+CHUNK_CHARS = int(os.environ.get("CHUNK_CHARS", "2000"))
+_chunked = []
+
+
+def _split_text(text: str, limit: int) -> list[str]:
+    """Split text into chunks of at most `limit` chars at sentence
+    boundaries (hard-splitting only pathological run-on sentences)."""
+    if len(text) <= limit:
+        return [text]
+    parts, current = [], ""
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        while len(sentence) > limit:
+            parts.append(sentence[:limit])
+            sentence = sentence[limit:]
+        if current and len(current) + len(sentence) + 1 > limit:
+            parts.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+    if current:
+        parts.append(current)
+    return parts
 
 
 def _txt(*parts) -> str:
@@ -58,19 +88,26 @@ def _txt(*parts) -> str:
 def flatten_paper(paper: dict, pid: str) -> list[dict]:
     """Turn one PaperAnalysis dict into a list of typed records."""
     records = []
+    counters: dict[str, int] = {}
 
     def add(rtype: str, text: str, srcs: list | None = None) -> None:
         text = text.strip()
         if not text:
             return
-        n = sum(1 for r in records if r["type"] == rtype)
-        records.append({
-            "record_id": f"{pid}#{rtype}/{n}",
-            "paper_id": pid,
-            "type": rtype,
-            "text": text,
-            "source_locations": srcs or [],
-        })
+        n = counters.get(rtype, 0)
+        counters[rtype] = n + 1
+        base_id = f"{pid}#{rtype}/{n}"
+        parts = _split_text(text, CHUNK_CHARS)
+        if len(parts) > 1:
+            _chunked.append(f"{base_id} ({len(parts)} chunks)")
+        for k, part in enumerate(parts):
+            records.append({
+                "record_id": base_id if len(parts) == 1 else f"{base_id}#p{k}",
+                "paper_id": pid,
+                "type": rtype,
+                "text": part,
+                "source_locations": srcs or [],
+            })
 
     s = paper["high_level_summary"]
     add("summary", _txt(
@@ -279,6 +316,10 @@ def main() -> None:
     if unmatched:
         print(f"\nWARNING: {len(unmatched)} folders had no metadata match "
               f"(ids derived from paper.json instead): {unmatched}")
+    if _chunked:
+        print(f"\nNote: {len(_chunked)} records exceeded {CHUNK_CHARS} chars "
+              f"and were split: "
+              f"{_chunked[:10]}{'...' if len(_chunked) > 10 else ''}")
 
     out_dir = REPO_ROOT / args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
