@@ -19,3 +19,6 @@ Files:
 
 - `research_path_generator_architecture_refined.md`
 - `research_path_generator_components_refined.md`
+- `offline_ingestion_design.md` — concrete decisions and status for the
+  offline/ingestion stage (paper_id scheme, paper.json flattening, index
+  layout, portability)
