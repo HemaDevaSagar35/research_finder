@@ -34,9 +34,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Records longer than this are split into sentence-aligned chunks (same type
 # and source_locations, record_id suffixed #p0, #p1, ...). Keeps every record
 # inside the embedding model's window: the local bge model silently truncates
-# past 512 tokens (~2k chars), and OpenAI embeddings error past 8191 tokens.
-# Records are single statements and normally never hit this.
-CHUNK_CHARS = int(os.environ.get("CHUNK_CHARS", "2000"))
+# past 512 tokens, and OpenAI embeddings error past 8191 tokens. Chars are a
+# deliberate proxy for tokens — token counts are tokenizer-specific, and
+# records must stay provider-agnostic. 1600 chars assumes a conservative
+# ~3.2 chars/token, since scientific text with LaTeX tokenizes worse than
+# prose. Records are single statements and normally never hit this.
+CHUNK_CHARS = int(os.environ.get("CHUNK_CHARS", "1600"))
 _chunked = []
 
 
