@@ -7,3 +7,6 @@ scrapper/papers*/
 index/
 markdown*/
 download.log
+*.log
+ingestion_status.sqlite
+.DS_Store

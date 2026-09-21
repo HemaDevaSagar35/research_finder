@@ -1,8 +1,9 @@
 """Flatten paper.json files into typed retrieval records.
 
-Scans markdown root folders for <paper_folder>/paper.json, links each folder
-back to the download metadata (papers/metadata.json) to get its canonical
-paper_id, and emits:
+Reads <paper_id>/paper.json artifacts — from the S3 artifact store with --s3
+(the canonical source: extraction uploads there; see ingestion/), or from
+local markdown roots — links them to the download metadata for canonical
+paper_ids, and emits:
 
     index/records.jsonl   one self-contained statement per line:
                           {record_id, paper_id, type, text, source_locations}
@@ -15,7 +16,11 @@ paper. Types mirror the PaperAnalysis schema (key_result, claim, limitation,
 research_gap, ...), so downstream stages can retrieve over specific kinds of
 statements.
 
+Both outputs are written incrementally (papers stream through; nothing is
+held in memory), so corpus size only affects disk, not RAM.
+
 Usage:
+    uv run python -m indexing.flatten --s3                  # S3 artifacts
     uv run python -m indexing.flatten                       # scan markdown/
     uv run python -m indexing.flatten --roots markdown_test # other roots
 """
@@ -25,9 +30,14 @@ import json
 import os
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from .ids import markdown_folder_name, openreview_paper_id, paper_id
+
+load_dotenv()
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -249,8 +259,9 @@ def flatten_paper(paper: dict, pid: str) -> list[dict]:
     return records
 
 
-def _paper_row(pid: str, paper: dict, meta: dict | None, folder: Path) -> dict:
-    """One papers.jsonl row, merging download metadata with extracted fields."""
+def _paper_row(pid: str, paper: dict, meta: dict | None, folder: str) -> dict:
+    """One papers.jsonl row, merging download metadata with extracted fields.
+    `folder` is the evidence location: a repo-relative path or an s3:// URL."""
     pm = paper["paper_metadata"]
     return {
         "paper_id": pid,
@@ -262,18 +273,58 @@ def _paper_row(pid: str, paper: dict, meta: dict | None, folder: Path) -> dict:
         "abstract": (meta or {}).get("abstract"),
         "openreview_id": (meta or {}).get("id"),
         "forum_url": (meta or {}).get("forum_url"),
-        "folder": str(folder.relative_to(REPO_ROOT)),
+        "folder": folder,
         "research_areas": pm["research_areas"],
         "keywords": pm["keywords"],
         "retrieval_tags": paper["retrieval_tags"],
     }
 
 
+def _metadata_lookup(entries: list[dict]) -> dict[str, dict]:
+    """Folder-name -> metadata entry. Folders are preferably named by
+    paper_id directly; title-derived names (the sanitization the scrapper
+    used to name PDFs) are kept as a fallback for folders made before that."""
+    by_folder: dict[str, dict] = {}
+    for entry in entries:
+        pid = entry.get("paper_id") or openreview_paper_id(
+            entry["title"], entry["venueid"])
+        entry["paper_id"] = pid
+        by_folder[pid] = entry
+        by_folder[markdown_folder_name(entry["title"])] = entry
+    return by_folder
+
+
+def _iter_local(roots: list[str], by_folder: dict):
+    """Yield (paper dict, folder_name, evidence_location) from local roots."""
+    for root in roots:
+        root_path = (REPO_ROOT / root) if not Path(root).is_absolute() else Path(root)
+        for pj in sorted(root_path.glob("*/paper.json")):
+            try:
+                folder = str(pj.parent.relative_to(REPO_ROOT))
+            except ValueError:
+                folder = str(pj.parent)
+            yield json.loads(pj.read_text()), pj.parent.name, folder
+
+
+def _iter_s3(store, fetch_workers: int = 24):
+    """Yield (paper dict, paper_id, evidence_location) streamed from the S3
+    artifact store — objects are fetched concurrently and never hit disk."""
+    pairs = store.list_paper_jsons()
+    print(f"{len(pairs)} paper.json artifacts in {store.url()}")
+    with ThreadPoolExecutor(max_workers=fetch_workers) as pool:
+        fetched = pool.map(lambda p: (p[0], store.get_json(p[1])), pairs)
+        for pid, paper in fetched:
+            yield paper, pid, store.url(pid)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--s3", action="store_true",
+                        help="Read paper.json artifacts (and metadata.json) "
+                             "from S3_ARTIFACTS_URL instead of local folders")
     parser.add_argument("--roots", nargs="+", default=["markdown"],
-                        help="Folders to scan for <paper>/paper.json "
-                             "(default: markdown)")
+                        help="Local folders to scan for <paper>/paper.json "
+                             "(default: markdown; ignored with --s3)")
     parser.add_argument("--metadata", default="papers/metadata.json",
                         help="Download metadata for paper_id linkage "
                              "(default: papers/metadata.json)")
@@ -281,59 +332,65 @@ def main() -> None:
                         help="Output directory (default: index/)")
     args = parser.parse_args()
 
-    # Folder-name -> metadata entry. Folders are preferably named by paper_id
-    # directly; title-derived names (the same sanitization the scrapper used
-    # to name PDFs) are kept as a fallback for folders made before that.
-    by_folder: dict[str, dict] = {}
-    meta_path = REPO_ROOT / args.metadata
-    if meta_path.exists():
-        for entry in json.loads(meta_path.read_text()):
-            pid = entry.get("paper_id") or openreview_paper_id(
-                entry["title"], entry["venueid"])
-            entry["paper_id"] = pid
-            by_folder[pid] = entry
-            by_folder[markdown_folder_name(entry["title"])] = entry
-    else:
-        print(f"Note: no metadata at {meta_path}; "
-              "falling back to paper.json metadata for ids.")
+    store = None
+    if args.s3:
+        from ingestion.s3store import ArtifactStore
+        store = ArtifactStore()
 
-    all_records, all_papers, unmatched = [], [], []
-    for root in args.roots:
-        root_path = (REPO_ROOT / root) if not Path(root).is_absolute() else Path(root)
-        for pj in sorted(root_path.glob("*/paper.json")):
-            paper = json.loads(pj.read_text())
-            meta = by_folder.get(pj.parent.name)
+    # Metadata: from the artifact store in --s3 mode (the backfill uploads
+    # it), falling back to the local file either way.
+    entries = []
+    if store and store.exists("metadata.json"):
+        entries = store.get_json("metadata.json")
+    elif (REPO_ROOT / args.metadata).exists():
+        entries = json.loads((REPO_ROOT / args.metadata).read_text())
+    else:
+        print(f"Note: no metadata found; "
+              "falling back to paper.json metadata for ids.")
+    by_folder = _metadata_lookup(entries)
+
+    source = (_iter_s3(store) if store
+              else _iter_local(args.roots, by_folder))
+
+    out_dir = REPO_ROOT / args.out_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    n_records = n_papers = 0
+    unmatched = []
+    with open(out_dir / "records.jsonl", "w") as rec_f, \
+            open(out_dir / "papers.jsonl", "w") as pap_f:
+        for paper, name, folder in source:
+            meta = by_folder.get(name)
             if meta:
                 pid = meta["paper_id"]
             else:
                 pm = paper["paper_metadata"]
-                pid = paper_id(pm["title"], pm["venue"] or "", pm["year"])
-                unmatched.append(pj.parent.name)
-            all_records.extend(flatten_paper(paper, pid))
-            all_papers.append(_paper_row(pid, paper, meta, pj.parent))
-            print(f"{pid}  {all_papers[-1]['title']}  "
-                  f"({len(all_records)} records so far)")
+                pid = (name if args.s3 else
+                       paper_id(pm["title"], pm["venue"] or "", pm["year"]))
+                unmatched.append(name)
+            records = flatten_paper(paper, pid)
+            for r in records:
+                rec_f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            row = _paper_row(pid, paper, meta, folder)
+            pap_f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            n_records += len(records)
+            n_papers += 1
+            if n_papers % 100 == 0 or not args.s3:
+                print(f"[{n_papers}] {pid}  {row['title'][:70]}  "
+                      f"({n_records} records so far)")
 
-    if not all_papers:
-        sys.exit("No paper.json files found under: " + ", ".join(args.roots))
+    if not n_papers:
+        sys.exit("No paper.json files found in "
+                 + (store.url() if store else ", ".join(args.roots)))
     if unmatched:
-        print(f"\nWARNING: {len(unmatched)} folders had no metadata match "
-              f"(ids derived from paper.json instead): {unmatched}")
+        print(f"\nWARNING: {len(unmatched)} papers had no metadata match "
+              f"(ids taken from the S3 prefix / derived from paper.json): "
+              f"{unmatched[:10]}{'...' if len(unmatched) > 10 else ''}")
     if _chunked:
         print(f"\nNote: {len(_chunked)} records exceeded {CHUNK_CHARS} chars "
               f"and were split: "
               f"{_chunked[:10]}{'...' if len(_chunked) > 10 else ''}")
 
-    out_dir = REPO_ROOT / args.out_dir
-    out_dir.mkdir(parents=True, exist_ok=True)
-    with open(out_dir / "records.jsonl", "w") as f:
-        for r in all_records:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    with open(out_dir / "papers.jsonl", "w") as f:
-        for row in all_papers:
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
-
-    print(f"\nWrote {len(all_records)} records from {len(all_papers)} papers "
+    print(f"\nWrote {n_records} records from {n_papers} papers "
           f"to {out_dir / 'records.jsonl'}")
 
 
