@@ -36,7 +36,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from ingestion.s3store import ArtifactStore
-from ingestion.worker import load_metadata, pdf_path_for, process_paper
+from ingestion.worker import (load_metadata, pdf_path_for, pdf_store,
+                              process_paper)
 
 load_dotenv()
 
@@ -114,11 +115,14 @@ def main() -> None:
     statuses = dict(con.execute("SELECT paper_id, status FROM papers"))
     skip = {"done"} | (set() if args.retry_failed else {"failed"})
     papers_root = REPO_ROOT / args.papers_root
+    pdfs = pdf_store()  # S3_PAPERS_URL: fetch missing PDFs on demand
     todo, no_pdf = [], 0
     for meta in papers:
         if statuses.get(meta["paper_id"]) in skip:
             continue
-        if not pdf_path_for(meta, papers_root).exists():
+        # Without an S3 PDF source, a locally missing PDF is a hard skip;
+        # with one, the worker fetches it (and flags no_pdf if S3 misses).
+        if not pdfs and not pdf_path_for(meta, papers_root).exists():
             no_pdf += 1
             set_status(con, meta, "no_pdf")
             continue
@@ -145,7 +149,7 @@ def main() -> None:
 
     def run_one(meta: dict):
         process_paper(meta, markdown_root=markdown_root,
-                      papers_root=papers_root, store=store)
+                      papers_root=papers_root, store=store, pdfs=pdfs)
 
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         futures = {pool.submit(run_one, meta): meta for meta in todo}
@@ -156,6 +160,11 @@ def main() -> None:
                 done += 1
                 set_status(con, meta, "done")
                 print(f"== [{done + failed}/{len(todo)}] done: "
+                      f"{meta['title'][:70]}")
+            except FileNotFoundError as e:
+                failed += 1
+                set_status(con, meta, "no_pdf", str(e))
+                print(f"== [{done + failed}/{len(todo)}] NO PDF: "
                       f"{meta['title'][:70]}")
             except BaseException as e:  # noqa: BLE001 — record and continue
                 failed += 1

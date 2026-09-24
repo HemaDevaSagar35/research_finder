@@ -9,6 +9,8 @@ intended mode.
 
 Stages (each skipped when its artifact already exists, so reruns resume):
 
+    0. fetch the PDF from S3_PAPERS_URL when it is not on local disk
+       (deleted again after success — local disk is only a cache)
     1. markdown/<paper_id>/NN.md      extraction.pdf_to_markdown (per-page resume)
     2. upload pages to S3             pages carry ~90% of the LLM cost; make
                                       them durable before the later stages
@@ -27,6 +29,7 @@ Usage:
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -50,18 +53,44 @@ def pdf_path_for(meta: dict, papers_root: Path) -> Path:
             / f"{sanitize_filename(meta['title'])}.pdf")
 
 
+def pdf_store() -> ArtifactStore | None:
+    """The S3 location of the downloaded PDFs (same layout as papers/),
+    used to fetch PDFs on demand when they are not on local disk — so an
+    EC2 instance never needs the whole corpus synced."""
+    url = os.environ.get("S3_PAPERS_URL")
+    return ArtifactStore(url) if url else None
+
+
+def _ensure_pdf(meta: dict, papers_root: Path,
+                pdfs: ArtifactStore | None) -> tuple[Path, bool]:
+    """Return the local PDF path, fetching it from S3 if needed.
+    The bool says whether we downloaded it (caller may clean it up)."""
+    pdf = pdf_path_for(meta, papers_root)
+    if pdf.exists():
+        return pdf, False
+    if not pdfs:
+        raise FileNotFoundError(f"PDF not found: {pdf}")
+    parts = (sanitize_filename(meta["venueid"]), pdf.name)
+    try:
+        pdfs.download_file(pdf, *parts)
+    except pdfs.s3.exceptions.ClientError:
+        raise FileNotFoundError(
+            f"PDF neither local nor in S3: {pdfs.url(*parts)}") from None
+    print(f"[{meta['paper_id']}] fetched PDF from {pdfs.url(*parts)}")
+    return pdf, True
+
+
 def process_paper(meta: dict, *,
                   markdown_root: Path,
                   papers_root: Path,
-                  store: ArtifactStore | None = None) -> None:
+                  store: ArtifactStore | None = None,
+                  pdfs: ArtifactStore | None = None) -> None:
     """Run all extraction stages for one paper. Raises on failure; safe to
     rerun — completed stages are skipped."""
     pid = meta["paper_id"]
     folder = markdown_root / pid
 
-    pdf = pdf_path_for(meta, papers_root)
-    if not pdf.exists():
-        raise FileNotFoundError(f"PDF not found: {pdf}")
+    pdf, downloaded = _ensure_pdf(meta, papers_root, pdfs)
 
     # 1. PDF -> per-page markdown (resumes page-wise; exits nonzero when
     # some pages fail, which we surface as an ordinary failure).
@@ -95,8 +124,25 @@ def process_paper(meta: dict, *,
         if n:
             print(f"[{pid}] uploaded {n} files to {store.url(pid)}")
 
+    # A PDF we fetched ourselves is just cache; drop it once everything
+    # succeeded so a 30k-paper run doesn't fill the instance disk.
+    # (Kept on failure so the retry doesn't re-download.)
+    if downloaded:
+        pdf.unlink(missing_ok=True)
+
 
 def load_metadata(path: Path) -> list[dict]:
+    if not path.exists() and os.environ.get("S3_ARTIFACTS_URL"):
+        # Fresh machine (papers/ is gitignored): pull the copy the backfill
+        # uploads to the artifact store.
+        store = ArtifactStore()
+        if store.exists("metadata.json"):
+            print(f"Fetching metadata.json from {store.url('metadata.json')}")
+            store.download_file(path, "metadata.json")
+    if not path.exists():
+        sys.exit(f"Metadata not found: {path} (and no copy in the S3 "
+                 f"artifact store). Copy it from the scraping machine or "
+                 f"run the backfill there once to upload it.")
     entries = json.loads(path.read_text())
     missing = [e["title"] for e in entries if not e.get("paper_id")]
     if missing:
@@ -124,7 +170,7 @@ def main() -> None:
     process_paper(meta,
                   markdown_root=REPO_ROOT / args.markdown_root,
                   papers_root=REPO_ROOT / args.papers_root,
-                  store=store)
+                  store=store, pdfs=pdf_store())
     print(f"Done: {meta['title']}")
 
 

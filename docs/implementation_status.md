@@ -32,7 +32,7 @@ MLSys/COLM listed. `tools/upload_s3.py` bulk-uploads PDFs to S3.
 ### Ingestion machinery (`ingestion/`) — written, not yet run at scale
 | Component | What it does | Run |
 |---|---|---|
-| `worker.py` | ONE paper end-to-end: PDF → pages → S3 → paper.json → summary.md → S3. Unit of work for backfill now and the upload service later | `uv run python -m ingestion.worker <paper_id>` |
+| `worker.py` | ONE paper end-to-end: PDF (fetched on demand from `S3_PAPERS_URL` if not local, deleted after success) → pages → S3 → paper.json → summary.md → S3. Unit of work for backfill now and the upload service later | `uv run python -m ingestion.worker <paper_id>` |
 | `backfill.py` | Batch driver: all of metadata.json, N workers, SQLite status manifest (`done`/`failed`/`no_pdf`), resume + `--retry-failed` | `uv run python -m ingestion.backfill --workers 2` |
 | `s3store.py` | S3 artifact store helpers (`S3_ARTIFACTS_URL`), skip-if-exists uploads | library |
 

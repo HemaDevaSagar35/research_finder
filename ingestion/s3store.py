@@ -69,6 +69,10 @@ class ArtifactStore:
     def upload_file(self, path: Path, *key_parts: str) -> None:
         self.s3.upload_file(str(path), self.bucket, self.key(*key_parts))
 
+    def download_file(self, dest: Path, *key_parts: str) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        self.s3.download_file(self.bucket, self.key(*key_parts), str(dest))
+
     def list_paper_jsons(self) -> list[tuple[str, str]]:
         """All (paper_id, key) pairs for <prefix>/<paper_id>/paper.json."""
         out = []
