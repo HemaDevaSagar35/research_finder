@@ -10,7 +10,8 @@ intended mode.
 Stages (each skipped when its artifact already exists, so reruns resume):
 
     0. fetch the PDF from S3_PAPERS_URL when it is not on local disk
-       (deleted again after success — local disk is only a cache)
+       (deleted again after success — local disk is only a cache); see
+       ingestion/pdf_locator.py for how the two S3 layouts are resolved
     1. markdown/<paper_id>/NN.md      extraction.pdf_to_markdown (per-page resume)
     2. upload pages to S3             pages carry ~90% of the LLM cost; make
                                       them durable before the later stages
@@ -38,7 +39,7 @@ from dotenv import load_dotenv
 from extraction.extract_summary import summarize
 from extraction.pdf_to_markdown import convert_pdf
 from extraction.research_extract import extract_research
-from indexing.ids import sanitize_filename
+from ingestion.pdf_locator import PdfLocator, pdf_store, scraper_relpath
 from ingestion.s3store import ArtifactStore
 
 load_dotenv()
@@ -46,51 +47,39 @@ load_dotenv()
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def pdf_path_for(meta: dict, papers_root: Path) -> Path:
-    """Where the scrapers put this paper's PDF:
-    papers/<sanitized venueid>/<sanitized title>.pdf"""
-    return (papers_root / sanitize_filename(meta["venueid"])
-            / f"{sanitize_filename(meta['title'])}.pdf")
+def pdf_locator(papers_root: Path) -> PdfLocator:
+    """Finds each paper's PDF on local disk or in S3_PAPERS_URL (both the
+    <venueid>/<title>.pdf and <paper_id>.pdf layouts), fetching on demand
+    so an EC2 instance never needs the whole corpus synced."""
+    return PdfLocator(papers_root, pdf_store())
 
 
-def pdf_store() -> ArtifactStore | None:
-    """The S3 location of the downloaded PDFs (same layout as papers/),
-    used to fetch PDFs on demand when they are not on local disk — so an
-    EC2 instance never needs the whole corpus synced."""
-    url = os.environ.get("S3_PAPERS_URL")
-    return ArtifactStore(url) if url else None
-
-
-def _ensure_pdf(meta: dict, papers_root: Path,
-                pdfs: ArtifactStore | None) -> tuple[Path, bool]:
+def _ensure_pdf(meta: dict, locator: PdfLocator) -> tuple[Path, bool]:
     """Return the local PDF path, fetching it from S3 if needed.
     The bool says whether we downloaded it (caller may clean it up)."""
-    pdf = pdf_path_for(meta, papers_root)
-    if pdf.exists():
-        return pdf, False
-    if not pdfs:
-        raise FileNotFoundError(f"PDF not found: {pdf}")
-    parts = (sanitize_filename(meta["venueid"]), pdf.name)
-    try:
-        pdfs.download_file(pdf, *parts)
-    except pdfs.s3.exceptions.ClientError:
+    pdf, downloaded = locator.fetch(meta)
+    if pdf is None:
+        where = f" or {locator.store.url()}" if locator.store else ""
         raise FileNotFoundError(
-            f"PDF neither local nor in S3: {pdfs.url(*parts)}") from None
-    print(f"[{meta['paper_id']}] fetched PDF from {pdfs.url(*parts)}")
-    return pdf, True
+            f"PDF not found under {locator.papers_root}{where}: "
+            f"{scraper_relpath(meta)} / {meta['paper_id']}.pdf")
+    if downloaded:
+        print(f"[{meta['paper_id']}] fetched PDF from "
+              f"{locator.store.url(locator.s3_key(meta))}")
+    return pdf, downloaded
 
 
 def process_paper(meta: dict, *,
                   markdown_root: Path,
                   papers_root: Path,
                   store: ArtifactStore | None = None,
-                  pdfs: ArtifactStore | None = None) -> None:
+                  locator: PdfLocator | None = None) -> None:
     """Run all extraction stages for one paper. Raises on failure; safe to
     rerun — completed stages are skipped."""
     pid = meta["paper_id"]
     folder = markdown_root / pid
 
-    pdf, downloaded = _ensure_pdf(meta, papers_root, pdfs)
+    pdf, downloaded = _ensure_pdf(meta, locator or pdf_locator(papers_root))
 
     # 1. PDF -> per-page markdown (resumes page-wise; exits nonzero when
     # some pages fail, which we surface as an ordinary failure).
@@ -170,7 +159,8 @@ def main() -> None:
     process_paper(meta,
                   markdown_root=REPO_ROOT / args.markdown_root,
                   papers_root=REPO_ROOT / args.papers_root,
-                  store=store, pdfs=pdf_store())
+                  store=store,
+                  locator=pdf_locator(REPO_ROOT / args.papers_root))
     print(f"Done: {meta['title']}")
 
 
