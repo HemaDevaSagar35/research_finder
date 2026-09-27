@@ -1028,7 +1028,11 @@ def summarize(folder: Path, *,
               model: str | None = None) -> str:
     provider = provider or os.environ.get("SUMMARY_PROVIDER")
     model = model or os.environ.get("SUMMARY_MODEL")
-    client = LLMClient(provider)
+    # ~25k tokens of output: allow well past the SDK's 10-minute default
+    # and retry transient failures only once (a retry regenerates it all).
+    client = LLMClient(provider,
+                       timeout=float(os.environ.get("LONG_CALL_TIMEOUT", "1800")),
+                       max_retries=int(os.environ.get("LONG_CALL_RETRIES", "1")))
     print(f"Provider: {client.provider} | model: {model or client.default_model}")
 
     document = stitch_pages(folder)
@@ -1039,6 +1043,11 @@ def summarize(folder: Path, *,
                       model=model)
     if not raw or not raw.strip():
         raise RuntimeError("Empty response from the model.")
+    if client.last_finish_reason == "length":
+        raise RuntimeError(
+            f"Summary truncated at max_tokens after {len(raw)} chars "
+            f"(finish_reason=length). Raise {client.provider.upper()}"
+            f"_MAX_TOKENS in .env.")
     return _clean(raw)
 
 

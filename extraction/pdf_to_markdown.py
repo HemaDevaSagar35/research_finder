@@ -26,12 +26,12 @@ import os
 import sys
 from pathlib import Path
 
-import pymupdf
-
 from llm_client import AsyncLLMClient
+from llm_client import errors as llm_errors
 
 from .extract import PROMPT as IMAGE_PROMPT
-from .extract import _clean, _image_messages, page_count, render_page
+from .extract import (_clean, _image_messages, page_count,  # noqa: F401
+                      page_text, render_page)
 
 TEXT_PROMPT = """Below is the raw text extracted from one page of an academic
 paper. Reconstruct it as clean Markdown.
@@ -48,11 +48,6 @@ Raw page text:
 """
 
 IMAGE_PROVIDERS = {"openai", "gemini"}
-
-
-def page_text(pdf_path: str | Path, page_number: int) -> str:
-    with pymupdf.open(pdf_path) as doc:
-        return doc[page_number - 1].get_text("text")
 
 
 def convert_pdf(pdf_path: Path, out_root: Path, *,
@@ -126,6 +121,11 @@ def convert_pdf(pdf_path: Path, out_root: Path, *,
         results = await asyncio.gather(*(one(n, f) for n, f in pages),
                                        return_exceptions=True)
         errors = [r for r in results if isinstance(r, Exception)]
+        # Account-level failures (no credits, bad key) must reach the caller
+        # intact so a batch driver can stop instead of retrying per page.
+        fatal = next((e for e in errors if llm_errors.is_fatal(e)), None)
+        if fatal is not None:
+            raise fatal
         if errors:
             sys.exit(f"{len(errors)} of {len(pages)} pages failed; "
                      f"rerun to retry the missing ones.")

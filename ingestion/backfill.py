@@ -14,6 +14,11 @@ stage is also file-resumable on its own (existing pages / paper.json /
 summary.md / S3 objects are skipped), so losing the manifest never re-spends
 LLM calls.
 
+Account-level LLM errors (no credits, bad key: HTTP 401/402/403) stop the
+whole run with exit code 2 instead of marking paper after paper failed; the
+affected papers keep their status, so after topping up just rerun the same
+command.
+
 Total LLM concurrency ≈ --workers × LLM_CONCURRENCY (page conversion inside
 one paper is already concurrent), so keep --workers small.
 
@@ -51,6 +56,8 @@ from dotenv import load_dotenv
 
 from ingestion.s3store import ArtifactStore
 from ingestion.worker import load_metadata, pdf_locator, process_paper
+from llm_client import errors as llm_errors
+from llm_client import usage
 
 load_dotenv()
 
@@ -264,11 +271,14 @@ def main() -> None:
 
     markdown_root = REPO_ROOT / args.markdown_root
     done = failed = 0
+    started = time.time()
+    usage.reset()
 
     def run_one(meta: dict):
         process_paper(meta, markdown_root=markdown_root,
                       papers_root=papers_root, store=store, locator=locator)
 
+    fatal: BaseException | None = None
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         futures = {pool.submit(run_one, meta): meta for meta in todo}
         for future in as_completed(futures):
@@ -285,14 +295,37 @@ def main() -> None:
                 print(f"== [{done + failed}/{len(todo)}] NO PDF: "
                       f"{meta['title'][:70]}")
             except BaseException as e:  # noqa: BLE001 — record and continue
+                if llm_errors.is_fatal(e):
+                    # Not this paper's fault: leave its status alone so a
+                    # plain rerun picks it up, and stop feeding the pool.
+                    fatal = e
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    break
                 failed += 1
                 set_status(con, meta, "failed", f"{type(e).__name__}: {e}")
                 print(f"== [{done + failed}/{len(todo)}] FAILED "
                       f"({type(e).__name__}: {str(e)[:120]}): "
                       f"{meta['title'][:70]}")
+        # (the `with` waits here for the up-to-`workers` papers already
+        # running; after a fatal error they fail fast and are not recorded)
 
-    print(f"\nRun finished: {done} done, {failed} failed.")
+    if fatal is not None:
+        print(f"\n!! STOPPED: the LLM provider is rejecting requests — "
+              f"{llm_errors.describe(fatal)}\n"
+              f"   {done} done, {failed} failed before this. Papers that were "
+              f"in flight keep their previous status; completed pages are on "
+              f"disk/S3, so fix the account (credits / API key) and rerun the "
+              f"same command — it resumes where it stopped.")
+
+    elapsed = time.time() - started
+    print(f"\nRun finished: {done} done, {failed} failed in {elapsed / 60:.1f} min"
+          + (f" ({elapsed / done:.0f} s/paper wall-clock at {args.workers} workers)"
+             if done else ""))
+    print("\nLLM usage this run:")
+    print(usage.report(per_unit=done or None))
     print_status(con)
+    if fatal is not None:
+        sys.exit(2)
     if failed:
         sys.exit(1)
 

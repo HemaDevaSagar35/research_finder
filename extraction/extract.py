@@ -20,13 +20,77 @@ CLI usage:
 import argparse
 import asyncio
 import base64
+import multiprocessing
+import os
 import re
 import sys
+import threading
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
 
 import pymupdf
 
 from llm_client import AsyncLLMClient, LLMClient
+
+# ------------------------------------------------------------ PDF access
+#
+# PyMuPDF / MuPDF is not thread-safe, and a 120-thread backfill aborted the
+# whole process twice with "double free or corruption" even with every call
+# serialised behind a lock. So all pymupdf work runs in ONE helper process
+# (spawned, single worker): MuPDF is alone and single-threaded there, and if
+# it does corrupt itself only the helper dies — we restart it and retry the
+# call. Text extraction is milliseconds of work and a few KB over a pipe, so
+# this costs nothing next to the LLM calls.
+#
+# PDF_IN_PROCESS=1 bypasses the helper (single-threaded CLI use, debugging).
+
+PDF_LOCK = threading.Lock()          # guards helper creation / in-process calls
+_IN_PROCESS = os.environ.get("PDF_IN_PROCESS") == "1"
+_pool: ProcessPoolExecutor | None = None
+
+
+def _pdf_page_count(path: str) -> int:
+    with pymupdf.open(path) as doc:
+        return len(doc)
+
+
+def _pdf_page_text(path: str, page_number: int) -> str:
+    with pymupdf.open(path) as doc:
+        return doc[page_number - 1].get_text("text")
+
+
+def _pdf_render_page(path: str, page_number: int, dpi: int) -> bytes:
+    with pymupdf.open(path) as doc:
+        if not 1 <= page_number <= len(doc):
+            raise ValueError(f"Page {page_number} out of range: "
+                             f"{path} has {len(doc)} pages.")
+        return doc[page_number - 1].get_pixmap(dpi=dpi).tobytes("png")
+
+
+def _pdf_call(fn, *args):
+    """Run fn(*args) in the PDF helper process, restarting it once if it
+    crashed. In-process (locked) when PDF_IN_PROCESS=1."""
+    global _pool
+    if _IN_PROCESS:
+        with PDF_LOCK:
+            return fn(*args)
+    for attempt in range(2):
+        with PDF_LOCK:
+            if _pool is None:
+                _pool = ProcessPoolExecutor(
+                    max_workers=1,
+                    mp_context=multiprocessing.get_context("spawn"))
+            pool = _pool
+        try:
+            return pool.submit(fn, *args).result()
+        except BrokenProcessPool:
+            with PDF_LOCK:
+                if _pool is pool:      # first thread to notice replaces it
+                    _pool = None
+                    print("[pdf] helper process crashed; restarting it",
+                          file=sys.stderr, flush=True)
+    raise RuntimeError(f"PDF helper process crashed twice on {args[0]}")
 
 PROMPT = """Convert this page of an academic paper to clean Markdown.
 
@@ -41,17 +105,16 @@ Rules:
 
 def render_page(pdf_path: str | Path, page_number: int, dpi: int = 150) -> bytes:
     """Render one page (1-based) of a PDF to PNG bytes."""
-    with pymupdf.open(pdf_path) as doc:
-        if not 1 <= page_number <= len(doc):
-            raise ValueError(f"Page {page_number} out of range: "
-                             f"{pdf_path} has {len(doc)} pages.")
-        page = doc[page_number - 1]
-        return page.get_pixmap(dpi=dpi).tobytes("png")
+    return _pdf_call(_pdf_render_page, str(pdf_path), page_number, dpi)
 
 
 def page_count(pdf_path: str | Path) -> int:
-    with pymupdf.open(pdf_path) as doc:
-        return len(doc)
+    return _pdf_call(_pdf_page_count, str(pdf_path))
+
+
+def page_text(pdf_path: str | Path, page_number: int) -> str:
+    """Text layer of one page (1-based)."""
+    return _pdf_call(_pdf_page_text, str(pdf_path), page_number)
 
 
 def _image_messages(png_bytes: bytes) -> list[dict]:
