@@ -29,6 +29,27 @@ Tools for finding and downloading research papers.
   print(chat("Say hi in one word.", model="gemini-2.5-flash"))
   ```
 
+## Query planning
+
+Expand a research query into complementary search queries:
+
+```bash
+uv run python -m research.query_planner "efficient MoE inference" --max-queries 5
+```
+
+Returns only `{"queries": [...]}`, with the original query first. Configure
+`QUERY_PLANNER_PROVIDER` / `QUERY_PLANNER_MODEL`, or use the existing provider
+settings; CLI overrides are `--provider` / `--model`. Requires a chat model.
+This implements query expansion; retrieval and hypothesis generation are still
+planned.
+
+For the server, call `await research.query_planner.plan_queries(query,
+client=shared_client)` with a shared `AsyncLLMClient`. The caller owns a supplied
+client; temporary clients are closed automatically. The result is a `QueryPlan`
+Pydantic model (`plan.model_dump()` produces the JSON-compatible dictionary).
+
+Run offline planner tests with `uv run python -m unittest discover -s tests -v`.
+
 ## Setup
 
 Requires [uv](https://docs.astral.sh/uv/):

@@ -1,12 +1,78 @@
 # Research Path Generator — Refined Component Contracts
 
+## Service Boundary
+
+All online components below execute within a server-deployed query-to-hypothesis
+service, from query planning to the final candidate portfolio. They are logical
+modules, not individually deployed services. Keep their contracts independent
+of the API transport and isolate intermediate state per request. Production
+retrieval uses OpenSearch; paper and evidence loading uses S3. Local backends
+support development. See the architecture's
+[deployment requirement](research_path_generator_architecture_refined.md#deployment-requirement-online-generation-service).
+
 ## 1. PaperCard Extractor
-**Input:** parsed paper.  
+**Input:** existing `paper.json` (`PaperAnalysis`).
 **Output:** problem, bottleneck, method, mechanism, evaluation, findings, assumptions, limitations, failures, tradeoffs, and evidence locations.
+
+For the online stage, derive this compact view by field projection, without
+another extraction LLM call or a separately stored PaperCard. Query-specific
+concept normalization and derived facets belong to the landscape stages.
 
 ## 2. Initial Retriever
 **Purpose:** find the papers that define the queried research landscape.  
 **Implementation:** BM25 + vector + metadata retrieval + reranking.
+
+### 2.1 Research Planner
+**Input:** user query and explicit constraints.
+**Output:** `QueryPlan` with only `queries: list[str]`, original query first.
+
+Implemented as async `research.query_planner.plan_queries`: one LLM planning
+call, strict output validation, whitespace/case deduplication, and a configurable
+query-count cap (default five including the original). It accepts a shared
+`AsyncLLMClient` for service use. Invalid output raises `QueryPlanningError`;
+provider errors propagate. No automatic repair call or silent fallback.
+
+Expand terminology and relevant subtopics while preserving user scope.
+For efficient MoE inference, searches might cover caching/offloading,
+routing behavior, communication, and memory–latency tradeoffs. This stage
+plans retrieval; opportunities and hypotheses are produced downstream.
+
+### 2.2 Paper-Level Retrieval and Reranking
+**Input:** research plan and typed index.
+**Output:** deduplicated, ranked papers with matching records, originating
+searches, scores, and evidence references.
+
+Fuse lexical and vector results, then roll record matches up to papers.
+Rerank against the query and constraints and preserve coverage across relevant
+approaches. Keep retrieval scores distinct from reranking assessments.
+Local and OpenSearch backends should expose the same downstream contract.
+
+### 2.3 Paper/Evidence Loader
+**Input:** paper IDs and requested evidence references.
+**Output:** paper contexts containing projected PaperCards, selected structured
+details, and source excerpts with provenance.
+
+Load `paper.json` and resolve `source_locations` to Markdown pages on demand.
+Provide a common interface over local storage and S3. Surface missing artifacts
+and unresolved source locations explicitly; an extracted statement alone is
+not evidence that the source page was checked.
+
+### 2.4 Shared Online Contracts
+The query plan is implemented; the other shared schemas are proposed:
+
+| Object | Required information |
+|---|---|
+| Query plan | `queries`: search strings, original query first |
+| Retrieved paper | Paper ID, matching records, originating searches, retrieval scores and optional reranking scores |
+| Evidence reference | Paper ID, record ID when applicable, source location |
+| Paper context | Projected PaperCard, selected structured details, source excerpts and evidence references |
+
+Preserve references through landscape findings, opportunities, and generated
+directions so final claims can be traced back to their supporting papers.
+These contracts and modules constitute the first online milestone; see
+[architecture §2](research_path_generator_architecture_refined.md#2-query-to-evidence-foundation)
+for the foundation design and [architecture §19](research_path_generator_architecture_refined.md#19-online-implementation-milestones)
+for the build order and acceptance criteria.
 
 ## 3. Concept Normalizer
 Maps equivalent terminology to canonical query-specific concepts.
@@ -227,7 +293,11 @@ recommended next experiment
 # Full Responsibility Flow
 
 ```text
-Initial RAG
+Research Planner
+   ↓
+Initial RAG + paper-level reranking
+   ↓
+Paper/Evidence Loader + projected PaperCards
    ↓
 Concept Normalizer
    ↓

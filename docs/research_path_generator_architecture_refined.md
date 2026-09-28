@@ -19,6 +19,34 @@ Research Direction B
 
 Each direction is broader than a hypothesis. Hypotheses are testable claims/questions inside a direction, and one experiment may test several hypotheses.
 
+## Deployment Requirement: Online Generation Service
+
+The entire second part—from a user query through retrieval, landscape
+construction, hypothesis generation, novelty checking, and final ranking—will
+be deployed on a server as a service. Its input is a query with optional
+constraints; its output is the evidence-grounded portfolio described below.
+
+The reasoning stages are internal modules of this service. They do not each
+require a separate microservice. Local CLI entry points can support development
+and debugging, but server execution is the production target from the start.
+
+Deployment implications:
+
+- Expose the pipeline through an API, with request and result schemas separate
+  from transport-independent reasoning code.
+- Use OpenSearch for production retrieval and S3 for paper artifacts and source
+  pages, consistent with the offline ingestion design. Local indexes and files
+  remain development backends; production must not depend on a developer's
+  filesystem.
+- Keep each request's intermediate state and evidence trace isolated so the
+  service can handle concurrent queries.
+- Account for long-running, multi-step LLM work in the execution model, including
+  bounded concurrency, timeouts, failure reporting, and usage tracking.
+
+The API framework, hosting environment, and synchronous versus asynchronous
+job protocol are implementation decisions still to be settled. No specific
+queue or separate worker deployment is required by this design yet.
+
 ---
 
 # End-to-End Architecture
@@ -177,50 +205,113 @@ claims:
 
 ---
 
-# 2. Initial RAG
+# 2. Query-to-Evidence Foundation
 
-The initial RAG answers:
+This part of the online pipeline turns a query into a selection of relevant
+papers with accessible evidence. Initial RAG is the retrieval work within this
+foundation; the subsections below describe its planning, retrieval, reranking,
+and evidence-loading responsibilities.
 
-> **Which 2026 papers define the research space for this user query?**
+It answers:
 
-Example query:
-
-```text
-What are promising directions for efficient MoE inference?
-```
-
-The Research Planner expands it into related concepts:
+> **Which 2026 papers define the research space for this user query, and what evidence should downstream reasoning use?**
 
 ```text
-expert routing
-expert loading
-expert caching
-expert offloading
-quantization
-communication
-expert parallelism
-scheduling
-serving
-heterogeneous hardware
+User query
+    ↓
+Query planning
+    ↓
+Initial retrieval (BM25 + vectors + metadata filters)
+    ↓
+Paper-level reranking
+    ↓
+Paper and evidence loading
+    ↓
+Research Landscape Builder
 ```
 
-Then:
+Shared data contracts connect these steps. They are supporting infrastructure,
+not another sequential reasoning stage.
 
-```text
-Vector Search
-    +
-BM25 / lexical search
-    +
-metadata
-    ↓
-merge
-    ↓
-rerank
-    ↓
-relevant papers
-```
+## 2.1 Query Planning
 
-The downstream unit should be the **paper**, not a disconnected chunk.
+Implemented in `research/query_planner.py` as async `plan_queries`. One LLM
+planning call returns only `{"queries": ["...", "..."]}`. No separate intent,
+constraint, purpose, ambiguity, concept, or index-filter fields are generated.
+Explicit user constraints should remain in the expanded search text.
+
+Python validates the response, rejects empty/non-string queries, removes
+case-insensitive duplicates after whitespace normalization, and ensures the
+original query is first. The default maximum is five queries including the
+original (configurable from 1 to 20). Invalid output raises an error without
+an automatic repair call or silent fallback. Provider transport retries use
+the existing LLM client settings. Search text needs no index-contract validation.
+
+
+For the query “What are promising directions for efficient MoE inference?”,
+the Research Planner creates complementary searches covering topics such as:
+
+- Expert caching, loading, and CPU–GPU offloading.
+- Routing behavior and expert reuse.
+- Communication overhead and expert parallelism.
+- Quantization, scheduling, and memory–latency tradeoffs.
+- Serving on heterogeneous hardware.
+
+Preserve explicit user constraints, such as hardware or compute budget.
+The planner identifies the research space; hypothesis generation happens later.
+
+## 2.2 Initial Retrieval
+
+Run the planned searches over typed records using BM25 and vectors, with
+metadata filters for the applicable scope. Fuse results, then combine and
+deduplicate matches by `paper_id`.
+
+Retain the matching records and the searches that found them, so downstream
+stages can understand why each paper was selected. The downstream unit is the
+**paper**, not a disconnected chunk.
+
+## 2.3 Paper-Level Reranking
+
+Assess candidate papers more closely against the query and constraints.
+A paper directly measuring expert-transfer latency should rank above one that
+merely mentions MoE inference. Keep retrieval scores distinct from reranking
+assessments.
+
+Preserve coverage across relevant approaches so a large cluster of caching
+papers does not crowd out communication or scheduling work.
+
+## 2.4 Paper and Evidence Loading
+
+Load selected papers' `paper.json`, derive compact PaperCards by field
+projection, and fetch relevant Markdown pages on demand through
+`source_locations`. Structured findings guide reading; source pages establish
+the conditions and evidence behind those findings.
+
+For example, if a finding says caching degrades under unpredictable routing,
+the cited source should let later stages inspect the conditions under which
+that behavior was observed. Expose the same reading interface for local
+artifacts and S3. Missing artifacts or unresolved source locations must remain
+visible rather than being treated as verified evidence.
+
+## 2.5 Shared Data Contracts
+
+Pass explicit contracts between these stages:
+
+| Object | Contents |
+|---|---|
+| Query plan | `queries`: search strings, original query first |
+| Retrieved paper | Paper ID, matching records, originating searches, retrieval scores and optional reranking scores |
+| Evidence reference | Paper ID, record ID when applicable, source location |
+| Paper context | Projected PaperCard, selected structured details, source excerpts and evidence references |
+
+Evidence references must survive subsequent transformations. A final
+hypothesis should be traceable through its motivating opportunity to the
+findings and papers that support it.
+
+These are logical modules in one application; they do not require separate
+services or agents. The query plan is implemented; the remaining shared schemas are proposed
+contracts. See [implementation milestones](#19-online-implementation-milestones)
+for acceptance criteria and the build order.
 
 ---
 
@@ -865,3 +956,39 @@ Do not add these unless needed:
 The V1 success criterion is:
 
 > For a research topic, can the system produce a small set of directions grounded in actual 2026 evidence, explain the unresolved gap, propose testable hypotheses and experiments, and show exactly how each candidate differs from the closest prior work?
+
+
+---
+
+# 19. Online Implementation Milestones
+
+Build the online pipeline in layers. The first milestone is the
+[query-to-evidence foundation](#2-query-to-evidence-foundation): a query
+producing an inspectable selection of relevant papers with accessible evidence.
+Landscape construction and hypothesis generation build on this output.
+
+## 19.1 Foundation Acceptance Criteria
+
+Given a query, inspect the search plan, selected papers, reasons for selection,
+and attached evidence. Check relevance, coverage across approaches, preservation
+of user constraints, and whether cited sources can actually be loaded. This
+makes retrieval quality assessable before generation is added and helps
+distinguish retrieval failures from reasoning failures later.
+
+## 19.2 Build Order
+
+```text
+Query-to-evidence foundation
+    ↓
+Landscape construction + cross-paper reasoning
+    ↓
+Validated opportunities + directions + hypotheses + experiments
+    ↓
+Full-corpus novelty retrieval + candidate/prior-work comparison
+    ↓
+Refinement + critique + ranking + final portfolio
+```
+
+The novelty stage reuses retrieval and evidence-loading infrastructure but
+searches the full corpus using candidate-specific signatures. It must not
+inherit the initial selection of papers as a search restriction.
