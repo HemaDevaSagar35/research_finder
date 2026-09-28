@@ -43,7 +43,8 @@ import numpy as np
 from dotenv import load_dotenv
 from opensearchpy import OpenSearch, RequestsHttpConnection, helpers
 
-from .embeddings import embed_config, embed_query, embed_texts
+from .embeddings import (embed_config, embed_dim, embed_query, embed_texts,
+                         resolve_embedding_dir)
 
 load_dotenv()
 
@@ -223,7 +224,7 @@ def search(client: OpenSearch, query: str, k: int = 10,
     """Hybrid search: BM25 + k-NN, fused with reciprocal-rank fusion."""
     meta = index_meta(client)
     vector = embed_query(query, meta["embedding_provider"],
-                         meta["embedding_model"])[0]
+                         meta["embedding_model"], meta.get("embedding_dim"))[0]
     filters = _filters(types, venues, year)
     fetch = max(50, k * 5)  # deep result lists make RRF meaningful
 
@@ -249,27 +250,27 @@ def search(client: OpenSearch, query: str, k: int = 10,
             for rid in top]
 
 
-def load_local(client: OpenSearch, index_dir: Path) -> None:
+def load_local(client: OpenSearch, index_dir: Path,
+               embedding: str | None = None) -> None:
     """Bulk-load the locally built index/ artifacts (flatten + build_index
-    output) — the fast first fill that reuses cached embeddings."""
+    output) — the fast first fill that reuses cached embeddings. `embedding`
+    picks the variant under index/embeddings/ (default: the active one)."""
     records = [json.loads(l) for l in
                (index_dir / "records.jsonl").read_text().splitlines() if l]
     papers = [json.loads(l) for l in
               (index_dir / "papers.jsonl").read_text().splitlines() if l]
-    vectors = np.load(index_dir / "embeddings.npy")
-    ids = json.loads((index_dir / "embedding_ids.json").read_text())
+    emb_dir = resolve_embedding_dir(index_dir, embedding)
+    vectors = np.load(emb_dir / "embeddings.npy")
+    ids = json.loads((emb_dir / "embedding_ids.json").read_text())
     by_rid = {rid: vectors[i] for i, rid in enumerate(ids["record_ids"])}
     missing = [r["record_id"] for r in records if r["record_id"] not in by_rid]
     if missing:
         sys.exit(f"{len(missing)} records have no cached embedding (e.g. "
                  f"{missing[0]}); run indexing.build_index first.")
 
-    meta_path = index_dir / "index_meta.json"
-    if meta_path.exists():
-        m = json.loads(meta_path.read_text())
-        provider, model = m["embedding_provider"], m["embedding_model"]
-    else:
-        provider, model = embed_config()
+    m = json.loads((emb_dir / "index_meta.json").read_text())
+    provider, model = m["embedding_provider"], m["embedding_model"]
+    print(f"Loading embedding variant {emb_dir.name}")
     ensure_indices(client, provider, model, int(vectors.shape[1]))
 
     rows = {p["paper_id"]: p for p in papers}
@@ -297,6 +298,9 @@ def main() -> None:
                         help="Bulk-load local index/ artifacts")
     parser.add_argument("--index-dir", default="index",
                         help="Local index dir for --load-local (default: index/)")
+    parser.add_argument("--embedding", default=None,
+                        help="Embedding variant slug for --load-local "
+                             "(default: the active one; build_index --list)")
     parser.add_argument("--search", default=None, help="Hybrid search query")
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--types", nargs="+", default=None,
@@ -311,10 +315,10 @@ def main() -> None:
     if args.create:
         provider, model = embed_config()
         dim = embed_texts(["dimension probe"], provider, model,
-                          progress=False).shape[1]
+                          dim=embed_dim(provider), progress=False).shape[1]
         ensure_indices(client, provider, model, int(dim))
     if args.load_local:
-        load_local(client, REPO_ROOT / args.index_dir)
+        load_local(client, REPO_ROOT / args.index_dir, args.embedding)
     if args.delete_paper:
         delete_paper(client, args.delete_paper)
     if args.search:

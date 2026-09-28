@@ -1,16 +1,17 @@
-"""Unified LLM client for OpenAI, Gemini, and DeepSeek.
+"""Unified LLM client for OpenAI, Gemini, DeepSeek, and DeepInfra.
 
-All three providers expose an OpenAI-compatible chat completions API, so a
-single code path (the `openai` SDK pointed at different base URLs) covers all
-of them. OpenAI's newer Responses API is also supported via respond().
+All providers expose an OpenAI-compatible API, so a single code path (the
+`openai` SDK pointed at different base URLs) covers all of them. OpenAI's
+newer Responses API is also supported via respond(). DeepInfra serves
+open-weight models pay-per-token and is used mainly for embeddings.
 
 Configuration comes from environment variables (a .env file at the repo root
 is loaded automatically; see .env.example). Pick the active provider with:
 
-    PROVIDER=openai | gemini | deepseek
+    PROVIDER=openai | gemini | deepseek | deepinfra
 
 Each provider has its own block of settings, and the selected provider's
-block is what takes effect ({P} is OPENAI, GEMINI, or DEEPSEEK):
+block is what takes effect ({P} is OPENAI, GEMINI, DEEPSEEK, or DEEPINFRA):
 
     {P}_API_KEY       api key (required)
     {P}_MODEL         default model
@@ -63,6 +64,10 @@ _PROVIDER_DEFAULTS = {
                "default_model": "gemini-2.5-flash"},
     "deepseek": {"base_url": "https://api.deepseek.com",
                  "default_model": "deepseek-chat"},
+    # Serverless hosting for open-weight models (pay per token). Used for
+    # embeddings (indexing/embeddings.py); chat works too if you set a model.
+    "deepinfra": {"base_url": "https://api.deepinfra.com/v1/openai",
+                  "default_model": "Qwen/Qwen3-Embedding-8B"},
 }
 
 
