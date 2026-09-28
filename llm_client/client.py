@@ -1,16 +1,17 @@
-"""Unified LLM client for OpenAI, Gemini, and DeepSeek.
+"""Unified LLM client for OpenAI, Gemini, DeepSeek, and DeepInfra.
 
-All three providers expose an OpenAI-compatible chat completions API, so a
-single code path (the `openai` SDK pointed at different base URLs) covers all
-of them. OpenAI's newer Responses API is also supported via respond().
+All providers expose an OpenAI-compatible API, so a single code path (the
+`openai` SDK pointed at different base URLs) covers all of them. OpenAI's
+newer Responses API is also supported via respond(). DeepInfra serves
+open-weight models pay-per-token and is used mainly for embeddings.
 
 Configuration comes from environment variables (a .env file at the repo root
 is loaded automatically; see .env.example). Pick the active provider with:
 
-    PROVIDER=openai | gemini | deepseek
+    PROVIDER=openai | gemini | deepseek | deepinfra
 
 Each provider has its own block of settings, and the selected provider's
-block is what takes effect ({P} is OPENAI, GEMINI, or DEEPSEEK):
+block is what takes effect ({P} is OPENAI, GEMINI, DEEPSEEK, or DEEPINFRA):
 
     {P}_API_KEY       api key (required)
     {P}_MODEL         default model
@@ -18,8 +19,16 @@ block is what takes effect ({P} is OPENAI, GEMINI, or DEEPSEEK):
     {P}_TEMPERATURE   default sampling temperature
     {P}_BASE_URL      override the API endpoint
 
-LLM_CONCURRENCY caps in-flight async requests (default 8). Explicit function
-arguments always take precedence over env defaults.
+LLM_CONCURRENCY caps in-flight async requests (default 8). LLM_TIMEOUT is the
+per-request timeout in seconds (default 600, the SDK default) and
+LLM_MAX_RETRIES how often the SDK retries transient failures (timeouts,
+429, 5xx; default 2). Long-generation callers should pass timeout= /
+max_retries= explicitly: a 40k-token answer can legitimately take >10 min
+under load, and blindly retrying it three times triples the bill. Explicit
+function arguments always take precedence over env defaults.
+
+After each call, `client.last_finish_reason` holds the finish_reason of the
+most recent response ("length" means the output hit max_tokens).
 
 Sync usage:
     from llm_client import LLMClient, chat
@@ -45,6 +54,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, OpenAI
 
+from . import usage
+
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 _PROVIDER_DEFAULTS = {
@@ -53,6 +64,10 @@ _PROVIDER_DEFAULTS = {
                "default_model": "gemini-2.5-flash"},
     "deepseek": {"base_url": "https://api.deepseek.com",
                  "default_model": "deepseek-chat"},
+    # Serverless hosting for open-weight models (pay per token). Used for
+    # embeddings (indexing/embeddings.py); chat works too if you set a model.
+    "deepinfra": {"base_url": "https://api.deepinfra.com/v1/openai",
+                  "default_model": "Qwen/Qwen3-Embedding-8B"},
 }
 
 
@@ -74,6 +89,21 @@ def _provider_config(name: str) -> dict:
 PROVIDERS = list(_PROVIDER_DEFAULTS)
 
 DEFAULT_CONCURRENCY = int(os.environ.get("LLM_CONCURRENCY", "8"))
+DEFAULT_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "600"))
+DEFAULT_MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "2"))
+
+
+def _finish_reason(response) -> str | None:
+    choices = getattr(response, "choices", None)
+    if choices:
+        return getattr(choices[0], "finish_reason", None)
+    # Responses API: "completed" | "incomplete" (+ incomplete_details.reason)
+    status = getattr(response, "status", None)
+    if status == "incomplete":
+        details = getattr(response, "incomplete_details", None)
+        reason = getattr(details, "reason", None)
+        return "length" if reason == "max_output_tokens" else (reason or status)
+    return status
 
 
 def infer_provider(model: str) -> str:
@@ -145,12 +175,17 @@ def _response_params(input, model, config, instructions,
 class LLMClient:
     """Synchronous client bound to one provider."""
 
-    def __init__(self, provider: str | None = None, api_key: str | None = None):
+    def __init__(self, provider: str | None = None, api_key: str | None = None,
+                 timeout: float | None = None, max_retries: int | None = None):
         provider, config, api_key = _resolve(provider, api_key)
         self.provider = provider
         self.config = config
         self.default_model = config["default_model"]
-        self._client = OpenAI(api_key=api_key, base_url=config["base_url"])
+        self.last_finish_reason: str | None = None
+        self._client = OpenAI(
+            api_key=api_key, base_url=config["base_url"],
+            timeout=DEFAULT_TIMEOUT if timeout is None else timeout,
+            max_retries=DEFAULT_MAX_RETRIES if max_retries is None else max_retries)
 
     def chat(self, prompt: str | None = None, *,
              messages: list[dict] | None = None,
@@ -164,6 +199,8 @@ class LLMClient:
         params = _chat_params(prompt, messages, model, self.config,
                               system, temperature, max_tokens, kwargs)
         response = self._client.chat.completions.create(**params)
+        usage.record(response, params["model"])
+        self.last_finish_reason = _finish_reason(response)
         return response.choices[0].message.content
 
     def respond(self, input, *,
@@ -180,6 +217,8 @@ class LLMClient:
         params = _response_params(input, model, self.config,
                                   instructions, max_output_tokens, kwargs)
         response = self._client.responses.create(**params)
+        usage.record(response, params["model"])
+        self.last_finish_reason = _finish_reason(response)
         return response.output_text
 
     @property
@@ -198,14 +237,21 @@ class AsyncLLMClient:
     """
 
     def __init__(self, provider: str | None = None, api_key: str | None = None,
-                 concurrency: int | None = None):
+                 concurrency: int | None = None,
+                 timeout: float | None = None, max_retries: int | None = None):
         provider, config, api_key = _resolve(provider, api_key)
         self.provider = provider
         self.config = config
         self.default_model = config["default_model"]
         self.concurrency = max(1, concurrency or DEFAULT_CONCURRENCY)
         self._semaphore = asyncio.Semaphore(self.concurrency)
-        self._client = AsyncOpenAI(api_key=api_key, base_url=config["base_url"])
+        # Last response's finish_reason; with concurrent calls this is
+        # whichever finished most recently, so treat it as diagnostic only.
+        self.last_finish_reason: str | None = None
+        self._client = AsyncOpenAI(
+            api_key=api_key, base_url=config["base_url"],
+            timeout=DEFAULT_TIMEOUT if timeout is None else timeout,
+            max_retries=DEFAULT_MAX_RETRIES if max_retries is None else max_retries)
 
     async def chat(self, prompt: str | None = None, *,
                    messages: list[dict] | None = None,
@@ -219,6 +265,8 @@ class AsyncLLMClient:
                               system, temperature, max_tokens, kwargs)
         async with self._semaphore:
             response = await self._client.chat.completions.create(**params)
+        usage.record(response, params["model"])
+        self.last_finish_reason = _finish_reason(response)
         return response.choices[0].message.content
 
     async def respond(self, input, *,
@@ -232,6 +280,8 @@ class AsyncLLMClient:
                                   instructions, max_output_tokens, kwargs)
         async with self._semaphore:
             response = await self._client.responses.create(**params)
+        usage.record(response, params["model"])
+        self.last_finish_reason = _finish_reason(response)
         return response.output_text
 
     async def chat_many(self, prompts: list[str],

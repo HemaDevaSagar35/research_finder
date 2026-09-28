@@ -17,4 +17,5 @@ dependencies = [
     "fastembed>=0.7.4",
     "onnxruntime<1.22",
     "boto3>=1.43.98",
+    "opensearch-py>=2.6",
 ]

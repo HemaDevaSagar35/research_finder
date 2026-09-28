@@ -135,7 +135,44 @@ no vector-DB server needed.
 that built the index, so query code reads the model name from there rather
 than local config.
 
-### 6. The bundle is portable to contributors
+### 6. Extraction and indexing are separate stages; S3 is the contract
+
+Extraction (PDF → pages → paper.json → summary.md) is slow and carries all
+the LLM cost; indexing (flatten → embed → index) is cheap and full of
+revisitable choices (record types, chunking, embedding model, mappings).
+They are deliberately decoupled:
+
+- The **extraction worker** (`ingestion/worker.py`) processes one paper and
+  uploads artifacts to the S3 store (`S3_ARTIFACTS_URL`,
+  `s3://…/artifacts/<paper_id>/…`) *as soon as they are produced* — pages
+  first (~90% of the LLM cost), then paper.json/summary.md. Local disk is a
+  working cache; a dead instance loses nothing that finished.
+- The **backfill driver** (`ingestion/backfill.py`) runs the worker over
+  papers/metadata.json with a SQLite status manifest (resume, retry,
+  visibility). No deployment or queue needed — it's a plain CLI you run in
+  tmux. SQS only enters later, with the user-upload service, as another
+  producer calling the same worker function.
+- **Indexing reads paper.json back from S3** (`indexing/flatten.py --s3`),
+  streaming (list → concurrent GETs → flatten → append), so it can run on a
+  different machine at a different time, and re-run freely as indexing
+  decisions evolve. `records.jsonl` is kept as the inspectable checkpoint
+  between flatten (cheap, re-run often) and embedding (expensive, cached by
+  record_id).
+
+### 7. Deployment target: AWS OpenSearch (local index stays for dev)
+
+In deployment the FAISS + BM25 + SQLite triple collapses into OpenSearch
+(`indexing/opensearch_index.py`): BM25 is its native text scoring, vectors
+are `knn_vector` fields, metadata filters are queries. Two indices —
+`research-records` (one doc per flattened record, `_id` = record_id, so
+re-indexing a paper is an idempotent upsert) and `research-papers` (metadata
+rollup). The embedding provider/model/dimension are pinned in the records
+index `_meta` at creation; queries embed with that model. Hybrid search =
+BM25 + kNN fused client-side with RRF (server-side hybrid pipelines are
+version-sensitive and unsupported on Serverless). Use a **managed domain**,
+not Serverless: Serverless disallows client-chosen `_id`.
+
+### 8. The bundle is portable to contributors
 
 A contributor needs `index/` + `markdown/` (+ `paper.json` files) to run
 queries locally — a couple of GB. Raw PDFs are not needed for querying.
@@ -177,6 +214,7 @@ uv run python -m indexing.build_index                # records -> index/
 uv run python -m indexing.search "efficient MoE inference"
 ```
 
-Remaining next step: the batch driver that walks all downloaded PDFs through
-markdown → paper.json → summary.md with resume and failure tracking, naming
-output folders by paper_id.
+The batch driver now exists (`ingestion/backfill.py` + `ingestion/worker.py`,
+naming output folders by paper_id, uploading artifacts to S3, SQLite status
+manifest). Current state and next steps are tracked in
+`implementation_status.md`.

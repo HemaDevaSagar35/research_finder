@@ -1768,6 +1768,17 @@ SCHEMA_JSON = json.dumps(PaperAnalysis.model_json_schema(), indent=2)
 
 MAX_REPAIR_ROUNDS = 2
 
+# The answer is ~40k tokens of JSON, which can take well over the SDK's
+# default 10-minute timeout when the provider is busy. Give it time, and
+# let the SDK retry transient failures (429/5xx/timeout) only once — each
+# retry regenerates the whole answer.
+LONG_CALL_TIMEOUT_S = float(os.environ.get("LONG_CALL_TIMEOUT", "1800"))
+LONG_CALL_RETRIES = int(os.environ.get("LONG_CALL_RETRIES", "1"))
+
+# Unparseable JSON is regenerated from scratch (nothing to repair), so allow
+# just one such retry; schema violations get the cheaper repair rounds.
+MAX_UNPARSEABLE_RETRIES = 1
+
 
 def _schema_message(document: str) -> str:
     return (
@@ -1822,7 +1833,8 @@ def extract_research(folder: Path, *,
                      model: str | None = None) -> dict:
     provider = provider or os.environ.get("RESEARCH_PROVIDER")
     model = model or os.environ.get("RESEARCH_MODEL")
-    client = LLMClient(provider)
+    client = LLMClient(provider, timeout=LONG_CALL_TIMEOUT_S,
+                       max_retries=LONG_CALL_RETRIES)
     print(f"Provider: {client.provider} | model: {model or client.default_model}")
 
     document = stitch_pages(folder)
@@ -1835,9 +1847,16 @@ def extract_research(folder: Path, *,
     ]
 
     last_error = None
+    unparseable = 0
     for attempt in range(1 + MAX_REPAIR_ROUNDS):
         raw = client.chat(messages=messages, model=model,
                           response_format={"type": "json_object"})
+        if client.last_finish_reason == "length":
+            # Retrying cannot help: the same answer will be cut off again.
+            raise RuntimeError(
+                f"Output truncated at max_tokens after {len(raw or '')} chars "
+                f"(finish_reason=length). Raise {client.provider.upper()}"
+                f"_MAX_TOKENS in .env.")
         if not raw or not raw.strip():
             # Known DeepSeek JSON-mode quirk: occasional empty responses.
             print(f"Attempt {attempt + 1}: empty response, retrying...")
@@ -1846,8 +1865,11 @@ def extract_research(folder: Path, *,
         try:
             data = _parse_json(raw)
         except (ValueError, json.JSONDecodeError) as exc:
+            last_error = f"unparseable JSON: {exc}"
+            unparseable += 1
+            if unparseable > MAX_UNPARSEABLE_RETRIES:
+                break
             print(f"Attempt {attempt + 1}: unparseable JSON ({exc}), retrying...")
-            last_error = str(exc)
             continue
         try:
             return PaperAnalysis.model_validate(data).model_dump()
@@ -1866,7 +1888,7 @@ def extract_research(folder: Path, *,
 
     raise RuntimeError(
         f"Schema-conformant output not obtained after "
-        f"{1 + MAX_REPAIR_ROUNDS} attempts. Last error:\n{last_error}")
+        f"{attempt + 1} attempts. Last error:\n{last_error}")
 
 
 def main() -> None:
