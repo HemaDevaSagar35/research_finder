@@ -47,6 +47,22 @@ Rerank against the query and constraints and preserve coverage across relevant
 approaches. Keep retrieval scores distinct from reranking assessments.
 Local and OpenSearch backends should expose the same downstream contract.
 
+Implemented retrieval: `research.retrieval.MultiQueryRetriever.retrieve(plan)`
+with local and OpenSearch adapters. Each query first rolls unique matching
+records into papers using decaying hybrid scores (1, 1/2, 1/4, ...). Paper ranks
+are then fused with equal-weight RRF, `sum(1 / (60 + rank))`; the constant is
+configurable. Each paper contributes once per unique query, with deterministic
+paper-ID tie-breaking. Matching records retain per-query scores and source
+locations. Reranking is still pending. Shared structured filters currently cover
+record types and exact year, applied before search; no arbitrary SQL is exposed.
+
+Reuse one retriever across service requests for bounded synchronous search
+workers. Its async API owns no backend clients and keeps results request-local.
+Deadlines/cancellation do not forcibly stop already-running synchronous calls;
+configure backend timeouts and drain the retriever before closing its clients.
+Failures do not produce silent partial rankings. Production retrieval uses
+OpenSearch without requiring local artifacts.
+
 ### 2.3 Paper/Evidence Loader
 **Input:** paper IDs and requested evidence references.
 **Output:** paper contexts containing projected PaperCards, selected structured
@@ -58,7 +74,8 @@ and unresolved source locations explicitly; an extracted statement alone is
 not evidence that the source page was checked.
 
 ### 2.4 Shared Online Contracts
-The query plan is implemented; the other shared schemas are proposed:
+QueryPlan and the retrieved paper/record contracts are implemented; resolved
+evidence and paper-context schemas remain proposed:
 
 | Object | Required information |
 |---|---|

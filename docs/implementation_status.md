@@ -4,7 +4,7 @@ Living document: what exists, what's in progress, what's next. The *why*
 behind decisions lives in `offline_ingestion_design.md`; this page is the
 *what*. Update this file whenever a component is added or materially changed.
 
-Last updated: 2026-09-27 (online milestone planning; older offline status below
+Last updated: 2026-09-29 (multi-query retrieval completed; older offline status below
 has not been revalidated against the running backfill or deployed services).
 
 ## Implemented
@@ -81,11 +81,14 @@ that backfill has yet to start. Current corpus/index details are documented in
 a server as a service, exposed through an API. Build the reasoning modules for
 that environment from the start, using OpenSearch and S3 in production, with
 isolated request state. Hosting, API framework, and sync/async execution protocol
-remain undecided. This generation service is distinct from the deferred
+remain undecided. Reuse one retriever per service process/event loop, with a
+bounded worker pool and request-local results. Drain workers before closing
+shared backend clients; configure backend network timeouts and request admission
+control when wiring the API. This generation service is distinct from the deferred
 user-upload/ingestion service below.
 
-The query planner is implemented; the remaining online reasoning pipeline is
-not yet implemented. Continue building the
+The query planner and multi-query retrieval are implemented; evidence loading,
+reranking, and the remaining online reasoning pipeline are not yet implemented. Continue building the
 **query-to-evidence foundation**, described in
 [architecture §2](research_path_generator_architecture_refined.md#2-query-to-evidence-foundation)
 and [component contracts §2](research_path_generator_components_refined.md#2-initial-retriever).
@@ -94,11 +97,18 @@ and [component contracts §2](research_path_generator_components_refined.md#2-in
    expansion into `QueryPlan(queries=[...])`, original-query preservation,
    deduplication, validation, and a CLI. Six offline tests cover validation,
    normalization, request isolation, and client cleanup; live model quality
-   has not yet been evaluated. Define the remaining shared contracts for
-   retrieved papers, evidence references, and paper contexts.
+   has not yet been evaluated. Retrieved paper/record contracts are implemented in `research/retrieval.py`;
+   resolved evidence and paper-context contracts remain to be defined.
 2. Add a common local/S3 reader for `paper.json` and cited Markdown pages;
    derive compact PaperCards by field projection.
-3. Add query planning, multi-query paper-level retrieval, and reranking that
+3. Multi-query paper-level retrieval is implemented in `research/retrieval.py`:
+   local/OpenSearch adapters, decaying record-to-paper rollup, equal-weight
+   paper RRF, query provenance, evidence pointers, shared type/year filters,
+   bounded async execution, deadlines, and CLI. Local searches are serialized
+   to avoid concurrent FAISS allocations; BM25 arrays use memory mapping.
+   CLI progress goes to stderr and JSON results to stdout. Ten retrieval tests plus six
+   planner tests pass offline, including real SQLite evidence lookup with stubbed BM25 retrieval.
+   Live OpenSearch/model quality remains unverified. Add reranking that
    preserves relevance, explicit constraints, and coverage across approaches.
 4. Validate that a query returns an inspectable paper selection with matching
    records and resolvable evidence before adding hypothesis generation.
@@ -109,11 +119,10 @@ and [component contracts §2](research_path_generator_components_refined.md#2-in
 
 Integration gaps observed in the current code:
 
-- Local search stores `source_locations` in SQLite but omits them from returned
-  record hits; return these pointers for evidence loading.
-- Local search returns ranked papers, while OpenSearch returns record hits.
-  Their filter capabilities also differ; align the downstream retrieval
-  contract and required filtering behavior.
+- Local search now returns `source_locations` and closes SQLite connections
+  on failure. Retrieval adapters normalize both backends to the same paper
+  contract, with common type and exact-year filtering. Broader backend-specific
+  filters are not exposed by this contract.
 - S3 artifact helpers exist, but a common online local/S3 paper-and-evidence
   reader is still needed.
 

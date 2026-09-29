@@ -37,6 +37,7 @@ Usage:
 import argparse
 import json
 import sqlite3
+from contextlib import closing
 from collections import defaultdict
 from pathlib import Path
 
@@ -123,86 +124,86 @@ def search(query: str, index_dir: Path, top_k: int = 50,
     embedding selects the variant under index/embeddings/ (default: the
     active one). use_vector / use_bm25 switch either retriever off. Filter
     kwargs are those of allowed_rows()."""
-    con = sqlite3.connect(index_dir / "metadata.sqlite")
-    n_records = con.execute("SELECT COUNT(*) FROM records").fetchone()[0]
-    rows = allowed_rows(con, **filters)
-    if rows is not None and len(rows) == 0:
-        con.close()
-        return []
-    ranked_lists: list[list[int]] = []
+    with closing(sqlite3.connect(index_dir / "metadata.sqlite")) as con:
+        n_records = con.execute("SELECT COUNT(*) FROM records").fetchone()[0]
+        if n_records == 0:
+            return []
+        rows = allowed_rows(con, **filters)
+        if rows is not None and len(rows) == 0:
+            return []
+        ranked_lists: list[list[int]] = []
 
-    if use_vector:
-        emb_dir = resolve_embedding_dir(index_dir, embedding)
-        meta = json.loads((emb_dir / "index_meta.json").read_text())
-        # Must use the exact provider/model/dim that built the vectors
-        qvec = embed_query(query, meta.get("embedding_provider", "openai"),
-                           meta["embedding_model"], meta.get("embedding_dim"))
-        qvec = qvec.reshape(1, -1).astype(np.float32)
-        qvec /= np.linalg.norm(qvec)
-        index = faiss.read_index(str(emb_dir / "vectors.faiss"), faiss.IO_FLAG_MMAP)
-        k = min(top_k, index.ntotal if rows is None else len(rows))
-        params = None
-        if rows is not None:
-            params = faiss.SearchParameters(sel=faiss.IDSelectorBatch(rows))
-        _, vec_ids = index.search(qvec, k, params=params)
-        ranked_lists.append([int(i) for i in vec_ids[0] if i >= 0])
+        if use_vector:
+            emb_dir = resolve_embedding_dir(index_dir, embedding)
+            meta = json.loads((emb_dir / "index_meta.json").read_text())
+            # Must use the exact provider/model/dim that built the vectors
+            qvec = embed_query(query, meta.get("embedding_provider", "openai"),
+                               meta["embedding_model"], meta.get("embedding_dim"))
+            qvec = qvec.reshape(1, -1).astype(np.float32)
+            qvec /= np.linalg.norm(qvec)
+            index = faiss.read_index(str(emb_dir / "vectors.faiss"), faiss.IO_FLAG_MMAP)
+            k = min(top_k, index.ntotal if rows is None else len(rows))
+            params = None
+            if rows is not None:
+                params = faiss.SearchParameters(sel=faiss.IDSelectorBatch(rows))
+            _, vec_ids = index.search(qvec, k, params=params)
+            ranked_lists.append([int(i) for i in vec_ids[0] if i >= 0])
 
-    if use_bm25:
-        retriever = bm25s.BM25.load(str(index_dir / "bm25"), load_corpus=False)
-        tokens = bm25s.tokenize(query, stopwords="en", show_progress=False)
-        mask = None
-        if rows is not None:
-            mask = np.zeros(n_records, dtype=np.float32)
-            mask[rows] = 1.0
-        k = min(top_k, n_records if rows is None else len(rows))
-        bm_ids, bm_scores = retriever.retrieve(
-            tokens, k=k, show_progress=False, weight_mask=mask)
-        ranked_lists.append(
-            [int(i) for i, s in zip(bm_ids[0], bm_scores[0]) if s > 0])
+        if use_bm25:
+            retriever = bm25s.BM25.load(str(index_dir / "bm25"), load_corpus=False, mmap=True)
+            tokens = bm25s.tokenize(query, stopwords="en", show_progress=False)
+            mask = None
+            if rows is not None:
+                mask = np.zeros(n_records, dtype=np.float32)
+                mask[rows] = 1.0
+            k = min(top_k, n_records if rows is None else len(rows))
+            bm_ids, bm_scores = retriever.retrieve(
+                tokens, k=k, show_progress=False, weight_mask=mask)
+            ranked_lists.append(
+                [int(i) for i, s in zip(bm_ids[0], bm_scores[0]) if s > 0])
 
-    # Fuse
-    fused: dict[int, float] = defaultdict(float)
-    for ranked in ranked_lists:
-        for idx, score in rrf(ranked).items():
-            fused[idx] += score
-    if not fused:
-        con.close()
-        return []
+        # Fuse
+        fused: dict[int, float] = defaultdict(float)
+        for ranked in ranked_lists:
+            for idx, score in rrf(ranked).items():
+                fused[idx] += score
+        if not fused:
+            return []
 
-    # Fetch hit records and roll up to papers
-    hit_rows = list(fused)
-    by_row = {}
-    for start in range(0, len(hit_rows), 900):   # SQLite variable limit
-        chunk = hit_rows[start:start + 900]
-        for row, rid, pid, rtype, text, rmeta in con.execute(
-                f"SELECT row, record_id, paper_id, type, text, meta FROM records "
-                f"WHERE row IN ({','.join('?' * len(chunk))})", chunk):
-            by_row[row] = {"record_id": rid, "paper_id": pid, "type": rtype,
-                           "text": text, "meta": json.loads(rmeta)}
+        # Fetch hit records and roll up to papers
+        hit_rows = list(fused)
+        by_row = {}
+        for start in range(0, len(hit_rows), 900):   # SQLite variable limit
+            chunk = hit_rows[start:start + 900]
+            for row, rid, pid, rtype, text, rmeta, locations in con.execute(
+                    f"SELECT row, record_id, paper_id, type, text, meta, source_locations FROM records "
+                    f"WHERE row IN ({','.join('?' * len(chunk))})", chunk):
+                by_row[row] = {"record_id": rid, "paper_id": pid, "type": rtype,
+                               "text": text, "meta": json.loads(rmeta),
+                               "source_locations": json.loads(locations or "[]")}
 
-    papers: dict[str, dict] = {}
-    for idx, score in fused.items():
-        record = by_row[idx]
-        paper = papers.setdefault(record["paper_id"],
-                                  {"paper_id": record["paper_id"],
-                                   "score": 0.0, "records": []})
-        paper["records"].append({"score": score, **record})
+        papers: dict[str, dict] = {}
+        for idx, score in fused.items():
+            record = by_row[idx]
+            paper = papers.setdefault(record["paper_id"],
+                                      {"paper_id": record["paper_id"],
+                                       "score": 0.0, "records": []})
+            paper["records"].append({"score": score, **record})
 
-    for paper in papers.values():
-        paper["records"].sort(key=lambda r: -r["score"])
-        paper["score"] = sum(r["score"] * ROLLUP_DECAY ** i
-                             for i, r in enumerate(paper["records"]))
-        paper["matched_types"] = sorted({r["type"] for r in paper["records"]})
+        for paper in papers.values():
+            paper["records"].sort(key=lambda r: -r["score"])
+            paper["score"] = sum(r["score"] * ROLLUP_DECAY ** i
+                                 for i, r in enumerate(paper["records"]))
+            paper["matched_types"] = sorted({r["type"] for r in paper["records"]})
 
-    pids = list(papers)
-    for start in range(0, len(pids), 900):
-        chunk = pids[start:start + 900]
-        for pid, title, venue, year, folder in con.execute(
-                f"SELECT paper_id, title, venue, year, folder FROM papers "
-                f"WHERE paper_id IN ({','.join('?' * len(chunk))})", chunk):
-            papers[pid].update(title=title, venue=venue, year=year, folder=folder)
-    con.close()
-    return sorted(papers.values(), key=lambda p: -p["score"])
+        pids = list(papers)
+        for start in range(0, len(pids), 900):
+            chunk = pids[start:start + 900]
+            for pid, title, venue, year, folder in con.execute(
+                    f"SELECT paper_id, title, venue, year, folder FROM papers "
+                    f"WHERE paper_id IN ({','.join('?' * len(chunk))})", chunk):
+                papers[pid].update(title=title, venue=venue, year=year, folder=folder)
+        return sorted(papers.values(), key=lambda p: -p["score"])
 
 
 def _parse_meta(pairs: list[str] | None) -> dict[str, str]:

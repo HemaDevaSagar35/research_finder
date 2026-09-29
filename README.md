@@ -40,15 +40,70 @@ uv run python -m research.query_planner "efficient MoE inference" --max-queries 
 Returns only `{"queries": [...]}`, with the original query first. Configure
 `QUERY_PLANNER_PROVIDER` / `QUERY_PLANNER_MODEL`, or use the existing provider
 settings; CLI overrides are `--provider` / `--model`. Requires a chat model.
-This implements query expansion; retrieval and hypothesis generation are still
-planned.
+Multi-query retrieval is implemented below; reranking and hypothesis generation
+remain planned.
 
 For the server, call `await research.query_planner.plan_queries(query,
 client=shared_client)` with a shared `AsyncLLMClient`. The caller owns a supplied
 client; temporary clients are closed automatically. The result is a `QueryPlan`
 Pydantic model (`plan.model_dump()` produces the JSON-compatible dictionary).
 
-Run offline planner tests with `uv run python -m unittest discover -s tests -v`.
+Run offline planner and retrieval tests with `uv run python -m unittest discover -s tests -v`.
+
+## Multi-query retrieval
+
+Expand a topic and retrieve fused paper rankings from OpenSearch:
+
+```bash
+uv run python -m research.retrieval "efficient MoE inference" --papers 20 --max-queries 5
+# Development index, lexical retrieval only (planning still requires a chat model):
+uv run python -m research.retrieval "efficient MoE inference" --backend local --no-vector --index-dir index
+```
+
+Progress is printed to stderr; stdout contains a JSON `RetrievalResult`: deduplicated queries, applied filters,
+ranked papers, per-query ranks/scores, matching records, and source locations.
+Each query contributes one reciprocal-rank vote per paper; the final
+`retrieval_score` is a ranking signal, not a relevance probability.
+`--types` and exact `--year` filters apply to every search. `--record-k`
+controls backend record candidate depth (local: per search channel;
+OpenSearch: fused records), while `--papers` caps the final paper count.
+
+The entire query-to-hypothesis pipeline must remain deployable as one server
+service, per `docs/research_path_generator_architecture_refined.md`. Production
+uses OpenSearch and the future S3 evidence loader; local artifacts are for
+development. API hosting, admission control, and downstream generation stages
+are still pending.
+
+Within each query, unique record scores roll up with weights 1, 1/2, 1/4, ... .
+Across queries, papers receive `sum(1 / (rrf_k + paper_rank))`, with equal query
+weights and configurable `--rrf-k` (default 60). Score ties use paper IDs.
+Natural-language constraints are not guaranteed by retrieval; downstream
+reranking must check them. Broader backend-specific filters are not exposed.
+
+For service integration, reuse one retriever per process/event loop:
+
+```python
+from research.query_planner import QueryPlan
+from research.retrieval import MultiQueryRetriever, OpenSearchBackend, RetrievalFilters
+
+# search_client is a caller-owned OpenSearch client.
+async with MultiQueryRetriever(OpenSearchBackend(search_client), concurrency=4) as retriever:
+    result = await retriever.retrieve(
+        QueryPlan(queries=["efficient MoE inference", "expert caching"]),
+        filters=RetrievalFilters(year=2026), paper_k=20, timeout=120,
+    )
+```
+
+In a server, keep that context open for the service lifetime. Close the
+retriever before closing its backend client. Blocking search runs in a bounded
+thread pool. Local searches run serially because each call loads the FAISS
+index into memory; OpenSearch searches run concurrently. BM25 arrays are
+memory-mapped. A query failure fails the request without a partial ranking.
+Timeouts cancel queued work, but running synchronous calls finish in the
+background, so configure backend network timeouts too. This stage returns
+indexed evidence pointers; evidence loading and reranking are separate future
+stages. OpenSearch adapter behavior has offline test coverage; live retrieval
+quality has not been evaluated.
 
 ## Setup
 
