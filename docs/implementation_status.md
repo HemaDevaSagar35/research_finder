@@ -104,10 +104,13 @@ and [component contracts §2](research_path_generator_components_refined.md#2-in
 3. Multi-query paper-level retrieval is implemented in `research/retrieval.py`:
    local/OpenSearch adapters, decaying record-to-paper rollup, equal-weight
    paper RRF, query provenance, evidence pointers, shared type/year filters,
-   bounded async execution, deadlines, and CLI. Local searches are serialized
-   to avoid concurrent FAISS allocations; BM25 arrays use memory mapping.
-   CLI progress goes to stderr and JSON results to stdout. Ten retrieval tests plus six
-   planner tests pass offline, including real SQLite evidence lookup with stubbed BM25 retrieval.
+   bounded async execution, deadlines, and CLI. Local searches share one lazily
+   loaded FAISS/BM25 index per backend with synchronized initialization, concurrent
+   read-only searches, and per-search SQLite connections. BM25 arrays use memory
+   mapping. Drain the retriever before closing/replacing its local backend.
+   CLI progress goes to stderr and JSON results to stdout. Nineteen offline tests
+   pass, including real FAISS/BM25/SQLite fixtures for concurrent load-once behavior,
+   ranking equivalence, filter isolation, failed-load retry, and index cleanup.
    Live OpenSearch/model quality remains unverified. Add reranking that
    preserves relevance, explicit constraints, and coverage across approaches.
 4. Validate that a query returns an inspectable paper selection with matching

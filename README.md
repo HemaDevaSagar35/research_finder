@@ -96,14 +96,24 @@ async with MultiQueryRetriever(OpenSearchBackend(search_client), concurrency=4) 
 
 In a server, keep that context open for the service lifetime. Close the
 retriever before closing its backend client. Blocking search runs in a bounded
-thread pool. Local searches run serially because each call loads the FAISS
-index into memory; OpenSearch searches run concurrently. BM25 arrays are
-memory-mapped. A query failure fails the request without a partial ranking.
+thread pool. Both backends honor `--concurrency` (default 4). Each local backend
+lazily loads one FAISS index and one memory-mapped BM25 index, then shares them
+across concurrent queries and subsequent requests. Filters and SQLite connections
+remain per search. A query failure fails the request without a partial ranking.
 Timeouts cancel queued work, but running synchronous calls finish in the
 background, so configure backend network timeouts too. This stage returns
 indexed evidence pointers; evidence loading and reranking are separate future
 stages. OpenSearch adapter behavior has offline test coverage; live retrieval
 quality has not been evaluated.
+
+For local service use, create one `LocalBackend(Path("index"))` per corpus and
+embedding configuration and reuse it with the retriever. After awaiting
+`retriever.aclose()`, call `backend.close()` to release index references. The CLI
+does this automatically. Separate backend instances or processes each own their
+own index copy. The embedding variant stays pinned after first use; drain and
+recreate the backend after rebuilding or switching indexes, and do not modify
+index files while searches are active. The one-shot `indexing.search.search()`
+API remains available; repeated callers should reuse `LocalSearchIndex` instead.
 
 ## Setup
 

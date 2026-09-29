@@ -4,8 +4,6 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
 import unittest
 from unittest.mock import Mock, patch
 
@@ -128,27 +126,6 @@ class RetrievalTests(unittest.IsolatedAsyncioTestCase):
 
 
 class AdapterTests(unittest.TestCase):
-    def test_local_backends_serialize_index_loading(self):
-        active = peak = 0
-        counter_lock = threading.Lock()
-        def search(*args, **kwargs):
-            nonlocal active, peak
-            with counter_lock:
-                active += 1
-                peak = max(peak, active)
-            time.sleep(.02)
-            with counter_lock:
-                active -= 1
-            return []
-        with patch('indexing.search.search', side_effect=search):
-            with ThreadPoolExecutor(max_workers=4) as pool:
-                futures = [pool.submit(LocalBackend(Path('index')).search, 'q',
-                           record_k=5, filters=RetrievalFilters()) for _ in range(4)]
-                for future in futures:
-                    self.assertEqual(future.result(), [])
-        self.assertEqual(peak, 1)
-
-
     def test_rollup_deduplicates_records_with_decay(self):
         def record(rid, score):
             return dict(paper_id="A", record_id=rid, type="method", text="x", score=score)

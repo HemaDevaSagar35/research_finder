@@ -9,7 +9,6 @@ LocalBackend is a development adapter. No evidence artifacts are loaded here.
 import argparse
 import asyncio
 import sys
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Protocol
@@ -115,27 +114,25 @@ def roll_up_records(hits: list[dict]) -> list[PaperHit]:
 
 
 class LocalBackend:
-    # Local search loads the FAISS index per call. Serialize across instances
-    # to avoid multiplying corpus-sized allocations across requests.
-    _search_lock = threading.Lock()
+    """Reuse one backend per local corpus; close after draining its retriever."""
 
     def __init__(self, index_dir: Path, *, embedding: str | None = None,
                  use_vector: bool = True):
-        self.index_dir = Path(index_dir)
-        self.embedding = embedding
-        self.use_vector = use_vector
+        from indexing.search import LocalSearchIndex
+        self._index = LocalSearchIndex(index_dir, embedding=embedding,
+                                       use_vector=use_vector)
 
     def search(self, query: str, *, record_k: int,
                filters: RetrievalFilters) -> list[PaperHit]:
-        from indexing.search import search
-        with self._search_lock:
-            papers = search(query, self.index_dir, top_k=record_k,
-                            embedding=self.embedding, use_vector=self.use_vector,
-                            types=filters.types, year_min=filters.year, year_max=filters.year)
+        papers = self._index.search(query, top_k=record_k, types=filters.types,
+                                    year_min=filters.year, year_max=filters.year)
         return roll_up_records([
             {**{k: p[k] for k in ("title", "venue", "year", "folder") if k in p},
              **r, "paper_id": p["paper_id"]}
             for p in papers for r in p["records"]])
+
+    def close(self):
+        self._index.close()
 
 
 class OpenSearchBackend:
@@ -291,10 +288,7 @@ async def _run(args):
         backend = LocalBackend(Path(args.index_dir), embedding=args.embedding,
                                use_vector=not args.no_vector)
     try:
-        # One local worker also prevents queued queries from blocking on the
-        # backend lock after cancellation. OpenSearch retains parallel I/O.
-        concurrency = 1 if args.backend == "local" else args.concurrency
-        async with MultiQueryRetriever(backend, concurrency=concurrency) as retriever:
+        async with MultiQueryRetriever(backend, concurrency=args.concurrency) as retriever:
             result = await retriever.retrieve(
                 plan, record_k=args.record_k, paper_k=args.papers, rrf_k=args.rrf_k,
                 filters=RetrievalFilters(types=args.types or [], year=args.year),
@@ -304,6 +298,8 @@ async def _run(args):
     finally:
         if client is not None:
             client.close()
+        else:
+            backend.close()
 
 
 def main():
