@@ -4,7 +4,8 @@ Living document: what exists, what's in progress, what's next. The *why*
 behind decisions lives in `offline_ingestion_design.md`; this page is the
 *what*. Update this file whenever a component is added or materially changed.
 
-Last updated: 2026-09-20
+Last updated: 2026-09-29 (multi-query retrieval completed; older offline status below
+has not been revalidated against the running backfill or deployed services).
 
 ## Implemented
 
@@ -58,7 +59,13 @@ MLSys/COLM listed. `tools/upload_s3.py` bulk-uploads PDFs to S3.
   for dev. Managed domain, not Serverless (client `_id` needed).
 - No SQS for the backfill; queue only arrives with the upload service.
 
-## Next up (in order)
+## Offline checklist (recorded 2026-09-20; historical)
+
+As of 2026-09-27, the user reports offline ingestion is nearly complete.
+The checklist below is retained as historical context, not a current statement
+that backfill has yet to start. Current corpus/index details are documented in
+`index_contract.md`.
+
 1. **Run the extraction backfill** on the corpus (EC2 or laptop, tmux):
    small `--limit` first, inspect artifacts, then let it run. This is the
    long LLM crunch — everything else is hours, this is days/weeks.
@@ -68,10 +75,68 @@ MLSys/COLM listed. `tools/upload_s3.py` bulk-uploads PDFs to S3.
    via `flatten --s3` → `build_index` (embeddings) → `--load-local`.
 4. Sanity-check retrieval quality with `opensearch_index --search`.
 
+## Online stage — proposed build order
+
+**Deployment requirement:** the full query-to-hypothesis pipeline will run on
+a server as a service, exposed through an API. Build the reasoning modules for
+that environment from the start, using OpenSearch and S3 in production, with
+isolated request state. Hosting, API framework, and sync/async execution protocol
+remain undecided. Reuse one retriever per service process/event loop, with a
+bounded worker pool and request-local results. Drain workers before closing
+shared backend clients; configure backend network timeouts and request admission
+control when wiring the API. This generation service is distinct from the deferred
+user-upload/ingestion service below.
+
+The query planner and multi-query retrieval are implemented; evidence loading,
+reranking, and the remaining online reasoning pipeline are not yet implemented. Continue building the
+**query-to-evidence foundation**, described in
+[architecture §2](research_path_generator_architecture_refined.md#2-query-to-evidence-foundation)
+and [component contracts §2](research_path_generator_components_refined.md#2-initial-retriever).
+
+1. Query planning is implemented in `research/query_planner.py`: async LLM
+   expansion into `QueryPlan(queries=[...])`, original-query preservation,
+   deduplication, validation, and a CLI. Six offline tests cover validation,
+   normalization, request isolation, and client cleanup; live model quality
+   has not yet been evaluated. Retrieved paper/record contracts are implemented in `research/retrieval.py`;
+   resolved evidence and paper-context contracts remain to be defined.
+2. Add a common local/S3 reader for `paper.json` and cited Markdown pages;
+   derive compact PaperCards by field projection.
+3. Multi-query paper-level retrieval is implemented in `research/retrieval.py`:
+   local/OpenSearch adapters, decaying record-to-paper rollup, equal-weight
+   paper RRF, query provenance, evidence pointers, shared type/year filters,
+   bounded async execution, deadlines, and CLI. Local searches share one lazily
+   loaded FAISS/BM25 index per backend with synchronized initialization, concurrent
+   read-only searches, and per-search SQLite connections. BM25 arrays use memory
+   mapping. Drain the retriever before closing/replacing its local backend.
+   CLI progress goes to stderr and JSON results to stdout. Nineteen offline tests
+   pass, including real FAISS/BM25/SQLite fixtures for concurrent load-once behavior,
+   ranking equivalence, filter isolation, failed-load retry, and index cleanup.
+   Live OpenSearch/model quality remains unverified. Add reranking that
+   preserves relevance, explicit constraints, and coverage across approaches.
+4. Validate that a query returns an inspectable paper selection with matching
+   records and resolvable evidence before adding hypothesis generation.
+5. Build landscape construction, cross-paper reasoning, opportunity mining,
+   and direction/hypothesis/experiment generation on those contracts.
+6. Add full-corpus novelty retrieval, candidate-vs-prior-work comparison,
+   refinement, critique, ranking, and the final portfolio.
+
+Integration gaps observed in the current code:
+
+- Local search now returns `source_locations` and closes SQLite connections
+  on failure. Retrieval adapters normalize both backends to the same paper
+  contract, with common type and exact-year filtering. Broader backend-specific
+  filters are not exposed by this contract.
+- S3 artifact helpers exist, but a common online local/S3 paper-and-evidence
+  reader is still needed.
+
+These are planned logical modules, not separate services or agents. Novelty
+assessments remain relative to the available 2026 corpus.
+
 ## Pinned / deferred
 - **User-upload service** (API + SQS + same worker): pinned until backfill
   works. Design note: user PDFs have no scraper metadata, so the title must
   be extracted (first page, cheap LLM call) before `paper_id` can be minted.
 - Indexing `summary.md` sections as extra records — only if retrieval
   quality shows narrative-context gaps.
-- Online stage (research-direction generation) — separate design docs.
+- Online stage (research-direction generation) — planned above; detailed
+  responsibilities remain in the architecture and component design docs.
