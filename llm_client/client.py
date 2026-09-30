@@ -49,12 +49,27 @@ Async usage (concurrency-limited):
 
 import asyncio
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, OpenAI
 
 from . import usage
+
+
+@dataclass(frozen=True)
+class ChatResult:
+    """One response with its own metadata. Returned by chat_result() so a
+    caller running many requests concurrently can tell *which* response
+    was truncated, instead of reading the shared last_finish_reason."""
+    text: str
+    finish_reason: str | None
+    model: str
+
+    @property
+    def truncated(self) -> bool:
+        return self.finish_reason == "length"
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -196,12 +211,28 @@ class LLMClient:
              **kwargs) -> str:
         """Chat Completions API. Pass either a plain `prompt` string or a
         full `messages` list; returns the response text."""
+        return self.chat_result(prompt, messages=messages, model=model,
+                                system=system, temperature=temperature,
+                                max_tokens=max_tokens, **kwargs).text
+
+    def chat_result(self, prompt: str | None = None, *,
+                    messages: list[dict] | None = None,
+                    model: str | None = None,
+                    system: str | None = None,
+                    temperature: float | None = None,
+                    max_tokens: int | None = None,
+                    **kwargs) -> ChatResult:
+        """Like chat(), but returns the text together with this response's
+        finish_reason and model (see ChatResult)."""
         params = _chat_params(prompt, messages, model, self.config,
                               system, temperature, max_tokens, kwargs)
         response = self._client.chat.completions.create(**params)
         usage.record(response, params["model"])
-        self.last_finish_reason = _finish_reason(response)
-        return response.choices[0].message.content
+        finish = _finish_reason(response)
+        self.last_finish_reason = finish
+        return ChatResult(text=response.choices[0].message.content or "",
+                          finish_reason=finish,
+                          model=getattr(response, "model", None) or params["model"])
 
     def respond(self, input, *,
                 model: str | None = None,
@@ -261,13 +292,30 @@ class AsyncLLMClient:
                    max_tokens: int | None = None,
                    **kwargs) -> str:
         """Async version of LLMClient.chat; respects the concurrency limit."""
+        result = await self.chat_result(prompt, messages=messages, model=model,
+                                        system=system, temperature=temperature,
+                                        max_tokens=max_tokens, **kwargs)
+        return result.text
+
+    async def chat_result(self, prompt: str | None = None, *,
+                          messages: list[dict] | None = None,
+                          model: str | None = None,
+                          system: str | None = None,
+                          temperature: float | None = None,
+                          max_tokens: int | None = None,
+                          **kwargs) -> ChatResult:
+        """Async version of LLMClient.chat_result: the text plus *this*
+        response's finish_reason, safe to read under concurrency."""
         params = _chat_params(prompt, messages, model, self.config,
                               system, temperature, max_tokens, kwargs)
         async with self._semaphore:
             response = await self._client.chat.completions.create(**params)
         usage.record(response, params["model"])
-        self.last_finish_reason = _finish_reason(response)
-        return response.choices[0].message.content
+        finish = _finish_reason(response)
+        self.last_finish_reason = finish
+        return ChatResult(text=response.choices[0].message.content or "",
+                          finish_reason=finish,
+                          model=getattr(response, "model", None) or params["model"])
 
     async def respond(self, input, *,
                       model: str | None = None,

@@ -1,4 +1,5 @@
 from . import errors, usage
-from .client import AsyncLLMClient, LLMClient, chat, chat_many
+from .client import AsyncLLMClient, ChatResult, LLMClient, chat, chat_many
 
-__all__ = ["AsyncLLMClient", "LLMClient", "chat", "chat_many", "errors", "usage"]
+__all__ = ["AsyncLLMClient", "ChatResult", "LLMClient", "chat", "chat_many",
+           "errors", "usage"]
