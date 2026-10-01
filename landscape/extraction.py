@@ -1,7 +1,7 @@
 """LLM extraction of raw concept mentions and relation triples from one paper.
 
 Per-paper step of the Landscape Builder (components doc items 3-6, collapsed:
-see landscape/graph.py's module docstring for why aggregation and relation
+see landscape/builder.py's module docstring for why aggregation and relation
 extraction merge into one edge model here). Concept identity is NOT resolved
 here -- this step only reads one paper's PaperCard and reports what IT calls
 things, in its own words. landscape.normalize resolves raw labels from many
@@ -11,7 +11,7 @@ This is the least trustworthy step in the pipeline: an LLM inventing a causal
 relation that isn't actually supported by the paper is the main failure mode
 to guard against. Mitigations here: evidence_quote is required and must be
 a substring of the PaperCard's own text (checked, not trusted), relations are
-restricted to the fixed vocabulary in landscape.graph.VALID_RELATIONS, and a
+restricted to the fixed vocabulary in landscape.schemas.VALID_RELATIONS, and a
 paper with nothing extractable is a valid, non-error result.
 """
 
@@ -22,7 +22,7 @@ import os
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from llm_client import AsyncLLMClient
-from landscape.graph import VALID_FACETS, VALID_RELATIONS
+from landscape.schemas import VALID_FACETS, VALID_RELATIONS
 from landscape.paper_context import PaperCard
 
 

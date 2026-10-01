@@ -19,7 +19,8 @@ CLI usage (dev sanity check):
 
 import argparse
 import json
-from dataclasses import dataclass
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from ingestion.s3store import ArtifactStore
 
@@ -28,8 +29,7 @@ class PaperContextError(ValueError):
     """paper.json for a paper_id could not be loaded or projected."""
 
 
-@dataclass(frozen=True)
-class PaperCard:
+class PaperCard(BaseModel):
     """Compact per-paper view for landscape/cross-paper reasoning.
 
     A pure field projection of paper.json (PaperAnalysis). Fields are kept
@@ -37,6 +37,7 @@ class PaperCard:
     later become its own concept-extraction unit; nothing here is dropped
     silently -- an empty list means paper.json actually had nothing there.
     """
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     paper_id: str
     title: str
@@ -61,15 +62,15 @@ class PaperCard:
     claims: list[str]
 
 
-@dataclass(frozen=True)
-class PaperContext:
+class PaperContext(BaseModel):
     """What the Landscape Builder consumes for one retrieved paper."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     paper_id: str
     card: PaperCard
-    matched_records: list[dict]   # the record hits from indexing.search, if any
-    missing_fields: list[str]     # PaperCard fields that were empty/absent in
-                                   # paper.json -- surfaced, never hidden
+    matched_records: list[dict] = Field(default_factory=list)   # record hits from indexing.search, if any
+    missing_fields: list[str] = Field(default_factory=list)     # PaperCard fields that were empty/absent in
+                                                                 # paper.json -- surfaced, never hidden
 
 
 def _project(paper_id: str, analysis: dict) -> tuple[PaperCard, list[str]]:
@@ -187,7 +188,7 @@ def main() -> None:
     ctx = load_paper_context(args.paper_id)
     print(json.dumps({
         "paper_id": ctx.paper_id,
-        "card": ctx.card.__dict__,
+        "card": ctx.card.model_dump(),
         "missing_fields": ctx.missing_fields,
     }, indent=2, ensure_ascii=False))
 

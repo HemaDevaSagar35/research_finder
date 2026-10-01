@@ -11,15 +11,14 @@ Input: raw (concept, facet) mentions as extracted per-paper by
 landscape.extraction, with no cross-paper identity yet -- "expert swapping",
 "host-side expert loading", and "CPU-GPU expert transfer" are three distinct
 strings at this point. Output: a mapping from every raw (label, facet) pair
-to one canonical concept_id, ready to feed landscape.graph.add_concept /
-add_mention / add_relation.
+to one canonical concept_id, ready for landscape.builder's flat accumulation
+into ConceptEntry / Relationship (landscape.schemas).
 """
 
 import asyncio
 import json
 import os
 import re
-from dataclasses import dataclass
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -32,8 +31,8 @@ DEFAULT_EMBED_PROVIDER = "local"   # concept clustering, not query/index retriev
                                    # doesn't need to match the corpus embedding model
 
 
-@dataclass(frozen=True)
-class RawLabel:
+class RawLabel(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
     text: str
     facet: str
 

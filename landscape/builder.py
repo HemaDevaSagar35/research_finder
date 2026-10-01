@@ -1,19 +1,31 @@
-"""Landscape Builder: PaperContexts -> LandscapeGraph.
+"""Landscape Builder: PaperContexts -> Landscape.
 
 Orchestrates the pipeline (docs/research_path_generator_architecture_refined.md
-sec 3, docs/research_path_generator_components_refined.md items 3-7):
+sec 3-4, docs/research_path_generator_components_refined.md items 3-7):
 
-    PaperContexts (landscape.paper_context)
+    query (build_landscape_for_query only)
+        -> research.query_planner.plan_queries -> research.retrieval
+           .MultiQueryRetriever -- the already-built query-to-evidence
+           foundation, not a direct indexing.search call
+        -> PaperContexts (landscape.paper_context)
         -> per-paper raw extraction (landscape.extraction)
         -> concept normalization across all papers (landscape.normalize)
-        -> upsert into the graph (landscape.graph), merging by
-           (source, relation, target)
-        -> LandscapeGraph
+        -> free-text finding aggregation (landscape.aggregation)
+        -> flat accumulation into groups / relationships, merging by
+           (source, relation, target); contradictions and underexplored
+           concepts computed once at the end
+        -> Landscape (landscape.schemas)
+
+build_landscape(topic, contexts) takes already-loaded PaperContexts and is
+independently testable without S3, an index, or a retriever.
+
+No intermediate graph object: the target output is already a flat shape
+(architecture doc sec 4), so this builds it directly with plain dicts keyed
+for merge/dedup, rather than through a separate stateful container.
 
 Boundary this module must not cross: it answers "what does this area look
 like", not "what is unresolved". Gap-finding is the Cross-Paper Reasoner /
-Opportunity Miner's job, reading this graph afterwards -- do not add
-opportunity-shaped fields (e.g. "this seems promising") here.
+Opportunity Miner's job, reading this Landscape afterwards.
 
 CLI usage (dev, against a real index + S3 on EC2):
     uv run python -m landscape.builder "efficient MoE inference" --papers 15
@@ -21,15 +33,24 @@ CLI usage (dev, against a real index + S3 on EC2):
 
 import argparse
 import asyncio
-import json
 from pathlib import Path
 
-from indexing.search import search as index_search, REPO_ROOT
+from indexing.search import REPO_ROOT
+from landscape.aggregation import aggregate_findings
 from landscape.extraction import RawExtraction, extract_from_papers
-from landscape.graph import LandscapeGraph
 from landscape.normalize import RawLabel, normalize_concepts
 from landscape.paper_context import PaperContext, load_paper_context
+from landscape.schemas import (VALID_RELATIONS, ConceptEntry, Contradiction,
+                               Landscape, Relationship, UnderexploredConcept)
 from ingestion.s3store import ArtifactStore
+from research.query_planner import plan_queries
+from research.retrieval import LocalBackend, MultiQueryRetriever, RetrievalFilters
+
+OPPOSED_RELATION_PAIRS = {
+    frozenset({"REDUCES", "HURTS"}),
+    frozenset({"REDUCES", "INTRODUCES"}),
+    frozenset({"SOLVES", "FAILS_UNDER"}),
+}
 
 
 def load_paper_contexts(paper_ids: list[str], *,
@@ -51,95 +72,181 @@ def load_paper_contexts(paper_ids: list[str], *,
     return contexts
 
 
-def _raw_labels_from_extractions(extractions: dict[str, RawExtraction]) -> tuple[
-        list[RawLabel], dict[str, list[tuple[RawLabel, list[str]]]],
-        dict[str, list[tuple[RawLabel, str, RawLabel, list[str]]]]]:
-    """Flatten per-paper RawExtractions into: the full label list (for
-    normalize_concepts), a per-paper list of (mention_label, evidence) for
-    MENTIONS edges, and a per-paper list of (source, relation, target,
-    evidence) for relation edges -- all still in raw per-paper text."""
-    all_labels: list[RawLabel] = []
-    mentions_by_paper: dict[str, list] = {}
-    triples_by_paper: dict[str, list] = {}
-
-    for paper_id, extraction in extractions.items():
-        if isinstance(extraction, Exception):
-            continue
-        mentions = []
-        for m in extraction.mentions:
-            label = RawLabel(m.concept, m.facet)
-            all_labels.append(label)
-            mentions.append((label, [m.evidence_quote]))
-        mentions_by_paper[paper_id] = mentions
-
-        triples = []
-        for t in extraction.triples:
-            source = RawLabel(t.source_concept, "method")   # facet resolved below
-            target = RawLabel(t.target_concept, "method")
-            all_labels.append(source)
-            all_labels.append(target)
-            triples.append((source, t.relation, target, [t.evidence_quote]))
-        triples_by_paper[paper_id] = triples
-
-    return all_labels, mentions_by_paper, triples_by_paper
-
-
-async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
-                          extraction_provider: str | None = None,
-                          normalize_provider: str | None = None) -> LandscapeGraph:
-    """The core orchestration, given already-loaded PaperContexts (so this
-    is independently testable with synthetic contexts, without S3 or search)."""
-    cards = {pid: ctx.card for pid, ctx in contexts.items()}
-    extractions = await extract_from_papers(cards, provider=extraction_provider)
-
-    for paper_id, extraction in extractions.items():
-        if isinstance(extraction, Exception):
-            print(f"warning: extraction failed for {paper_id}: {extraction}")
-
-    all_labels, mentions_by_paper, triples_by_paper = _raw_labels_from_extractions(extractions)
-
-    # Relation source/target concepts were placeholder-tagged "method" above
-    # since RawTriple carries no facet; resolve their real facet from any
-    # matching mention with the same text, falling back to "method".
+def _resolve_facets(extractions: dict[str, RawExtraction]) -> dict[str, str]:
+    """A RawTriple carries no facet for its source/target concepts; resolve
+    each concept text's real facet from any mention with the same text seen
+    anywhere, falling back to "method" if a concept was never also mentioned."""
     facet_by_text: dict[str, str] = {}
     for extraction in extractions.values():
         if isinstance(extraction, Exception):
             continue
         for m in extraction.mentions:
             facet_by_text.setdefault(m.concept, m.facet)
-    resolved_labels = [RawLabel(l.text, facet_by_text.get(l.text, l.facet)) for l in all_labels]
+    return facet_by_text
 
-    concept_ids = await normalize_concepts(resolved_labels, provider=normalize_provider)
-    label_to_id = {RawLabel(l.text, facet_by_text.get(l.text, l.facet)): cid
-                  for l, cid in concept_ids.items()}
 
-    graph = LandscapeGraph(topic=topic)
-    for label, concept_id in label_to_id.items():
-        graph.add_concept(concept_id, label.facet, label.text)
+def _find_contradictions(relationships: list[Relationship]) -> list[Contradiction]:
+    """Pairs of relationships between the same (source, target) whose
+    relations are structurally opposed, or where one side is an explicit
+    CONTRADICTS edge. A pattern over the final relationships, computed once
+    here rather than left as an on-demand query nobody calls."""
+    by_pair: dict[tuple[str, str], list[Relationship]] = {}
+    for rel in relationships:
+        by_pair.setdefault((rel.source, rel.target), []).append(rel)
+    out: list[Contradiction] = []
+    for edges in by_pair.values():
+        for i, a in enumerate(edges):
+            for b in edges[i + 1:]:
+                if a.relation == "CONTRADICTS" or b.relation == "CONTRADICTS":
+                    out.append(Contradiction(a=a, b=b))
+                elif frozenset({a.relation, b.relation}) in OPPOSED_RELATION_PAIRS:
+                    out.append(Contradiction(a=a, b=b))
+    return out
 
-    for paper_id, mentions in mentions_by_paper.items():
-        for label, _evidence in mentions:
-            resolved = RawLabel(label.text, facet_by_text.get(label.text, label.facet))
-            graph.add_mention(paper_id, label_to_id[resolved])
 
-    for paper_id, triples in triples_by_paper.items():
-        for source, relation, target, _evidence in triples:
-            source_r = RawLabel(source.text, facet_by_text.get(source.text, source.facet))
-            target_r = RawLabel(target.text, facet_by_text.get(target.text, target.facet))
-            graph.add_relation(label_to_id[source_r], relation, label_to_id[target_r],
-                              supporting_paper=paper_id)
+def _find_underexplored(groups: list[ConceptEntry], relationships: list[Relationship],
+                        min_support: int = 2) -> list[UnderexploredConcept]:
+    """Concepts with weak support: few mentions and no strongly-backed
+    relation. A cheap proxy for underexplored_regimes, not a novelty claim."""
+    out = []
+    for group in groups:
+        mention_count = len(group.paper_ids)
+        related = [r for r in relationships if r.source == group.concept_id or r.target == group.concept_id]
+        max_support = max((len(r.supporting_papers) for r in related), default=0)
+        if mention_count < min_support and max_support < min_support:
+            out.append(UnderexploredConcept(
+                concept_id=group.concept_id, facet=group.facet, label=group.label,
+                mention_count=mention_count, max_relation_support=max_support))
+    return out
 
-    return graph
+
+async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
+                          extraction_provider: str | None = None,
+                          normalize_provider: str | None = None,
+                          aggregation_provider: str | None = None) -> Landscape:
+    """The core orchestration, given already-loaded PaperContexts (so this
+    is independently testable with synthetic contexts, without S3 or search)."""
+    cards = {pid: ctx.card for pid, ctx in contexts.items()}
+
+    extractions = await extract_from_papers(cards, provider=extraction_provider)
+    for paper_id, extraction in extractions.items():
+        if isinstance(extraction, Exception):
+            print(f"warning: extraction failed for {paper_id}: {extraction}")
+
+    facet_by_text = _resolve_facets(extractions)
+
+    def label_for(text: str, fallback_facet: str) -> RawLabel:
+        return RawLabel(text=text, facet=facet_by_text.get(text, fallback_facet))
+
+    # -- gather every raw label that needs a canonical concept_id -----------
+    mention_labels_by_paper: dict[str, list[RawLabel]] = {}
+    triple_labels_by_paper: dict[str, list[tuple[RawLabel, str, RawLabel]]] = {}
+    all_labels: list[RawLabel] = []
+
+    for paper_id, extraction in extractions.items():
+        if isinstance(extraction, Exception):
+            continue
+        mentions = [label_for(m.concept, m.facet) for m in extraction.mentions]
+        mention_labels_by_paper[paper_id] = mentions
+        all_labels.extend(mentions)
+
+        triples = []
+        for t in extraction.triples:
+            if t.relation not in VALID_RELATIONS:
+                continue   # extraction already filters this; defensive here too
+            source = label_for(t.source_concept, "method")
+            target = label_for(t.target_concept, "method")
+            triples.append((source, t.relation, target))
+            all_labels.extend([source, target])
+        triple_labels_by_paper[paper_id] = triples
+
+    concept_ids = await normalize_concepts(all_labels, provider=normalize_provider)
+
+    # -- flat accumulation: groups (ConceptEntry) -----------------------------
+    paper_ids_by_concept: dict[str, set[str]] = {}
+    label_by_concept: dict[str, RawLabel] = {}
+    for paper_id, mentions in mention_labels_by_paper.items():
+        for label in mentions:
+            concept_id = concept_ids[label]
+            paper_ids_by_concept.setdefault(concept_id, set()).add(paper_id)
+            label_by_concept.setdefault(concept_id, label)
+    # Concepts that only ever appear as a relation endpoint (never directly
+    # mentioned) still need a group entry; attribute them to the triple's paper.
+    for paper_id, triples in triple_labels_by_paper.items():
+        for source, _relation, target in triples:
+            for label in (source, target):
+                concept_id = concept_ids[label]
+                paper_ids_by_concept.setdefault(concept_id, set()).add(paper_id)
+                label_by_concept.setdefault(concept_id, label)
+
+    groups = [
+        ConceptEntry(concept_id=cid, facet=label_by_concept[cid].facet,
+                    label=label_by_concept[cid].text, paper_ids=sorted(pids))
+        for cid, pids in paper_ids_by_concept.items()
+    ]
+
+    # -- flat accumulation: relationships, merging by (source, relation, target) --
+    relation_accum: dict[tuple[str, str, str], tuple[set[str], set[str]]] = {}
+    for paper_id, triples in triple_labels_by_paper.items():
+        for source, relation, target in triples:
+            key = (concept_ids[source], relation, concept_ids[target])
+            papers, records = relation_accum.setdefault(key, (set(), set()))
+            papers.add(paper_id)
+    relationships = [
+        Relationship(source=s, relation=r, target=t,
+                    supporting_papers=sorted(papers), evidence_record_ids=sorted(records))
+        for (s, r, t), (papers, records) in relation_accum.items()
+    ]
+
+    contradictions = _find_contradictions(relationships)
+    underexplored = _find_underexplored(groups, relationships)
+
+    aggregated_findings, recurring_limitations, common_assumptions = await aggregate_findings(
+        cards, provider=aggregation_provider)
+
+    return Landscape(
+        topic=topic,
+        paper_ids=sorted(contexts),
+        groups=groups,
+        aggregated_findings=aggregated_findings,
+        recurring_limitations=recurring_limitations,
+        common_assumptions=common_assumptions,
+        contradictions=contradictions,
+        underexplored_regimes=underexplored,
+        relationships=relationships,
+    )
 
 
 async def build_landscape_for_query(topic: str, *, index_dir: Path | None = None,
-                                    top_papers: int = 15) -> LandscapeGraph:
-    """End-to-end from a query: search -> load evidence -> build landscape.
-    Deliberately skips reranking/dedup (indexing.search already dedupes and
-    ranks by paper) -- this is the minimal real pipeline, not the final one."""
+                                    top_papers: int = 15, record_k: int = 50,
+                                    max_queries: int = 5,
+                                    planner_provider: str | None = None,
+                                    embedding: str | None = None) -> Landscape:
+    """End-to-end from a query: plan -> multi-query retrieve -> load evidence
+    -> build landscape. Goes through the already-built query-to-evidence
+    foundation (research.query_planner + research.retrieval) rather than
+    calling indexing.search directly, so paper selection reflects every
+    planned query (not just the raw topic string) and each matched record
+    keeps its real source_locations and per-query provenance. Deliberately
+    skips reranking (research/retrieval.py sec 2.3 reranking is still
+    pending there) and uses the local backend; swap in OpenSearchBackend for
+    production without changing anything downstream of retrieval."""
     index_dir = index_dir or (REPO_ROOT / "index")
-    results = index_search(topic, index_dir, top_k=50)[:top_papers]
-    matched_records_by_paper = {r["paper_id"]: r["records"] for r in results}
+    plan = await plan_queries(topic, max_queries=max_queries, provider=planner_provider)
+
+    backend = LocalBackend(index_dir, embedding=embedding)
+    try:
+        async with MultiQueryRetriever(backend) as retriever:
+            result = await retriever.retrieve(
+                plan, record_k=record_k, paper_k=top_papers,
+                filters=RetrievalFilters())
+    finally:
+        backend.close()
+
+    matched_records_by_paper = {
+        paper.paper_id: [record.model_dump() for record in paper.records]
+        for paper in result.papers
+    }
     contexts = load_paper_contexts(list(matched_records_by_paper),
                                    matched_records_by_paper=matched_records_by_paper)
     return await build_landscape(topic, contexts)
@@ -149,13 +256,19 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("topic")
     parser.add_argument("--papers", type=int, default=15)
+    parser.add_argument("--record-k", type=int, default=50)
+    parser.add_argument("--max-queries", type=int, default=5)
     parser.add_argument("--index-dir", default="index")
+    parser.add_argument("--embedding", help="Embedding variant slug (default: active one)")
+    parser.add_argument("--planner-provider", help="LLM provider for query planning")
     parser.add_argument("--out", help="Write the landscape JSON here instead of stdout")
     args = parser.parse_args()
 
-    graph = asyncio.run(build_landscape_for_query(
-        args.topic, index_dir=REPO_ROOT / args.index_dir, top_papers=args.papers))
-    payload = json.dumps(graph.to_dict(), indent=2, ensure_ascii=False)
+    landscape = asyncio.run(build_landscape_for_query(
+        args.topic, index_dir=REPO_ROOT / args.index_dir, top_papers=args.papers,
+        record_k=args.record_k, max_queries=args.max_queries,
+        planner_provider=args.planner_provider, embedding=args.embedding))
+    payload = landscape.model_dump_json(indent=2)
     if args.out:
         Path(args.out).write_text(payload)
         print(f"wrote {args.out}")
