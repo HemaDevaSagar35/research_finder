@@ -52,6 +52,7 @@ class Relationship(Strict):
     target: str = Field(min_length=1)
     supporting_papers: list[str] = Field(min_length=1)
     evidence_record_ids: list[str] = Field(default_factory=list)
+    source_locations: list[dict] = Field(default_factory=list)
 
     @field_validator("relation")
     @classmethod

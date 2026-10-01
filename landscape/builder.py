@@ -37,6 +37,7 @@ from pathlib import Path
 
 from indexing.search import REPO_ROOT
 from landscape.aggregation import aggregate_findings
+from landscape.evidence import resolve_evidence
 from landscape.extraction import RawExtraction, extract_from_papers
 from landscape.normalize import RawLabel, normalize_concepts
 from landscape.paper_context import PaperContext, load_paper_context
@@ -140,7 +141,7 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
 
     # -- gather every raw label that needs a canonical concept_id -----------
     mention_labels_by_paper: dict[str, list[RawLabel]] = {}
-    triple_labels_by_paper: dict[str, list[tuple[RawLabel, str, RawLabel]]] = {}
+    triple_labels_by_paper: dict[str, list[tuple[RawLabel, str, RawLabel, str]]] = {}
     all_labels: list[RawLabel] = []
 
     for paper_id, extraction in extractions.items():
@@ -156,7 +157,7 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
                 continue   # extraction already filters this; defensive here too
             source = label_for(t.source_concept, "method")
             target = label_for(t.target_concept, "method")
-            triples.append((source, t.relation, target))
+            triples.append((source, t.relation, target, t.evidence_quote))
             all_labels.extend([source, target])
         triple_labels_by_paper[paper_id] = triples
 
@@ -173,7 +174,7 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
     # Concepts that only ever appear as a relation endpoint (never directly
     # mentioned) still need a group entry; attribute them to the triple's paper.
     for paper_id, triples in triple_labels_by_paper.items():
-        for source, _relation, target in triples:
+        for source, _relation, target, _evidence_quote in triples:
             for label in (source, target):
                 concept_id = concept_ids[label]
                 paper_ids_by_concept.setdefault(concept_id, set()).add(paper_id)
@@ -186,16 +187,30 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
     ]
 
     # -- flat accumulation: relationships, merging by (source, relation, target) --
-    relation_accum: dict[tuple[str, str, str], tuple[set[str], set[str]]] = {}
+    # evidence_quote -> real record_id/source_locations is a code-only lookup
+    # against this paper's matched_records (landscape.evidence), not another
+    # LLM call; no match found just leaves that triple's evidence empty.
+    relation_accum: dict[tuple[str, str, str], dict] = {}
     for paper_id, triples in triple_labels_by_paper.items():
-        for source, relation, target in triples:
+        matched_records = contexts[paper_id].matched_records if paper_id in contexts else []
+        for source, relation, target, evidence_quote in triples:
             key = (concept_ids[source], relation, concept_ids[target])
-            papers, records = relation_accum.setdefault(key, (set(), set()))
-            papers.add(paper_id)
+            entry = relation_accum.setdefault(key, {
+                "papers": set(), "record_ids": set(), "locations": [], "seen_locations": set()})
+            entry["papers"].add(paper_id)
+            record_ids, locations = resolve_evidence(evidence_quote, matched_records)
+            entry["record_ids"].update(record_ids)
+            for location in locations:
+                loc_key = (paper_id, repr(sorted(location.items())) if isinstance(location, dict) else repr(location))
+                if loc_key not in entry["seen_locations"]:
+                    entry["seen_locations"].add(loc_key)
+                    entry["locations"].append(location)
     relationships = [
         Relationship(source=s, relation=r, target=t,
-                    supporting_papers=sorted(papers), evidence_record_ids=sorted(records))
-        for (s, r, t), (papers, records) in relation_accum.items()
+                    supporting_papers=sorted(entry["papers"]),
+                    evidence_record_ids=sorted(entry["record_ids"]),
+                    source_locations=entry["locations"])
+        for (s, r, t), entry in relation_accum.items()
     ]
 
     contradictions = _find_contradictions(relationships)
