@@ -23,7 +23,7 @@ import re
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from indexing.embeddings import embed_texts
+from indexing.embeddings import DEFAULT_MODELS, embed_texts
 from llm_client import AsyncLLMClient
 
 SIMILARITY_THRESHOLD = 0.80   # candidate pairs below this never reach the LLM
@@ -163,7 +163,11 @@ async def normalize_concepts(labels: list[RawLabel], *,
         return {l: canonical[l] for l in labels}
 
     embed_provider = embed_provider or os.environ.get("LANDSCAPE_NORMALIZE_EMBED_PROVIDER", DEFAULT_EMBED_PROVIDER)
-    embed_model = os.environ.get("LANDSCAPE_NORMALIZE_EMBED_MODEL")
+    # DEFAULT_MODELS (not embed_config/EMBED_MODEL) on purpose: this provider
+    # is independent of the corpus's EMBED_PROVIDER/EMBED_MODEL, and falling
+    # back to the global EMBED_MODEL would be wrong if it names a model for
+    # a different provider than embed_provider here.
+    embed_model = os.environ.get("LANDSCAPE_NORMALIZE_EMBED_MODEL") or DEFAULT_MODELS[embed_provider]
     vectors = embed_texts([l.text for l in unique], embed_provider, embed_model, None)
     pairs = _candidate_pairs(unique, vectors, threshold)
 

@@ -23,7 +23,7 @@ import os
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from indexing.embeddings import embed_texts
+from indexing.embeddings import DEFAULT_MODELS, embed_texts
 from landscape.normalize import UnionFind
 from landscape.schemas import AggregatedItem
 from llm_client import AsyncLLMClient
@@ -128,7 +128,9 @@ async def aggregate_findings(cards: dict[str, PaperCard], *,
         return [], [], []
 
     embed_provider = embed_provider or os.environ.get("LANDSCAPE_AGGREGATION_EMBED_PROVIDER", DEFAULT_EMBED_PROVIDER)
-    embed_model = os.environ.get("LANDSCAPE_AGGREGATION_EMBED_MODEL")
+    # DEFAULT_MODELS, not the global EMBED_MODEL -- see landscape/normalize.py
+    # for why this provider must stay independent of the corpus embedding config.
+    embed_model = os.environ.get("LANDSCAPE_AGGREGATION_EMBED_MODEL") or DEFAULT_MODELS[embed_provider]
     vectors = embed_texts([s.text for s in statements], embed_provider, embed_model, None)
     clusters = _cluster(statements, vectors, threshold)
 
