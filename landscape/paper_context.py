@@ -19,10 +19,19 @@ CLI usage (dev sanity check):
 
 import argparse
 import json
+from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
 
 from ingestion.s3store import ArtifactStore
+
+# ingestion.s3store reads S3_ARTIFACTS_URL from the environment but never
+# loads .env itself (it's meant to be used from a process that already has);
+# run standalone (this module's CLI, or any import chain that doesn't also
+# pull in llm_client/indexing.embeddings, which load it as a side effect),
+# .env would otherwise silently never be read.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 class PaperContextError(ValueError):
