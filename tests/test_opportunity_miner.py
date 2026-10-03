@@ -57,6 +57,11 @@ class Chat:
             response={'candidate_id':payload['candidate_id'],'decision':'accept',
                       'notes':'The question remains open within the reviewed pages.',
                       'page_ids':[p['page_id'] for p in payload['pages']]}
+            response.update(factual_status='supported', required_corrections=[],
+                paper_assessments=[{'paper_id': pid, 'role': 'supporting', 'rationale': 'Supported in stub.',
+                    'evidence_ids': [e['evidence_id'] for e in payload['evidence'] if e['paper_id']==pid],
+                    'page_ids': [p['page_id'] for p in payload['pages'] if p['paper_id']==pid]}
+                    for pid in sorted({e['paper_id'] for e in payload['evidence']})])
             if self.change_review:
                 self.change_review(response,payload)
         return ChatResult(text=json.dumps(response),finish_reason='length' if self.truncate else 'stop',model='fake')
@@ -291,3 +296,82 @@ def test_ready_batch_reviews_without_waiting_for_other_proposals(inputs):
     out=run(inputs,Pipelined(),batch_size=1,concurrency=2)
     assert len(out.opportunities)==2
     assert out.calls['total']==4
+
+
+@pytest.mark.parametrize('signal', ['corrections', 'status', 'revise', 'malformed_with_corrections'])
+def test_factual_correction_veto_cannot_be_repaired_into_acceptance(inputs, signal):
+    def correction(r, p):
+        if signal in ('corrections', 'malformed_with_corrections'):
+            r['required_corrections'] = ['TP-4 uses four GPUs of the same eight-GPU machine.']
+        elif signal == 'status':
+            r['factual_status'] = 'needs_correction'
+        else:
+            r['decision'] = 'revise'
+        if signal == 'malformed_with_corrections':
+            del r['paper_assessments']
+    out = run(inputs, Chat(change_review=correction))
+    assert not out.opportunities
+    diag = out.diagnostics[0]
+    assert diag.reason == 'requires_correction'
+    assert diag.candidate and diag.review
+    assert out.calls['total'] == 2
+    assert out.calls.get('repair', 0) == 0
+
+
+def test_uncertain_facts_cannot_be_accepted(inputs):
+    def uncertain(r, p): r['factual_status'] = 'uncertain'
+    out = run(inputs, Chat(change_review=uncertain))
+    assert not out.opportunities
+    assert out.diagnostics[0].reason == 'insufficient'
+    assert out.calls.get('repair', 0) == 0
+
+
+def test_context_only_paper_retains_citations_without_inflating_support(inputs):
+    def roles(r, p):
+        r['paper_assessments'][1]['role'] = 'context_only'
+        r['paper_assessments'][1]['rationale'] = 'Candidate excludes this paper from its scope.'
+    out = run(inputs, Chat(change_review=roles))
+    op = out.opportunities[0]
+    assert out.schema_version == 'opportunities_v2'
+    assert len(op.paper_ids) == 2
+    assert len(op.supporting_paper_ids) == len(op.context_paper_ids) == 1
+    assert set(op.paper_ids) == set(op.supporting_paper_ids + op.context_paper_ids)
+    assert op.support == 'single_paper'
+    assert {e.paper_id for e in op.evidence} == set(op.paper_ids)
+    assert {s.paper_id for s in op.review_sources} >= set(op.paper_ids)
+    assert len(op.paper_assessments) == 2
+
+
+def test_upstream_contradicting_stance_can_support_new_discrepancy(inputs):
+    # A stance concerns the original finding; it does not fix the new paper role.
+    inputs[2].findings[0].evidence[-1].stance = 'contradicts'
+    out = run(inputs)
+    op = out.opportunities[0]
+    assert op.support == 'multiple_papers'
+    assert set(op.supporting_paper_ids) == set(op.paper_ids)
+    assert op.context_paper_ids == []
+
+
+@pytest.mark.parametrize('mode', ['missing', 'duplicate', 'unknown', 'foreign_evidence', 'foreign_page', 'legacy'])
+def test_acceptance_requires_complete_resolved_paper_roles(inputs, mode):
+    def bad(r, p):
+        roles = r['paper_assessments']
+        if mode == 'missing': roles.pop()
+        elif mode == 'duplicate': roles[1] = roles[0]
+        elif mode == 'unknown': roles[0]['paper_id'] = 'invented'
+        elif mode == 'foreign_evidence': roles[0]['evidence_ids'] = roles[1]['evidence_ids']
+        elif mode == 'foreign_page': roles[0]['page_ids'] = roles[1]['page_ids']
+        else:
+            for key in ['paper_assessments', 'required_corrections', 'factual_status']: r.pop(key)
+    out = run(inputs, Chat(change_review=bad))
+    assert not out.opportunities
+    assert out.diagnostics[0].reason == 'invalid_review'
+
+
+def test_context_without_any_support_is_insufficient(inputs):
+    def context(r, p):
+        for a in r['paper_assessments']: a['role'] = 'context_only'
+    out = run(inputs, Chat(change_review=context))
+    assert not out.opportunities
+    assert out.diagnostics[0].reason == 'insufficient'
+    assert out.calls.get('repair', 0) == 0

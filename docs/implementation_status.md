@@ -77,6 +77,16 @@ page review, using five calls. One accepted scope retained a hardware-descriptio
 imprecision identified in review notes; automated acceptance is not a guarantee
 of scientific correctness. Full-corpus novelty remains unassessed.
 
+Broader Opportunity Miner validation is complete: [results](opportunity_validation.md).
+135 tests plus 13 subtests pass; 124 live calls covered category controls and two
+fresh corpus pipelines (21 proposed, 17 accepted, 4 rejected opportunities).
+A factual-scope error was accepted in all three repeat probes, and one
+`multiple_papers` label includes a paper cited only as contrary context. These
+quality findings are addressed by [review and paper-role fixes](opportunity_review_fixes.md):
+`opportunities_v2` blocks flagged factual corrections and counts only reviewed
+supporting papers. Validation now totals 149 tests plus 13 subtests, with 32
+focused live calls. Error detection still depends on model judgment.
+
 ## Architecture decisions in force
 (rationale in `offline_ingestion_design.md`)
 - Extraction and indexing are **separate stages**; S3 is the contract between

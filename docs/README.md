@@ -24,3 +24,5 @@ Files:
   layout, portability)
 - `opportunity_miner.md` — implemented section 6 contract, concurrent proposal
   and original-page review, usage, and live validation limits
+- `opportunity_validation.md` — broader live quality checks and observed failures
+- `opportunity_review_fixes.md` — correction vetoes, support/context roles, and live regression results

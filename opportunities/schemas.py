@@ -30,11 +30,22 @@ class Proposal(Strict):
     candidates: list[Candidate]
 
 
+class PaperAssessment(Strict):
+    paper_id: str
+    role: Literal["supporting", "context_only"]
+    rationale: str = Field(min_length=1)
+    evidence_ids: list[str] = Field(min_length=1)
+    page_ids: list[str] = Field(min_length=1)
+
+
 class Decision(Strict):
     candidate_id: str
-    decision: Literal["accept", "reject", "insufficient"]
+    decision: Literal["accept", "reject", "insufficient", "revise"]
     notes: str = Field(min_length=1)
     page_ids: list[str]
+    factual_status: Literal["supported", "needs_correction", "uncertain"]
+    required_corrections: list[str]
+    paper_assessments: list[PaperAssessment]
 
 
 class SourceReference(Strict):
@@ -47,7 +58,10 @@ class Opportunity(Strict):
     opportunity_id: str
     candidate: Candidate
     sources: list[SourceReference]
-    paper_ids: list[str]
+    paper_ids: list[str]  # All cited evidence papers, including context.
+    supporting_paper_ids: list[str]
+    context_paper_ids: list[str]
+    paper_assessments: list[PaperAssessment]
     support: Literal["single_paper", "multiple_papers"]
     evidence: list[Evidence]
     review_sources: list[ReviewSource]
@@ -62,14 +76,15 @@ class Diagnostic(Strict):
         "no_reviewed_sources", "batch_limit", "input_budget", "call_budget",
         "invalid_proposal", "invalid_review", "invalid_reference", "duplicate",
         "missing_artifact", "stale_evidence", "unresolved_location", "missing_pages",
-        "page_budget", "rejected", "insufficient", "provider_error", "call_failed",
+        "page_budget", "rejected", "insufficient", "requires_correction", "provider_error", "call_failed",
     ]
     detail: str
     candidate: Candidate | None = None
+    review: dict | None = None  # Original review response when promotion was vetoed.
 
 
 class MiningResult(Strict):
-    schema_version: Literal["opportunities_v1"] = "opportunities_v1"
+    schema_version: Literal["opportunities_v2"] = "opportunities_v2"
     topic: str
     landscape_ref: dict[str, str]
     reasoning_ref: dict[str, str]
