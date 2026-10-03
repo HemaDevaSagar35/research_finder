@@ -74,3 +74,35 @@ event loop. Failed siblings are drained before client cleanup. Reasoner tasks
 already run concurrently with an atomic attempt budget; each task retains the
 required draft → review dependency. The broader live run observed four calls
 in flight and no truncation at the configured review output allowance.
+
+## Limitation attribution
+
+`PaperCard.limitation_sources` preserves each nonempty limitation from its
+original `paper.json` array: paper ID, `author_stated` or `model_inferred`, exact
+record JSON pointer, source statement, and source locations. Array positions
+are captured before filtering; they are not reconstructed from compact cards.
+The path/category pairing is validated in code. A legacy card can retain its
+known category with an unknown path and empty locations; no pointer is invented.
+
+`AggregatedItem.limitation_sources` retains every contributing source in a
+limitation cluster. Supporting paper membership is validated. A mixed cluster
+keeps mixed sources; it has no aggregate-level author-stated classification.
+Clustering still uses the original statement text and kind. Independent summary
+calls remain asynchronous. Summarization prompts now distinguish extraction
+interpretations from author attribution.
+
+The reasoner's draft receives these landscape sources as context, not new
+citable evidence IDs. Actual evidence-bundle and output evidence origins are
+derived in code from their `paper.json` paths, and origin labels accompany
+candidate evidence into the page review. Review remains mandatory; source labels
+are classifications made by the original extractor, not proof of what authors
+said. Neither a label nor a wording rule guarantees model behavior: the reviewer
+must still reject unsupported attribution. Prompt version is now
+`cross_paper_prompt_v2_attribution`.
+
+Old landscape files have no newly recovered source pointers until rebuilt from
+paper artifacts. They remain loadable with an empty `limitation_sources` list;
+the reasoner still derives origins for fresh evidence loaded from paper.json.
+
+Attribution regression and live rerun results:
+[limitation attribution validation](limitation_attribution_validation.md).

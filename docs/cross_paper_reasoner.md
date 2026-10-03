@@ -218,3 +218,13 @@ This explicit reasoner budget takes precedence over provider-wide
 `DEEPSEEK_MAX_TOKENS`. It is an output allowance, not an input/context limit;
 the provider still enforces its model's supported maximum. Draft output and
 input/page budgets remain separate.
+
+### Author attribution versus extraction inference
+
+Limitation evidence now carries `origin` derived from its extraction path:
+`author_stated` or `model_inferred`. Other evidence has `origin: null`.
+The landscape also preserves original limitation statements and per-paper
+source pointers through aggregation. Mixed sources remain distinct. Drafts
+must not present inferred missing evaluations as explicit author admissions,
+and reviewers must check both the claim and its attribution against the pages.
+See [attribution design](landscape_reasoning_integration.md#limitation-attribution).

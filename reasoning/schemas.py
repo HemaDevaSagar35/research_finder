@@ -32,7 +32,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from extraction.research_extract import SourceLocation
-from landscape.schemas import Landscape
+from landscape.schemas import Landscape, LimitationOrigin
 
 # Historical reasoner-only contract, retained for existing fixtures/files.
 # New production inputs use landscape.schemas.Landscape.
@@ -187,6 +187,7 @@ class BundleItem(Strict):
     evidence_id: str
     paper_id: str
     label: str
+    origin: LimitationOrigin | None = None
     value_path: str                      # JSON Pointer into paper.json
     provenance_path: str                 # JSON Pointer of the record owning source_locations
     source_locations: list[SourceLocation]
@@ -382,6 +383,7 @@ Verification = Literal["verified"]
 
 
 class Evidence(Strict):
+    origin: LimitationOrigin | None = None
     evidence_id: str
     paper_id: str
     source_kind: Literal["paper_json"] = "paper_json"

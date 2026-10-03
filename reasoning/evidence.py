@@ -27,6 +27,7 @@ from pydantic import ValidationError
 
 from extraction.research_extract import PaperAnalysis
 from reasoning.schemas import BundleItem, EvidenceBundle, OmittedItem
+from landscape.schemas import limitation_origin
 
 # --------------------------------------------------------------------------
 # PaperStore
@@ -448,6 +449,7 @@ def bundle(thread_id: str, statement: str, thread_papers: list[str],
             items.append(BundleItem(
                 evidence_id=f"{thread_id}-e{k:03d}", paper_id=pid, label=c.label,
                 value_path=c.value_path, provenance_path=c.provenance_path,
+                origin=limitation_origin(c.value_path),
                 source_locations=c.source_locations, source_value=value,
                 context=ctx, boundary=c.boundary, truncated=trunc))
     return EvidenceBundle(thread_id=thread_id, statement=statement,

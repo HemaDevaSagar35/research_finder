@@ -50,13 +50,14 @@ from llm_client import ChatResult
 from llm_client import errors as llm_errors
 from llm_client import usage
 from reasoning import schemas as S
+from landscape.schemas import LimitationSource, limitation_origin
 from reasoning.budget import TOKEN_COUNTER, AttemptBudget, estimate_tokens
 from reasoning.evidence import (BundleBudget, EvidenceCandidate, LoadedPaper, PaperStore,
                                 bundle as make_bundle, candidates as make_candidates)
 
 load_dotenv()
 
-PROMPT_VERSION = "cross_paper_prompt_v1"
+PROMPT_VERSION = "cross_paper_prompt_v2_attribution"
 ChatFn = Callable[..., Awaitable[ChatResult]]
 
 
@@ -99,6 +100,7 @@ class Thread:
     status: str = "scheduled"       # completed | insufficient | failed | budget_skipped
                                     # | insufficient_for_adjudication
     detail: str = ""
+    limitation_sources: list[LimitationSource] = field(default_factory=list)
 
 
 def _ordered(supporting: list[str], group_sets: list[set[str]], cap: int
@@ -175,6 +177,8 @@ def schedule_threads(land: S.Landscape | S.LegacyLandscape, budgets: Budgets) ->
         for item in getattr(land, name):
             chosen, omitted = _ordered(item.supporting_papers, [], cap)
             append(kind, [item.item_id], item.statement, chosen, [], omitted)
+            threads[-1].limitation_sources = [s for s in item.limitation_sources
+                                               if s.paper_id in chosen]
     for u in land.underexplored_regimes:
         chosen, omitted = _ordered(groups[u.concept_id].paper_ids, [], cap)
         statement = (f"Within the selected landscape corpus, {u.label} has "
@@ -279,6 +283,14 @@ Rules (violations make your answer unusable):
    comparability_notes and prefer outcome "comparability_issue" over a causal story.
 7. Returning zero findings with outcome "insufficient_evidence" is a valid, good answer.
 8. Non-selection is not agreement: a paper with no relevant record says nothing.
+9. Evidence origin and landscape limitation_sources preserve extraction attribution.
+   author_stated is the extractor's classification, not verified author testimony.
+   model_inferred is an interpretation, never an explicit author admission. An
+   untested setting inferred from reported experiments is not an author-stated gap.
+   Preserve distinctions per paper, including mixed-origin aggregates. Qualify
+   any inference and scope it to available evidence. Missing attribution is unknown.
+   limitation_sources are context, not additional citable evidence IDs; cite only
+   supplied evidence records, and leave page-level support to the review.
 Output ONLY one JSON object matching the schema in the user message."""
 
 REVIEW_SYSTEM = """You are auditing candidate conclusions against the ORIGINAL paper pages.
@@ -288,6 +300,10 @@ For EVERY candidate return exactly one decision:
   insufficient  the supplied pages do not contain enough to judge
 You may cite page_ids you were given (only those). Do not rewrite candidates; if a narrower statement
 would be supportable, say so in notes and still decide on the candidate as written.
+Extraction origin labels are not proof: model_inferred statements are interpretations,
+not explicit author admissions. Even author_stated labels must be verified against
+these pages. Reject claimed author attribution the original pages do not establish;
+an inference may be acceptable only if clearly presented as such and supported.
 Output ONLY one JSON object: {"decisions": [{"candidate_id", "decision", "notes", "page_ids"}]}."""
 
 
@@ -300,6 +316,7 @@ def draft_messages(thread: Thread, bnd: S.EvidenceBundle, titles: dict[str, str]
         "task": "draft", "thread_id": thread.thread_id, "kind": thread.kind,
         "statement": thread.statement,
         "sides": thread.sides,
+        "limitation_sources": [s.model_dump() for s in thread.limitation_sources],
         "thread_papers": [{"paper_id": p, "title": titles.get(p, "")} for p in thread.papers],
         "evidence": [i.model_dump(exclude={"value_path", "provenance_path", "source_locations"})
                      for i in bnd.items],
@@ -558,6 +575,7 @@ class CrossPaperReasoner:
         it = bnd_by_id[eid]
         return S.Evidence(
             evidence_id=eid, paper_id=it.paper_id, value_path=it.value_path,
+            origin=limitation_origin(it.value_path),
             provenance_path=it.provenance_path, source_locations=it.source_locations,
             source_value=it.source_value, summary=f"{it.label} — {it.source_value}",
             stance=stance, artifact_sha256=loaded[it.paper_id].sha256 or "")
@@ -623,7 +641,7 @@ class CrossPaperReasoner:
                 "conditions": [{"text": cnd.text, "evidence_ids": cnd.evidence_ids,
                                 "hypothesis": not cnd.evidence_ids} for cnd in df.conditions],
                 "evidence": [{"evidence_id": e.evidence_id, "paper_id": e.paper_id,
-                              "stance": e.stance, "summary": e.summary} for e in evs],
+                              "stance": e.stance, "summary": e.summary, "origin": e.origin} for e in evs],
             }
             out.append(_Candidate(c, kind, t, payload, evs, self._pages_of(evs), comparability))
 
@@ -665,7 +683,7 @@ class CrossPaperReasoner:
                 "statement": dt.statement,
                 "sides": [{"assertion": s.assertion,
                            "evidence": [{"evidence_id": e.evidence_id, "paper_id": e.paper_id,
-                                         "summary": e.summary} for e in ev]}
+                                         "summary": e.summary, "origin": e.origin} for e in ev]}
                           for s, ev in zip(dt.sides, sides_ev)],
                 "candidate_explanations": [{"text": x.text, "evidence_ids": x.evidence_ids,
                                             "hypothesis": not x.evidence_ids}

@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from indexing.embeddings import DEFAULT_MODELS, embed_texts
 from landscape.normalize import UnionFind
-from landscape.schemas import AggregatedItem
+from landscape.schemas import AggregatedItem, LimitationSource
 from llm_client import AsyncLLMClient
 from landscape.paper_context import PaperCard
 
@@ -39,6 +39,7 @@ class RawStatement(BaseModel):
     text: str
     kind: str          # "finding" | "limitation" | "assumption"
     paper_id: str
+    source: LimitationSource | None = None
 
 
 class AggregationError(ValueError):
@@ -55,7 +56,11 @@ different papers about the same underlying observation. Write ONE merged
 statement that captures what they collectively say, in neutral language that
 does not overclaim beyond what every statement supports. Return only a JSON
 object {"statement": "..."}. Do not mention paper identifiers or add claims
-not present in the inputs.
+not present in the inputs. Limitation entries carry their extraction origin:
+author_stated means the extractor classified it as stated by the authors;
+model_inferred means the extractor inferred it. Neither label is page verification.
+Keep inferences qualified; never turn missing evaluation into an explicit author
+admission. Mixed-origin inputs do not make every paper an author-stated source.
 """
 
 
@@ -64,8 +69,21 @@ def _collect_statements(cards: dict[str, PaperCard]) -> list[RawStatement]:
     for paper_id, card in cards.items():
         for text in card.findings + card.interesting_findings:
             out.append(RawStatement(text=text, kind="finding", paper_id=paper_id))
-        for text in card.limitations + card.inferred_limitations:
-            out.append(RawStatement(text=text, kind="limitation", paper_id=paper_id))
+        # Keep source array indices from projection; filtered strings cannot
+        # reconstruct them. Legacy PaperCards retain category but no fake path.
+        sources = card.limitation_sources
+        if sources:
+            for source in sources:
+                if source.paper_id != paper_id:
+                    raise ValueError("PaperCard limitation source belongs to another paper")
+                out.append(RawStatement(text=source.statement, kind="limitation",
+                                        paper_id=paper_id, source=source))
+        else:
+            for texts, origin in ((card.limitations, "author_stated"),
+                                  (card.inferred_limitations, "model_inferred")):
+                for text in texts:
+                    out.append(RawStatement(text=text, kind="limitation", paper_id=paper_id,
+                        source=LimitationSource(paper_id=paper_id, origin=origin, statement=text)))
         for text in card.assumptions:
             out.append(RawStatement(text=text, kind="assumption", paper_id=paper_id))
     return out
@@ -93,7 +111,9 @@ async def _summarize_cluster(cluster: list[RawStatement], *,
                              client: AsyncLLMClient, model: str | None) -> str:
     if len(cluster) == 1:
         return cluster[0].text
-    numbered = "\n".join(f"- {s.text}" for s in cluster)
+    numbered = "\n".join(
+        f"- [{s.source.origin if s.source else 'extracted_statement'}] {s.text}"
+        for s in cluster)
     raw = await client.chat(
         numbered,
         system=SYSTEM_PROMPT,
@@ -154,7 +174,8 @@ async def aggregate_findings(cards: dict[str, PaperCard], *,
         for cluster, statement in zip(clusters, summaries):
             item = AggregatedItem(
                 statement=statement,
-                supporting_papers=sorted({s.paper_id for s in cluster}))
+                supporting_papers=sorted({s.paper_id for s in cluster}),
+                limitation_sources=[s.source for s in cluster if s.source is not None])
             kind = cluster[0].kind
             if kind == "finding":
                 findings.append(item)

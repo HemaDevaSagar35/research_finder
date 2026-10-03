@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
 
 from ingestion.s3store import ArtifactStore
+from landscape.schemas import LimitationSource
 
 # ingestion.s3store reads S3_ARTIFACTS_URL from the environment but never
 # loads .env itself (it's meant to be used from a process that already has);
@@ -65,6 +66,7 @@ class PaperCard(BaseModel):
 
     limitations: list[str]
     inferred_limitations: list[str]
+    limitation_sources: list[LimitationSource] = Field(default_factory=list)
     assumptions: list[str]
     future_work: list[str]
 
@@ -122,6 +124,15 @@ def _project(paper_id: str, analysis: dict) -> tuple[PaperCard, list[str]]:
     author_limits = [l.get("limitation", "") for l in limitations.get("author_stated", []) if l.get("limitation")]
     inferred_limits = [l.get("limitation", "") for l in limitations.get("inferred", []) if l.get("limitation")]
 
+    limitation_sources = [
+        LimitationSource(paper_id=paper_id, origin=origin,
+                         value_path=f"/limitations/{section}/{i}",
+                         statement=record["limitation"],
+                         source_locations=record.get("source_locations") or [])
+        for section, origin in (("author_stated", "author_stated"), ("inferred", "model_inferred"))
+        for i, record in enumerate(limitations.get(section, [])) if record.get("limitation")
+    ]
+
     assumptions = list(problem_section.get("why_difficult", []) or [])
 
     future = [f.get("direction", "") for f in future_work.get("author_proposed", []) if f.get("direction")]
@@ -153,6 +164,7 @@ def _project(paper_id: str, analysis: dict) -> tuple[PaperCard, list[str]]:
         interesting_findings=interesting,
         limitations=author_limits,
         inferred_limitations=inferred_limits,
+        limitation_sources=limitation_sources,
         assumptions=assumptions,
         future_work=future,
         claims=claims,

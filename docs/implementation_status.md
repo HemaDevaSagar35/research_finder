@@ -172,3 +172,8 @@ review-source hashes, references, and paper-selection bounds. Real-corpus model
 quality is not established by this test.
 
 Live integration evidence: [three-paper smoke test](live_landscape_reasoning_smoke.md).
+
+Limitation origin is now preserved from extraction through aggregation, drafts,
+page review, and output evidence. [Attribution validation](limitation_attribution_validation.md)
+records 97 passing tests plus 13 subtests and a real-provider rerun of the
+three-paper inferred-limitation cluster.

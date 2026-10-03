@@ -6,6 +6,7 @@ remain the public shape; IDs and attributable evidence support downstream use.
 
 import hashlib
 import json
+import re
 from typing import Literal
 
 from extraction.research_extract import SourceLocation
@@ -90,12 +91,39 @@ class Relationship(Strict):
         return (self.source, self.relation, self.target)
 
 
+LimitationOrigin = Literal["author_stated", "model_inferred"]
+
+
+def limitation_origin(value_path: str | None) -> LimitationOrigin | None:
+    """Extraction category, not a claim that the original page verified it."""
+    if value_path and re.fullmatch(r"/limitations/author_stated/[0-9]+", value_path):
+        return "author_stated"
+    if value_path and re.fullmatch(r"/limitations/inferred/[0-9]+", value_path):
+        return "model_inferred"
+    return None
+
+
+class LimitationSource(Strict):
+    paper_id: str = Field(min_length=1)
+    origin: LimitationOrigin
+    value_path: str | None = None
+    statement: str = Field(min_length=1)
+    source_locations: list[SourceLocation] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def check_origin(self):
+        if self.value_path is not None and limitation_origin(self.value_path) != self.origin:
+            raise ValueError("limitation origin must agree with its paper.json path")
+        return self
+
+
 class AggregatedItem(Strict):
     """One merged free-text statement (architecture doc's aggregated_findings /
     recurring_limitations / common_assumptions) -- for observations that are
     not shaped as a relation triple between two concepts."""
     item_id: str = ""
     statement: str = Field(min_length=1)
+    limitation_sources: list[LimitationSource] = Field(default_factory=list)
     supporting_papers: list[str] = Field(min_length=1)
 
 
@@ -162,6 +190,8 @@ class Landscape(Strict):
         for name in ("aggregated_findings", "recurring_limitations", "common_assumptions"):
             for item in getattr(self, name):
                 papers(item.supporting_papers)
+                if any(src.paper_id not in item.supporting_papers for src in item.limitation_sources):
+                    raise ValueError("limitation source paper is not a supporting paper")
                 item_id(item, name, item.statement, sorted(item.supporting_papers))
         relationships = {}
         for r in self.relationships:
