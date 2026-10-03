@@ -22,3 +22,5 @@ Files:
 - `offline_ingestion_design.md` — concrete decisions and status for the
   offline/ingestion stage (paper_id scheme, paper.json flattening, index
   layout, portability)
+- `opportunity_miner.md` — implemented section 6 contract, concurrent proposal
+  and original-page review, usage, and live validation limits

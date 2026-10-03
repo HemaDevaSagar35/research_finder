@@ -4,8 +4,7 @@ Living document: what exists, what's in progress, what's next. The *why*
 behind decisions lives in `offline_ingestion_design.md`; this page is the
 *what*. Update this file whenever a component is added or materially changed.
 
-Last updated: 2026-09-29 (multi-query retrieval and the Cross-Paper Reasoner
-completed; older offline status below has not been revalidated against the
+Last updated: 2026-10-03 (Opportunity Miner implemented and smoke-tested; older offline status below has not been revalidated against the
 running backfill or deployed services).
 
 ## Implemented
@@ -63,6 +62,21 @@ Design, contracts, and deferrals: `docs/cross_paper_reasoner.md`. `llm_client` g
 `ChatResult` / `chat_result()` so concurrent callers see their own
 `finish_reason`.
 
+### Opportunity mining (`opportunities/`) — section 6 implemented
+
+`OpportunityMiner.run(landscape, reasoning)` proposes unresolved questions from
+accepted findings, observations, and tensions, and reviews the original pages
+before promotion. Exact landscape/reasoning lineage, extraction paths and hashes,
+page hashes, limitation origins, and single-/multiple-paper support are retained.
+Independent batches and reviews overlap under one concurrency and attempt budget.
+
+[Contract, CLI, and validation](opportunity_miner.md): 126 tests plus 13 subtests
+pass across the repository (29 tests cover this component). A bounded live run
+proposed three questions from one reviewed finding and accepted all three after
+page review, using five calls. One accepted scope retained a hardware-description
+imprecision identified in review notes; automated acceptance is not a guarantee
+of scientific correctness. Full-corpus novelty remains unassessed.
+
 ## Architecture decisions in force
 (rationale in `offline_ingestion_design.md`)
 - Extraction and indexing are **separate stages**; S3 is the contract between
@@ -103,8 +117,10 @@ shared backend clients; configure backend network timeouts and request admission
 control when wiring the API. This generation service is distinct from the deferred
 user-upload/ingestion service below.
 
-The query planner and multi-query retrieval are implemented; evidence loading,
-reranking, and the remaining online reasoning pipeline are not yet implemented. Continue building the
+Query planning, multi-query retrieval, landscape construction, cross-paper
+reasoning, and opportunity mining are implemented as modules. Reasoning has a
+local/S3 artifact reader; unified service wiring, reranking, and downstream
+generation remain incomplete. Continue validating the
 **query-to-evidence foundation**, described in
 [architecture §2](research_path_generator_architecture_refined.md#2-query-to-evidence-foundation)
 and [component contracts §2](research_path_generator_components_refined.md#2-initial-retriever).
@@ -131,8 +147,9 @@ and [component contracts §2](research_path_generator_components_refined.md#2-in
    preserves relevance, explicit constraints, and coverage across approaches.
 4. Validate that a query returns an inspectable paper selection with matching
    records and resolvable evidence before adding hypothesis generation.
-5. Build landscape construction, cross-paper reasoning, opportunity mining,
-   and direction/hypothesis/experiment generation on those contracts.
+5. Landscape construction, cross-paper reasoning, and opportunity mining are
+   implemented. Integrate these into the service and build
+   direction/hypothesis/experiment generation on their contracts.
 6. Add full-corpus novelty retrieval, candidate-vs-prior-work comparison,
    refinement, critique, ranking, and the final portfolio.
 
@@ -142,8 +159,8 @@ Integration gaps observed in the current code:
   on failure. Retrieval adapters normalize both backends to the same paper
   contract, with common type and exact-year filtering. Broader backend-specific
   filters are not exposed by this contract.
-- S3 artifact helpers exist, but a common online local/S3 paper-and-evidence
-  reader is still needed.
+- `reasoning.evidence.PaperStore` provides local/S3 artifact access. Shared
+  online service wiring and request-scoped usage accounting remain needed.
 
 These are planned logical modules, not separate services or agents. Novelty
 assessments remain relative to the available 2026 corpus.

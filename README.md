@@ -32,6 +32,15 @@ Tools for finding and downloading research papers.
       --root /tmp/demo --chat fake --no-s3 --out /tmp/out.json  # offline smoke run
   uv run pytest tests/reasoning
   ```
+- `opportunities/` — Opportunity Miner (architecture §6): proposes scoped
+  unresolved questions from reviewed reasoning, then checks original pages
+  before promotion. See [contract and validation](docs/opportunity_miner.md).
+
+  ```bash
+  uv run python -m opportunities.miner --landscape landscape.json \
+      --reasoning reasoning.json --root /srv/research_finder/markdown \
+      --out opportunities.json
+  ```
 - `llm_client/` — unified client for OpenAI, Gemini, and DeepSeek chat APIs.
   Set `OPENAI_API_KEY` / `GEMINI_API_KEY` / `DEEPSEEK_API_KEY`, then:
 
