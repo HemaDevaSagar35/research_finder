@@ -4,8 +4,9 @@ Living document: what exists, what's in progress, what's next. The *why*
 behind decisions lives in `offline_ingestion_design.md`; this page is the
 *what*. Update this file whenever a component is added or materially changed.
 
-Last updated: 2026-09-29 (multi-query retrieval completed; older offline status below
-has not been revalidated against the running backfill or deployed services).
+Last updated: 2026-09-29 (multi-query retrieval and the Cross-Paper Reasoner
+completed; older offline status below has not been revalidated against the
+running backfill or deployed services).
 
 ## Implemented
 
@@ -46,6 +47,21 @@ MLSys/COLM listed. `tools/upload_s3.py` bulk-uploads PDFs to S3.
 | `build_index.py` | records → embeddings (record_id-keyed cache) + local FAISS/BM25/SQLite | `uv run python -m indexing.build_index` |
 | `search.py` | Local hybrid search CLI (RRF) | `uv run python -m indexing.search "query"` |
 | `opensearch_index.py` | AWS OpenSearch backend: index creation (embedding model pinned in mapping), bulk load from local artifacts, per-paper upsert, hybrid BM25+kNN search with client-side RRF | `uv run python -m indexing.opensearch_index --create --load-local` |
+
+### Reasoning (`reasoning/`) — Cross-Paper Reasoner implemented and tested offline (fake model + synthetic corpus); not yet run live
+| Component | What it does | Run |
+|---|---|---|
+| `schemas.py` | Landscape input contract (`landscape_v1`), draft/review contracts, `CrossPaperReasoning` output; `validate_landscape()` referential checks | `uv run python -m reasoning.schemas --check` / `--landscape L.json` |
+| `evidence.py` | `PaperStore` (local-first, lazy S3, hashes), `paper_card` projection, evidence `candidates` with JSON Pointer paths + inherited provenance, budgeted `bundle` | library |
+| `budget.py` | attempt counter (reserve before request) and token estimates | library |
+| `retrieval.py` | optional ranking hints over `indexing.search` (guards empty paper set, lazy import) | library |
+| `cross_paper.py` | threads → draft → structural resolution → page-based support review → accepted findings / observations / tensions + typed diagnostics, coverage, usage | `uv run python -m reasoning.cross_paper --landscape L.json --out out.json [--chat fake]` |
+| `fixtures.py`, `fake.py` | 4-paper synthetic corpus + landscape; cooperative fake model for tests / smoke runs | `uv run python -m reasoning.fixtures --out DIR` |
+| `tests/reasoning/` | 53 offline tests pinning the failure-mode table in `docs/cross_paper_reasoner.md` | `uv run pytest tests/reasoning` |
+
+Design, contracts, and deferrals: `docs/cross_paper_reasoner.md`. `llm_client` gained an additive
+`ChatResult` / `chat_result()` so concurrent callers see their own
+`finish_reason`.
 
 ## Architecture decisions in force
 (rationale in `offline_ingestion_design.md`)
@@ -140,3 +156,9 @@ assessments remain relative to the available 2026 corpus.
   quality shows narrative-context gaps.
 - Online stage (research-direction generation) — planned above; detailed
   responsibilities remain in the architecture and component design docs.
+  The Cross-Paper Reasoner (component 8) exists; its **first live run** waits on
+  (a) a Landscape Builder output that validates against `landscape_v1`
+  (needs `paper_ids` inventory, `item_id`/`group_id`, `group_ids` on items),
+  (b) `REASON_*` keys, (c) `paper.json` + pages in `S3_ARTIFACTS_URL`.
+  Deferred inside the reasoner: narrowing redraft after review rejection,
+  per-thread cache, heading-based page inference for `page=None` locations.

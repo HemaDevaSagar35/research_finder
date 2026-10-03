@@ -19,3 +19,12 @@ dependencies = [
     "boto3>=1.43.98",
     "opensearch-py>=2.6",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

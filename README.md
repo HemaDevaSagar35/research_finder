@@ -21,6 +21,17 @@ Tools for finding and downloading research papers.
   uv run python -m indexing.build_index
   uv run python -m indexing.search "efficient MoE inference"
   ```
+- `reasoning/` — query-time Cross-Paper Reasoner: takes a Research Landscape
+  plus the `paper.json` / page artifacts behind it and emits evidence-grounded,
+  page-reviewed cross-paper findings, observations and tensions (plus typed
+  diagnostics). See `docs/cross_paper_reasoner.md`:
+
+  ```bash
+  uv run python -m reasoning.fixtures --out /tmp/demo          # synthetic corpus
+  uv run python -m reasoning.cross_paper --landscape /tmp/demo/landscape.json \
+      --root /tmp/demo --chat fake --no-s3 --out /tmp/out.json  # offline smoke run
+  uv run pytest tests/reasoning
+  ```
 - `llm_client/` — unified client for OpenAI, Gemini, and DeepSeek chat APIs.
   Set `OPENAI_API_KEY` / `GEMINI_API_KEY` / `DEEPSEEK_API_KEY`, then:
 
