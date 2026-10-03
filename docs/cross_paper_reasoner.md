@@ -228,3 +228,24 @@ source pointers through aggregation. Mixed sources remain distinct. Drafts
 must not present inferred missing evaluations as explicit author admissions,
 and reviewers must check both the claim and its attribution against the pages.
 See [attribution design](landscape_reasoning_integration.md#limitation-attribution).
+
+
+## 2026-10-03 implementation update — supersedes the allowances above
+
+In `reasoning/cross_paper.py`, `Budgets` now reads four input/output allowances
+from `REASON_MAX_DRAFT_INPUT_TOKENS`, `REASON_MAX_DRAFT_OUTPUT_TOKENS`,
+`REASON_MAX_REVIEW_INPUT_TOKENS`, and `REASON_MAX_REVIEW_OUTPUT_TOKENS`, each with
+a 500000-token fallback. This supersedes the 3000-token review-output fallback
+in the earlier section. Explicit CLI/library values still take precedence.
+
+`REASON_MAX_BUNDLE_CHARS` now configures the aggregate bundle cap, with a
+2000000-character fallback instead of 12000. Characters are not an exact token
+measure; the complete prompt token check still applies. Per-record, paper,
+page and call selection controls remain separate. The reasoner's algorithm and
+schemas did not change in this update.
+
+`llm_client/client.py` now caps the outgoing output allowance using the optional
+provider-specific `*_OUTPUT_TOKEN_LIMIT`. The active DeepSeek configuration uses
+393216 while the application allowance is 500000. Historical validation reports
+retain their original settings. See [module implementation changes](implementation_updates.md)
+for before/after values, precedence and validation coverage.

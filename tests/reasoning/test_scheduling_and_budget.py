@@ -107,4 +107,4 @@ def test_review_environment_budget_reaches_model(corpus, monkeypatch):
     assert reviews and all(c["max_tokens"] == 128000 for c in reviews)
     assert Budgets(max_review_output_tokens=12000).max_review_output_tokens == 12000
     monkeypatch.delenv("REASON_MAX_REVIEW_OUTPUT_TOKENS")
-    assert Budgets().max_review_output_tokens == 3000
+    assert Budgets().max_review_output_tokens == 500000

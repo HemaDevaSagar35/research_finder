@@ -375,3 +375,20 @@ def test_context_without_any_support_is_insufficient(inputs):
     assert not out.opportunities
     assert out.diagnostics[0].reason == 'insufficient'
     assert out.calls.get('repair', 0) == 0
+
+
+def test_default_proposal_contains_all_sources_even_beyond_old_batch_size(inputs):
+    original=inputs[2].findings[0]
+    inputs[2].findings=[original.model_copy(update={'finding_id':f'finding-{i}'},deep=True)
+                        for i in range(25)]
+    captured=[]
+    def inspect(response,payload):
+        captured.append(payload)
+        response['candidates']=[]
+    out=run(inputs,Chat(change_proposal=inspect),max_batches=1)
+    assert len(captured)==1
+    assert {s['source_id'] for s in captured[0]['sources']}=={f'finding:finding-{i}' for i in range(25)}
+    assert out.coverage['reviewed_sources']==25
+    assert out.coverage['batches']==1
+    assert out.calls['proposal']==1
+    assert not out.diagnostics

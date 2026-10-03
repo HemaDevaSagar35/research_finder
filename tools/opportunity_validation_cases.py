@@ -65,8 +65,8 @@ CASES = {
 }
 
 
-def fixture(root: Path, category: str):
-    case=CASES[category]
+def fixture(root: Path, category: str, *, case=None):
+    case=CASES[category] if case is None else case
     ids=[category+'-a',category+'-b']
     for pid,page in zip(ids,case['pages']):
         folder=root/pid

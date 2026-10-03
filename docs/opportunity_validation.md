@@ -194,3 +194,23 @@ The earlier three-opportunity smoke run is retained separately in
 The baseline failures above are preserved. [Review and paper-role fixes](opportunity_review_fixes.md)
 now document v2 correction vetoes, reviewed support/context roles, 149 passing
 offline tests plus 13 subtests, and 32 focused live calls validating the fixes.
+
+
+## 2026-10-03 clarification — supersedes the appendix follow-up above
+
+The earlier report is preserved. Its suggestion to follow appendix references
+is not a requirement of the current pipeline: ingestion does not extract
+appendices. Missing extracted material must not be treated as proof that an
+evaluation was never performed. Withhold that absence claim if the available
+pages contradict it or cannot establish it. A page-availability gap alone does
+not establish a scientific research gap.
+
+The miner now supplies all reviewed sources together by default, superseding
+the explicitly batched configuration used in the historical run above.
+Semantic deduplication is still not guaranteed.
+
+[Boundary validation](opportunity_boundary_validation.md) records 12/12 passing
+synthetic reviews, three real miner runs accepting 12 of 15 candidates, and
+passing saved evidence/role audits across 34 live calls. The offline suite now
+passes 159 tests plus 13 subtests. See [implementation changes](implementation_updates.md)
+for the module-by-module account of what changed and why.

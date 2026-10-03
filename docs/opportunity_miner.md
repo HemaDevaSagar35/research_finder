@@ -199,3 +199,30 @@ multiple-paper labels or automated acceptance as scientific validation.
 
 The two exposed failures are addressed by [review and support-role fixes](opportunity_review_fixes.md),
 which records focused live rechecks without rewriting the historical runs.
+
+
+## 2026-10-03 implementation update — supersedes batching and allowance defaults above
+
+The earlier sections are retained as the implementation record at that time.
+In `opportunities/miner.py`, `Settings.batch_size` changed from 12 to 0:
+`OpportunityMiner.run()` now supplies all reviewed findings, observations and
+tensions to one proposal call by default. A positive `--batch-size` explicitly
+restores partitioning; separate candidate reviews still run concurrently.
+An oversized complete prompt produces an `input_budget` diagnostic without
+silently splitting or dropping sources.
+
+The input, proposal-output and review-output defaults changed to 500000 tokens.
+Input is now configurable with `OPPORTUNITY_MAX_INPUT_TOKENS`; the existing
+output variables retain their roles. Explicit settings override environment
+values. The active DeepSeek requests are capped at the configured 393216-token
+output limit by `llm_client/client.py`; smaller explicit limits stay smaller.
+Input and output must also fit the provider's context window. Five candidates,
+20 review pages, 40 calls and the existing evidence/review contract remain the
+separate selection and execution controls.
+
+The earlier 149-test result and smoke-run counts above are historical. Current
+validation passes 159 tests plus 13 subtests; 34 live calls covered paired
+boundary controls and three real-paper miner runs, with all evidence audits
+passing. See [module implementation changes](implementation_updates.md) for the
+approach, affected functions, configuration and tests, and
+[boundary validation](opportunity_boundary_validation.md) for observed outcomes.

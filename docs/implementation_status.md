@@ -87,6 +87,15 @@ quality findings are addressed by [review and paper-role fixes](opportunity_revi
 supporting papers. Validation now totals 149 tests plus 13 subtests, with 32
 focused live calls. Error detection still depends on model judgment.
 
+Opportunity proposals now receive all reviewed sources together by default
+(`batch_size=0`); positive batch sizes explicitly opt into partitioning. Active
+generation input/output allowances are 500000 tokens. The shared DeepSeek client
+caps actual output requests at the configured API maximum of 393216. Reasoner
+bundle allowance is 2000000 characters with a complete-prompt token guard.
+157 tests plus 13 subtests pass, including complete-context delivery and token
+configuration/output-cap regressions. These changes were checked offline;
+new live generation-quality checks remain to be run.
+
 ## Architecture decisions in force
 (rationale in `offline_ingestion_design.md`)
 - Extraction and indexing are **separate stages**; S3 is the contract between
@@ -204,3 +213,24 @@ Limitation origin is now preserved from extraction through aggregation, drafts,
 page review, and output evidence. [Attribution validation](limitation_attribution_validation.md)
 records 97 passing tests plus 13 subtests and a real-provider rerun of the
 three-paper inferred-limitation cluster.
+
+### Opportunity Miner full-context validation
+
+[Boundary validation](opportunity_boundary_validation.md) passed 12 synthetic
+reviews and three real miner runs using saved reviewed upstream artifacts.
+Each real run supplied all its reviewed sources in one proposal context, with
+concurrent original-page reviews; 12 of 15 real candidates were accepted and
+three withheld. All 18 accepted outputs across controls and real runs passed
+evidence and paper-role audits (63 evidence references, 70 page references).
+34 live calls completed without truncations or provider errors. The offline
+suite passes 159 tests plus 13 subtests. These checks validate evidence
+boundaries and the v2 handoff, not scientific value or literature-wide novelty.
+
+### 2026-10-03 implementation history
+
+The module-level approach and before/after behavior for the above full-context,
+token-allowance and validation changes are recorded in
+[Implementation updates](implementation_updates.md). Existing module documents
+retain their previous descriptions and append dated sections identifying which
+statements are superseded. Validation counts above reflect successive runs;
+the latest completed suite is 159 tests plus 13 subtests.

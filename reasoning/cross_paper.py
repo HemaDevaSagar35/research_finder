@@ -70,13 +70,13 @@ class Budgets:
     max_calls: int = 300
     max_threads: int = 100
     max_papers_per_thread: int = 12
-    max_bundle_chars: int = 12_000
-    max_draft_input_tokens: int = 24_000
-    max_draft_output_tokens: int = 6_000
+    max_bundle_chars: int = field(default_factory=lambda: int(os.getenv("REASON_MAX_BUNDLE_CHARS", "2000000")))
+    max_draft_input_tokens: int = field(default_factory=lambda: int(os.getenv("REASON_MAX_DRAFT_INPUT_TOKENS", "500000")))
+    max_draft_output_tokens: int = field(default_factory=lambda: int(os.getenv("REASON_MAX_DRAFT_OUTPUT_TOKENS", "500000")))
     max_review_pages: int = 16
-    max_review_input_tokens: int = 40_000
+    max_review_input_tokens: int = field(default_factory=lambda: int(os.getenv("REASON_MAX_REVIEW_INPUT_TOKENS", "500000")))
     max_review_output_tokens: int = field(default_factory=lambda: int(
-        os.environ.get("REASON_MAX_REVIEW_OUTPUT_TOKENS", "3000")))
+        os.environ.get("REASON_MAX_REVIEW_OUTPUT_TOKENS", "500000")))
     repair_rounds: int = 1
 
     def as_dict(self) -> dict[str, int]:
