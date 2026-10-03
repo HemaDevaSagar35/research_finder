@@ -18,6 +18,7 @@ This is a separate step from landscape.extraction's relation triples; a
 statement can end up aggregated here even if it never produced a triple.
 """
 
+import asyncio
 import os
 
 import numpy as np
@@ -131,8 +132,9 @@ async def aggregate_findings(cards: dict[str, PaperCard], *,
     # DEFAULT_MODELS, not the global EMBED_MODEL -- see landscape/normalize.py
     # for why this provider must stay independent of the corpus embedding config.
     embed_model = os.environ.get("LANDSCAPE_AGGREGATION_EMBED_MODEL") or DEFAULT_MODELS[embed_provider]
-    vectors = embed_texts([s.text for s in statements], embed_provider, embed_model, None)
-    clusters = _cluster(statements, vectors, threshold)
+    vectors = await asyncio.to_thread(
+        embed_texts, [s.text for s in statements], embed_provider, embed_model, None)
+    clusters = await asyncio.to_thread(_cluster, statements, vectors, threshold)
 
     if client is not None and provider is not None:
         raise ValueError("Pass provider or client, not both")
@@ -141,8 +143,15 @@ async def aggregate_findings(cards: dict[str, PaperCard], *,
         client = AsyncLLMClient(provider or os.environ.get("LANDSCAPE_AGGREGATION_PROVIDER"))
     try:
         findings, limitations, assumptions = [], [], []
-        for cluster in clusters:
-            statement = await _summarize_cluster(cluster, client=client, model=model)
+        # The client's semaphore bounds concurrent provider calls. Drain all
+        # summaries before closing an owned client, even when one fails.
+        summaries = await asyncio.gather(
+            *(_summarize_cluster(c, client=client, model=model) for c in clusters),
+            return_exceptions=True)
+        for result in summaries:
+            if isinstance(result, BaseException):
+                raise result
+        for cluster, statement in zip(clusters, summaries):
             item = AggregatedItem(
                 statement=statement,
                 supporting_papers=sorted({s.paper_id for s in cluster}))

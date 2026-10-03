@@ -47,3 +47,18 @@ def resolve_evidence(quote: str, matched_records: list[dict]) -> tuple[list[str]
                     source_locations.append(location)
 
     return record_ids, source_locations
+
+
+def resolve_references(paper_id: str, quote: str, matched_records: list[dict]):
+    """Resolve each matching record separately so its pages retain attribution."""
+    from landscape.schemas import EvidenceReference
+
+    references = []
+    for record in matched_records:
+        ids, locations = resolve_evidence(quote, [record])
+        if ids:
+            ref = EvidenceReference(paper_id=paper_id, record_id=ids[0],
+                                    source_locations=locations)
+            if ref not in references:
+                references.append(ref)
+    return references

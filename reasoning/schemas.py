@@ -2,9 +2,9 @@
 
 Three groups of models:
 
-  Input      Landscape and its parts — what the Landscape Builder hands us.
-             validate_landscape() adds the referential checks pydantic alone
-             cannot express (ids exist, every paper is in the inventory).
+  Input      Landscape imported from landscape.schemas: the shared builder
+             contract. LegacyLandscape retains historical reasoner fixtures.
+             validate_landscape() checks both formats at the boundary.
   Internal   EvidenceBundle (code → model), ThreadReasoningDraft (model →
              code), SupportReviewRequest / SupportReviewResponse (code ↔
              model). The model only ever emits statements, kinds, stances,
@@ -29,10 +29,13 @@ import sys
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from extraction.research_extract import SourceLocation
+from landscape.schemas import Landscape
 
+# Historical reasoner-only contract, retained for existing fixtures/files.
+# New production inputs use landscape.schemas.Landscape.
 LANDSCAPE_SCHEMA_VERSION = "landscape_v1"
 OUTPUT_SCHEMA_VERSION = "cross_paper_v1"
 
@@ -42,7 +45,7 @@ class Strict(BaseModel):
 
 
 # --------------------------------------------------------------------------
-# Input: Landscape
+# Legacy input: historical reasoner-only landscape_v1
 # --------------------------------------------------------------------------
 
 ItemKind = Literal["aggregated_finding", "recurring_limitation",
@@ -88,7 +91,7 @@ class Relationship(Strict):
     supporting: list[PaperRef]
 
 
-class Landscape(Strict):
+class LegacyLandscape(Strict):
     schema_version: Literal["landscape_v1"]
     topic: str
     paper_ids: list[str]
@@ -107,7 +110,7 @@ class LandscapeValidationError(ValueError):
         self.errors = errors
 
 
-def landscape_errors(land: Landscape) -> list[str]:
+def landscape_errors(land: LegacyLandscape) -> list[str]:
     """Referential-integrity problems pydantic cannot see. Empty = valid."""
     errs: list[str] = []
     inventory = set(land.paper_ids)
@@ -159,15 +162,21 @@ def landscape_errors(land: Landscape) -> list[str]:
     return errs
 
 
-def validate_landscape(land: Landscape) -> Landscape:
+def validate_landscape(land: Landscape | LegacyLandscape) -> Landscape | LegacyLandscape:
+    if isinstance(land, Landscape):
+        # Revalidate nested references even if a caller mutated an existing model.
+        return Landscape.model_validate(land.model_dump())
     errs = landscape_errors(land)
     if errs:
         raise LandscapeValidationError(errs)
     return land
 
 
-def load_landscape(path: Path) -> Landscape:
-    return validate_landscape(Landscape.model_validate(json.loads(path.read_text())))
+def load_landscape(path: Path) -> Landscape | LegacyLandscape:
+    data = json.loads(path.read_text())
+    if data.get("schema_version") == LANDSCAPE_SCHEMA_VERSION:
+        return validate_landscape(LegacyLandscape.model_validate(data))
+    return Landscape.model_validate(data)
 
 
 # --------------------------------------------------------------------------
@@ -532,14 +541,19 @@ def main() -> None:
     if args.landscape:
         try:
             land = load_landscape(Path(args.landscape))
-        except LandscapeValidationError as e:
+        except (LandscapeValidationError, ValidationError, json.JSONDecodeError) as e:
             sys.exit(str(e))
+        count = (len(land.items) if isinstance(land, LegacyLandscape) else
+                 sum(len(getattr(land, name)) for name in
+                     ("aggregated_findings", "recurring_limitations",
+                      "common_assumptions", "underexplored_regimes")))
         print(f"OK: {len(land.paper_ids)} papers, {len(land.groups)} groups, "
-              f"{len(land.items)} items, {len(land.contradictions)} "
+              f"{count} items, {len(land.contradictions)} "
               f"contradictions, {len(land.relationships)} relationships")
     if args.check or not args.landscape:
         out = {name: m.model_json_schema() for name, m in [
-            ("Landscape", Landscape), ("EvidenceBundle", EvidenceBundle),
+            ("Landscape", Landscape), ("LegacyLandscape", LegacyLandscape),
+            ("EvidenceBundle", EvidenceBundle),
             ("ThreadReasoningDraft", ThreadReasoningDraft),
             ("SupportReviewRequest", SupportReviewRequest),
             ("SupportReviewResponse", SupportReviewResponse),

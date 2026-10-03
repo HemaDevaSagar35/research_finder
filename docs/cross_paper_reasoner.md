@@ -6,8 +6,10 @@ Builder (7) and the Opportunity Miner (9) and answers one question:
 
 > What do these papers collectively imply?
 
-Status: **implemented and tested offline** (synthetic corpus, fake model). Not yet
-run against a live provider or the real S3 corpus.
+Status: **implemented, tested offline, and smoke-tested with a live provider**
+on three local corpus papers. See [live results](live_landscape_reasoning_smoke.md)
+for review truncation, the focused follow-up, and manual quality limitations.
+The S3 path was not exercised by that run.
 
 Design principles carried into the code: the landscape tells the reasoner where
 to look, the papers decide what it may conclude; the model only ever emits
@@ -95,17 +97,20 @@ uv run pytest tests/reasoning                              # 53 tests, ~1 s, no 
 Exit code 2 = provider account error (401/402/403); partial output is still
 written with the remaining threads marked `failed`.
 
-## Contracts (source of truth: `reasoning/schemas.py`)
+## Contracts (shared input: `landscape/schemas.py`; reasoning: `reasoning/schemas.py`)
 
-**Landscape (input)** — `schema_version: "landscape_v1"`, `topic`, `paper_ids`
-(complete inventory), `groups[{group_id, facet, concept, aliases, paper_ids}]`,
-`items[{item_id, kind, statement, group_ids, supporting[PaperRef]}]`,
-`contradictions[{item_id, side_a, side_b}]` (sides are items),
-`relationships[{item_id, source_group_id, relation, target_group_id, supporting}]`.
-`PaperRef = {paper_id, source_locations[SourceLocation]}` reuses the extraction
-schema's `SourceLocation`. `validate_landscape()` rejects unknown ids, papers
-outside the inventory, empty `group_ids`. **No adapter reconstructs a missing
-inventory** — the Landscape Builder must emit it.
+**Landscape (input)** — the shared `landscape.schemas.Landscape`, emitted
+by the builder as `landscape_builder_v1`. It retains `groups` (concept IDs and
+labels), separate findings/limitations/assumptions, relationships, contradictions
+(`a`/`b`), and underexplored counts. Each scheduled object has an `item_id`;
+relationship evidence is attributed per paper and record. Statements without
+concept associations use only their explicit supporting papers.
+
+The historical reasoner-only `landscape_v1` is accepted as `LegacyLandscape`
+for existing fixtures. New integrations use the builder contract. The input
+inventory and all paper/concept/item references are validated before model calls.
+See [integration design](landscape_reasoning_integration.md) for provenance,
+compatibility, and the offline builder-to-reasoner test.
 
 **ThreadReasoningDraft (model → code)** — `outcome ∈ candidates |
 insufficient_evidence | comparability_issue`; findings cite `evidence_ids` with a
@@ -135,7 +140,7 @@ papers or any qualifying paper; `high` otherwise.
 | Per-thread cache (R3) | Deferred as agreed. |
 | `tiktoken` dependency | **Optional**, not added to `pyproject.toml`: used when importable, else chars/4. Which ran is in `run.token_counter`. Add it if exact estimates matter. |
 | Retrieval hints (`--index-dir`) | Implemented as an optional adapter; exercised only for guards (no index in tests). |
-| Live provider / real corpus run | Not done: no `.env` on this machine, and a read-only probe of `s3://research-finder-2026/artifacts/` returned AccessDenied for the local AWS identity, so the `paper.json` inventory is still unknown. |
+| Live provider / real corpus run | Small local-corpus smoke test completed; see [results](live_landscape_reasoning_smoke.md). S3 integration and broader quality evaluation remain unverified. |
 
 ## Tests (`tests/reasoning/`)
 
@@ -176,17 +181,40 @@ output round-trip.
 | Contradiction cap 1 / 3 / 12, disjoint or overlapping sides, excess supporting papers | Total ≤ cap; quotas sum to the cap; deterministic; both sides re-checked after loading; cap 1 → `insufficient_for_adjudication` |
 | One paper with both supporting and contradicting evidence | Paper stance `mixed` → confidence `low`; counts sum to the denominator |
 | Thread-level comparability notes | Every finding in the thread → confidence `low` |
-| Landscape missing inventory or `group_ids`, or referencing unknown ids | Rejected by validation before any call |
+| Landscape missing inventory or referencing unknown ids (legacy items also require `group_ids`) | Rejected by validation before any call |
 
 ## First real run (what to do next)
 
 1. Put `REASON_PROVIDER` / `REASON_MODEL` (reasoning model) and optionally
    `REASON_REVIEW_MODEL` in `.env`; set `S3_ARTIFACTS_URL` or sync `markdown/`.
 2. Obtain a Landscape from the Landscape Builder that validates with
-   `reasoning.schemas --landscape`. Until then, adapt `reasoning/fixtures.py`'s
-   `demo_landscape` to real `paper_id`s.
+   `reasoning.schemas --landscape`. Builder output now passes directly to the
+   reasoner; the fixture generator remains an offline legacy-format demo.
 3. Start small: `--max-threads 3 --max-calls 12`. Read every accepted item against
    its `review_sources` pages. Record citation-validity rate, review acceptance rate,
    tokens/calls per thread from `coverage` and `usage`.
 4. Only then consider a cheaper `REASON_REVIEW_MODEL` (needs a quality comparison,
    not just token accounting).
+
+### Shared local artifacts
+
+Given a saved builder output, validate and run it without writing shared data:
+
+```bash
+uv run python -m reasoning.schemas --landscape landscape.json
+uv run python -m reasoning.cross_paper --landscape landscape.json \
+  --root /srv/research_finder/markdown --no-s3 \
+  --max-threads 3 --max-calls 12 --out reasoning_out/topic.json
+```
+
+`--index-dir /srv/research_finder/index` optionally adds retrieval hints. This
+command uses real model calls; the offline integration test uses FakeChat.
+
+### Review output allowance
+
+Set `REASON_MAX_REVIEW_OUTPUT_TOKENS` in `.env` to configure the review response
+allowance (default 3,000 when unset). `--max-review-output-tokens` overrides it.
+This explicit reasoner budget takes precedence over provider-wide
+`DEEPSEEK_MAX_TOKENS`. It is an output allowance, not an input/context limit;
+the provider still enforces its model's supported maximum. Draft output and
+input/page budgets remain separate.

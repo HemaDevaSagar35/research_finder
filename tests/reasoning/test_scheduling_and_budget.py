@@ -93,3 +93,18 @@ def test_attempt_budget_is_atomic_under_concurrency():
 def test_estimate_tokens_positive_and_monotone():
     assert estimate_tokens("") >= 1
     assert estimate_tokens("a" * 4000) > estimate_tokens("a" * 400)
+
+
+def test_review_environment_budget_reaches_model(corpus, monkeypatch):
+    from reasoning.fake import FakeChat
+    from .conftest import make_reasoner, run
+
+    root, land, _ = corpus
+    monkeypatch.setenv("REASON_MAX_REVIEW_OUTPUT_TOKENS", "128000")
+    chat = FakeChat()
+    run(make_reasoner(root, chat), land)
+    reviews = [c for c in chat.calls if c["task"] == "review"]
+    assert reviews and all(c["max_tokens"] == 128000 for c in reviews)
+    assert Budgets(max_review_output_tokens=12000).max_review_output_tokens == 12000
+    monkeypatch.delenv("REASON_MAX_REVIEW_OUTPUT_TOKENS")
+    assert Budgets().max_review_output_tokens == 3000

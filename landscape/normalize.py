@@ -168,8 +168,9 @@ async def normalize_concepts(labels: list[RawLabel], *,
     # back to the global EMBED_MODEL would be wrong if it names a model for
     # a different provider than embed_provider here.
     embed_model = os.environ.get("LANDSCAPE_NORMALIZE_EMBED_MODEL") or DEFAULT_MODELS[embed_provider]
-    vectors = embed_texts([l.text for l in unique], embed_provider, embed_model, None)
-    pairs = _candidate_pairs(unique, vectors, threshold)
+    vectors = await asyncio.to_thread(
+        embed_texts, [l.text for l in unique], embed_provider, embed_model, None)
+    pairs = await asyncio.to_thread(_candidate_pairs, unique, vectors, threshold)
 
     if client is not None and provider is not None:
         raise ValueError("Pass provider or client, not both")

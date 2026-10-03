@@ -48,10 +48,10 @@ MLSys/COLM listed. `tools/upload_s3.py` bulk-uploads PDFs to S3.
 | `search.py` | Local hybrid search CLI (RRF) | `uv run python -m indexing.search "query"` |
 | `opensearch_index.py` | AWS OpenSearch backend: index creation (embedding model pinned in mapping), bulk load from local artifacts, per-paper upsert, hybrid BM25+kNN search with client-side RRF | `uv run python -m indexing.opensearch_index --create --load-local` |
 
-### Reasoning (`reasoning/`) — Cross-Paper Reasoner implemented and tested offline (fake model + synthetic corpus); not yet run live
+### Reasoning (`reasoning/`) — Cross-Paper Reasoner tested offline and smoke-tested live on three local papers
 | Component | What it does | Run |
 |---|---|---|
-| `schemas.py` | Landscape input contract (`landscape_v1`), draft/review contracts, `CrossPaperReasoning` output; `validate_landscape()` referential checks | `uv run python -m reasoning.schemas --check` / `--landscape L.json` |
+| `schemas.py` | Shared Landscape input (`landscape_builder_v1`; legacy `landscape_v1` supported), draft/review contracts, `CrossPaperReasoning` output; `validate_landscape()` referential checks | `uv run python -m reasoning.schemas --check` / `--landscape L.json` |
 | `evidence.py` | `PaperStore` (local-first, lazy S3, hashes), `paper_card` projection, evidence `candidates` with JSON Pointer paths + inherited provenance, budgeted `bundle` | library |
 | `budget.py` | attempt counter (reserve before request) and token estimates | library |
 | `retrieval.py` | optional ranking hints over `indexing.search` (guards empty paper set, lazy import) | library |
@@ -156,9 +156,19 @@ assessments remain relative to the available 2026 corpus.
   quality shows narrative-context gaps.
 - Online stage (research-direction generation) — planned above; detailed
   responsibilities remain in the architecture and component design docs.
-  The Cross-Paper Reasoner (component 8) exists; its **first live run** waits on
-  (a) a Landscape Builder output that validates against `landscape_v1`
-  (needs `paper_ids` inventory, `item_id`/`group_id`, `group_ids` on items),
-  (b) `REASON_*` keys, (c) `paper.json` + pages in `S3_ARTIFACTS_URL`.
+  The Cross-Paper Reasoner (component 8) has completed a small real-provider
+  local-corpus run. See [live results](live_landscape_reasoning_smoke.md) for
+  truncation, task-selection bias, and manual qualification of accepted output.
   Deferred inside the reasoner: narrowing redraft after review rejection,
   per-thread cache, heading-based page inference for `page=None` locations.
+
+### Landscape → reasoner integration
+
+The builder contract is shared directly with the reasoner. Deterministic item
+IDs and per-paper/per-record relationship evidence preserve downstream links.
+The builder algorithm and top-level collections are unchanged. An offline
+integration test covers builder orchestration, JSON round-trip, reasoning,
+review-source hashes, references, and paper-selection bounds. Real-corpus model
+quality is not established by this test.
+
+Live integration evidence: [three-paper smoke test](live_landscape_reasoning_smoke.md).

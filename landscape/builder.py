@@ -37,7 +37,7 @@ from pathlib import Path
 
 from indexing.search import REPO_ROOT
 from landscape.aggregation import aggregate_findings
-from landscape.evidence import resolve_evidence
+from landscape.evidence import resolve_evidence, resolve_references
 from landscape.extraction import RawExtraction, extract_from_papers
 from landscape.normalize import RawLabel, normalize_concepts
 from landscape.paper_context import PaperContext, load_paper_context
@@ -128,6 +128,37 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
     """The core orchestration, given already-loaded PaperContexts (so this
     is independently testable with synthetic contexts, without S3 or search)."""
     cards = {pid: ctx.card for pid, ctx in contexts.items()}
+    # Graph construction and statement aggregation share only immutable input.
+    # Await both results before returning or propagating an error so provider
+    # clients do not outlive this operation.
+    results = await asyncio.gather(
+        _build_graph(contexts, extraction_provider=extraction_provider,
+                     normalize_provider=normalize_provider),
+        aggregate_findings(cards, provider=aggregation_provider),
+        return_exceptions=True)
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+    groups, relationships, contradictions, underexplored = results[0]
+    aggregated_findings, recurring_limitations, common_assumptions = results[1]
+    return Landscape(
+        topic=topic,
+        paper_ids=sorted(contexts),
+        groups=groups,
+        aggregated_findings=aggregated_findings,
+        recurring_limitations=recurring_limitations,
+        common_assumptions=common_assumptions,
+        contradictions=contradictions,
+        underexplored_regimes=underexplored,
+        relationships=relationships,
+    )
+
+
+async def _build_graph(contexts: dict[str, PaperContext], *,
+                       extraction_provider: str | None,
+                       normalize_provider: str | None):
+    """Extract and normalize the graph while statement aggregation proceeds."""
+    cards = {pid: ctx.card for pid, ctx in contexts.items()}
 
     extractions = await extract_from_papers(cards, provider=extraction_provider)
     for paper_id, extraction in extractions.items():
@@ -196,8 +227,11 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
         for source, relation, target, evidence_quote in triples:
             key = (concept_ids[source], relation, concept_ids[target])
             entry = relation_accum.setdefault(key, {
-                "papers": set(), "record_ids": set(), "locations": [], "seen_locations": set()})
+                "papers": set(), "record_ids": set(), "locations": [], "seen_locations": set(), "evidence": []})
             entry["papers"].add(paper_id)
+            for ref in resolve_references(paper_id, evidence_quote, matched_records):
+                if ref not in entry["evidence"]:
+                    entry["evidence"].append(ref)
             record_ids, locations = resolve_evidence(evidence_quote, matched_records)
             entry["record_ids"].update(record_ids)
             for location in locations:
@@ -207,6 +241,7 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
                     entry["locations"].append(location)
     relationships = [
         Relationship(source=s, relation=r, target=t,
+                    evidence=sorted(entry["evidence"], key=lambda e: (e.paper_id, e.record_id)),
                     supporting_papers=sorted(entry["papers"]),
                     evidence_record_ids=sorted(entry["record_ids"]),
                     source_locations=entry["locations"])
@@ -216,20 +251,7 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
     contradictions = _find_contradictions(relationships)
     underexplored = _find_underexplored(groups, relationships)
 
-    aggregated_findings, recurring_limitations, common_assumptions = await aggregate_findings(
-        cards, provider=aggregation_provider)
-
-    return Landscape(
-        topic=topic,
-        paper_ids=sorted(contexts),
-        groups=groups,
-        aggregated_findings=aggregated_findings,
-        recurring_limitations=recurring_limitations,
-        common_assumptions=common_assumptions,
-        contradictions=contradictions,
-        underexplored_regimes=underexplored,
-        relationships=relationships,
-    )
+    return groups, relationships, contradictions, underexplored
 
 
 async def build_landscape_for_query(topic: str, *, index_dir: Path | None = None,

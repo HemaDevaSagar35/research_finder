@@ -74,7 +74,8 @@ class Budgets:
     max_draft_output_tokens: int = 6_000
     max_review_pages: int = 16
     max_review_input_tokens: int = 40_000
-    max_review_output_tokens: int = 3_000
+    max_review_output_tokens: int = field(default_factory=lambda: int(
+        os.environ.get("REASON_MAX_REVIEW_OUTPUT_TOKENS", "3000")))
     repair_rounds: int = 1
 
     def as_dict(self) -> dict[str, int]:
@@ -144,7 +145,68 @@ def allocate_sides(side_a: list[str], side_b: list[str], cap: int
     return chosen, members
 
 
-def schedule_threads(land: S.Landscape, budgets: Budgets) -> list[Thread]:
+def schedule_threads(land: S.Landscape | S.LegacyLandscape, budgets: Budgets) -> list[Thread]:
+    """Consume the builder's shared contract; keep old fixtures compatible."""
+    if not isinstance(land, S.Landscape):
+        return _schedule_legacy_threads(land, budgets)
+    groups = {g.concept_id: g for g in land.groups}
+    cap = budgets.max_papers_per_thread
+    threads = []
+
+    def relationship_statement(r):
+        return f"{groups[r.source].label} {r.relation} {groups[r.target].label}"
+
+    def related(r):
+        return [set(groups[gid].paper_ids) for gid in (r.source, r.target)]
+
+    def append(kind, refs, statement, papers, group_ids, omitted=None, sides=None):
+        threads.append(Thread(
+            thread_id=f"t{len(threads) + 1:03d}", kind=kind, refines=refs,
+            statement=statement, papers=papers, group_ids=group_ids,
+            omitted_supporting=omitted or [], sides=sides))
+
+    for r in land.relationships:
+        chosen, omitted = _ordered(r.supporting_papers, related(r), cap)
+        append("relationship", [r.item_id], relationship_statement(r),
+               chosen, [r.source, r.target], omitted)
+    for name, kind in (("aggregated_findings", "aggregated_finding"),
+                       ("recurring_limitations", "recurring_limitation"),
+                       ("common_assumptions", "common_assumption")):
+        for item in getattr(land, name):
+            chosen, omitted = _ordered(item.supporting_papers, [], cap)
+            append(kind, [item.item_id], item.statement, chosen, [], omitted)
+    for u in land.underexplored_regimes:
+        chosen, omitted = _ordered(groups[u.concept_id].paper_ids, [], cap)
+        statement = (f"Within the selected landscape corpus, {u.label} has "
+                     f"{u.mention_count} paper mentions and maximum relationship "
+                     f"support of {u.max_relation_support} papers. Examine the "
+                     "available evidence and its limits; these counts do not "
+                     "establish a gap in the wider literature.")
+        append("underexplored_regime", [u.item_id], statement, chosen,
+               [u.concept_id], omitted)
+    for c in land.contradictions:
+        side_lists, omitted = [], []
+        for side in (c.a, c.b):
+            selected, dropped = _ordered(side.supporting_papers, related(side), cap)
+            side_lists.append(selected)
+            omitted += dropped
+        chosen, members = allocate_sides(*side_lists, cap)
+        sides = [{"assertion": relationship_statement(r),
+                  "paper_ids": [p for p in chosen if key in members[p]]}
+                 for key, r in (("a", c.a), ("b", c.b))]
+        append("contradiction", [c.item_id, c.a.item_id, c.b.item_id],
+               f"Potential contradiction — A: {sides[0]['assertion']} | "
+               f"B: {sides[1]['assertion']}", chosen,
+               sorted({c.a.source, c.a.target, c.b.source, c.b.target}), omitted, sides)
+        if not all(side["paper_ids"] for side in sides) or len(chosen) < 2:
+            threads[-1].status = "insufficient_for_adjudication"
+            threads[-1].detail = "a side has no papers within the cap"
+    for t in threads[budgets.max_threads:]:
+        t.status, t.detail = "budget_skipped", "beyond --max-threads"
+    return threads
+
+
+def _schedule_legacy_threads(land: S.LegacyLandscape, budgets: Budgets) -> list[Thread]:
     groups = {g.group_id: set(g.paper_ids) for g in land.groups}
     concept = {g.group_id: g.concept for g in land.groups}
     cap = budgets.max_papers_per_thread
@@ -335,8 +397,8 @@ class CrossPaperReasoner:
             raise
 
     # ------------------------------------------------------------ run
-    async def run(self, land: S.Landscape) -> S.CrossPaperReasoning:
-        S.validate_landscape(land)
+    async def run(self, land: S.Landscape | S.LegacyLandscape) -> S.CrossPaperReasoning:
+        land = S.validate_landscape(land)
         started = time.strftime("%Y-%m-%dT%H:%M:%S")
         usage_before = {k: vars(v) for k, v in usage.snapshot().items()}
         threads = schedule_threads(land, self.budgets)
@@ -798,7 +860,7 @@ class CrossPaperReasoner:
             reason=reason, detail=detail)
 
     # ------------------------------------------------------------ output
-    def _assemble(self, land: S.Landscape, threads: list[Thread], results: list[_ThreadResult],
+    def _assemble(self, land: S.Landscape | S.LegacyLandscape, threads: list[Thread], results: list[_ThreadResult],
                   started: str, usage_before: dict) -> S.CrossPaperReasoning:
         findings, observations, tensions, diags = [], [], [], []
         counters: Counter = Counter()
