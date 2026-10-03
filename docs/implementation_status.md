@@ -77,12 +77,12 @@ page review, using five calls. One accepted scope retained a hardware-descriptio
 imprecision identified in review notes; automated acceptance is not a guarantee
 of scientific correctness. Full-corpus novelty remains unassessed.
 
-Broader Opportunity Miner validation is complete: [results](opportunity_validation.md).
+Broader Opportunity Miner validation is complete: [results](opportunity_miner.md#broader-validation-history).
 135 tests plus 13 subtests pass; 124 live calls covered category controls and two
 fresh corpus pipelines (21 proposed, 17 accepted, 4 rejected opportunities).
 A factual-scope error was accepted in all three repeat probes, and one
 `multiple_papers` label includes a paper cited only as contrary context. These
-quality findings are addressed by [review and paper-role fixes](opportunity_review_fixes.md):
+quality findings are addressed by [review and paper-role fixes](opportunity_miner.md#review-fixes-history):
 `opportunities_v2` blocks flagged factual corrections and counts only reviewed
 supporting papers. Validation now totals 149 tests plus 13 subtests, with 32
 focused live calls. Error detection still depends on model judgment.
@@ -193,7 +193,7 @@ assessments remain relative to the available 2026 corpus.
 - Online stage (research-direction generation) — planned above; detailed
   responsibilities remain in the architecture and component design docs.
   The Cross-Paper Reasoner (component 8) has completed a small real-provider
-  local-corpus run. See [live results](live_landscape_reasoning_smoke.md) for
+  local-corpus run. See [live results](cross_paper_reasoner.md#integration-live-validation) for
   truncation, task-selection bias, and manual qualification of accepted output.
   Deferred inside the reasoner: narrowing redraft after review rejection,
   per-thread cache, heading-based page inference for `page=None` locations.
@@ -207,16 +207,16 @@ integration test covers builder orchestration, JSON round-trip, reasoning,
 review-source hashes, references, and paper-selection bounds. Real-corpus model
 quality is not established by this test.
 
-Live integration evidence: [three-paper smoke test](live_landscape_reasoning_smoke.md).
+Live integration evidence: [three-paper smoke test](cross_paper_reasoner.md#integration-live-validation).
 
 Limitation origin is now preserved from extraction through aggregation, drafts,
-page review, and output evidence. [Attribution validation](limitation_attribution_validation.md)
+page review, and output evidence. [Attribution validation](cross_paper_reasoner.md#attribution-validation)
 records 97 passing tests plus 13 subtests and a real-provider rerun of the
 three-paper inferred-limitation cluster.
 
 ### Opportunity Miner full-context validation
 
-[Boundary validation](opportunity_boundary_validation.md) passed 12 synthetic
+[Boundary validation](opportunity_miner.md#boundary-validation) passed 12 synthetic
 reviews and three real miner runs using saved reviewed upstream artifacts.
 Each real run supplied all its reviewed sources in one proposal context, with
 concurrent original-page reviews; 12 of 15 real candidates were accepted and
@@ -230,7 +230,20 @@ boundaries and the v2 handoff, not scientific value or literature-wide novelty.
 
 The module-level approach and before/after behavior for the above full-context,
 token-allowance and validation changes are recorded in
-[Implementation updates](implementation_updates.md). Existing module documents
+[Implementation updates](README.md#module-documentation). Existing module documents
 retain their previous descriptions and append dated sections identifying which
 statements are superseded. Validation counts above reflect successive runs;
 the latest completed suite is 159 tests plus 13 subtests.
+
+
+### 2026-10-03 documentation consolidation — supersedes the separate-log layout above
+
+Implementation history now lives in one file per module: [Landscape Builder](landscape_builder.md#implementation-history),
+[Cross-Paper Reasoner](cross_paper_reasoner.md#implementation-history),
+[Opportunity Miner](opportunity_miner.md#implementation-history), and
+[shared LLM client](llm_client.md). This status file is only the project overview.
+The landscape and reasoner were existing modules that we modified; the miner
+was a new module introduced at `847b910`. Separate integration/validation/fix
+reports were merged into their module documents, preserving historical results
+and adding explicit before/after changes. No pipeline behavior changed in this
+consolidation.

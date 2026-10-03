@@ -1,6 +1,6 @@
 """Shared Landscape Builder → reasoner contract (architecture sections 2.5–6).
 
-See docs/landscape_reasoning_integration.md. The builder's flat collections
+See docs/landscape_builder.md. The builder's flat collections
 remain the public shape; IDs and attributable evidence support downstream use.
 """
 

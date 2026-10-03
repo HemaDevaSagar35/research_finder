@@ -22,7 +22,24 @@ Files:
 - `offline_ingestion_design.md` — concrete decisions and status for the
   offline/ingestion stage (paper_id scheme, paper.json flattening, index
   layout, portability)
-- `opportunity_miner.md` — implemented section 6 contract, concurrent proposal
-  and original-page review, usage, and live validation limits
-- `opportunity_validation.md` — broader live quality checks and observed failures
-- `opportunity_review_fixes.md` — correction vetoes, support/context roles, and live regression results
+
+## Module documentation
+
+One Markdown document per module contains its approach, contracts, usage,
+implementation history and validation results. Existing descriptions are
+preserved; dated change sections identify what supersedes them. Shared
+architecture and the project status/index remain separate cross-module documents.
+
+- [Landscape Builder](landscape_builder.md) — contributor's existing module;
+  our contract, provenance, attribution and concurrency modifications.
+- [Cross-Paper Reasoner](cross_paper_reasoner.md) — existing reasoner; shared
+  input integration, attribution, budget changes and historical live validation.
+- [Opportunity Miner](opportunity_miner.md) — new module first implemented in
+  `847b910`, subsequent review fixes, full-context proposals and all test reports.
+- [Shared LLM client](llm_client.md) — existing provider client and the new
+  configurable output cap.
+
+The previously separate integration notes, miner validation/fix reports and
+cross-module implementation log have been consolidated into these module
+files. Source reports are retained as dated history within their owning module;
+links now point to those sections. Future updates go into the same module file.
