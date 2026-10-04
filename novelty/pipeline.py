@@ -139,7 +139,7 @@ class NoveltySearcher:
                     self.provider = self.client.provider
                     self.model = self.model or self.client.default_model
                     self.chat = self.client.chat_result
-                review = task == 'review_signature'
+                review = task in ('review_signature', 'review_comparison')
                 call = (self.review_chat or self.chat) if review else self.chat
                 model = (self.review_model or self.model) if review else self.model
                 result = await call(messages=messages, model=model,

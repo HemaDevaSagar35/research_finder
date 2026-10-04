@@ -445,3 +445,154 @@ specific signature-attribution regression are closed for these tested cases.
 The next implementation stage remains original-evidence candidate-versus-prior-work
 comparison (architecture section 12), followed by direction/hypothesis novelty
 interpretation and refinement. No extra model calls were used to claim novelty.
+
+## 2026-10-04 — Section 12: original-evidence comparison
+
+This update extends the module beyond the sections 9–11 implementation described
+above. `novelty_search_v1` remains the retrieval artifact; the new
+`novelty_comparison_v1` artifact adds candidate-versus-prior-work comparison.
+Earlier statements that comparison is unimplemented describe the earlier version.
+Sections 13–15 (aggregate novelty interpretation, candidate refinement and research
+critique) remain downstream; this implementation does not declare a hypothesis novel.
+
+### Added and changed modules
+
+- **New `novelty/comparison_schemas.py`:** eight-dimension comparisons, pairwise labels,
+  review snapshots, source manifests and explicit coverage of every shortlisted pair.
+- **New `novelty/comparison.py`:** `NoveltyComparator` validates saved direction/search
+  lineage, loads original prior evidence, schedules comparisons and independent reviews,
+  repairs invalid output and permits one substantive revision followed by fresh review.
+- **New `novelty/comparison_prompts.py`:** semantic comparison and independent audit
+  rules. No keyword-based novelty or scientific-quality rules are introduced.
+- **New `novelty/compare.py`:** separate CLI for this stage; the existing retrieval CLI
+  and persisted retrieval schema are unchanged.
+- **Existing `novelty/pipeline.py` changed:** the shared call helper now routes
+  `review_comparison`, as well as `review_signature`, through the separate reviewer
+  callable/model when configured. Signature generation and retrieval behavior stay
+  the same; the comparator reuses evidence/context loading and budget infrastructure.
+- **New `tests/test_novelty_comparison.py`:** offline contract, source-integrity,
+  async execution, incomplete-evidence, review and budget regression tests.
+- **New `tools/validate_novelty_comparison.py`:** reproducible live validation using
+  saved inputs, raw requests/responses, call events and explicit tested/skipped coverage.
+
+### Inputs and evidence scope
+
+The stage requires the original `directions_v3` and matching `novelty_search_v1`.
+It verifies the generation digest, exact candidate digest, passing signature snapshot,
+all source artifact/page hashes, signature references, and the retrieved artifact
+hashes recorded during reranking. Conflicting prior-paper hashes or mismatched
+lineage fail before API work. All prior papers must come from a saved shortlist.
+
+For each shortlisted paper, load its full extracted `paper.json`, every locally
+available numeric page markdown file, and any additional page numbers referenced
+by structured extraction provenance. `PaperStore` can fetch referenced pages using
+its configured fallback. Unreferenced remote pages are not enumerated. Record each
+loaded page's hash and any missing referenced pages. This is explicitly
+`available_extracted_pages`, not complete-PDF or appendix coverage. No appendix
+extraction requirement has been added. Without any original prior pages, withhold
+the comparison rather than use extraction summaries as proof.
+
+The model sees the full candidate, original source context, reviewed signatures,
+and prior-paper JSON/pages. Signatures govern candidate uncertainty and conditional
+premises; unsupported statements in older upstream drafts do not override a corrected
+signature. Extraction fields aid navigation; factual prior-work statements require
+verbatim original-page evidence, checked for text presence and paper ownership.
+Semantic entailment is separately checked by the independent reviewer.
+
+### Comparison behavior and independent review
+
+Compare all eight architecture dimensions: **problem, method, mechanism, signal,
+regime, evaluation, scientific question, hypothesis**. Each dimension records the
+candidate statement with signature-relative JSON Pointers, prior-work statement,
+relation, original quotations and comparison reasoning. Unknown and inapplicable
+are distinct. Missing evidence cannot become a finding that the authors did not
+study something. Different conditions must remain explicit.
+
+Each direction/hypothesis–paper pair receives `SAME`, `VERY_CLOSE`, `PARTIAL_OVERLAP`,
+`ADJACENT`, `DIFFERENT`, or a null classification when evidence is insufficient.
+These are overlap interpretations, not literature-wide novelty verdicts. A separate
+`hypothesis_tested` field distinguishes tested, discussed-only and not-established
+relationships; direction targets can also mark this inapplicable. A hypothesis
+classified `SAME` must have direct evidence of the relationship being tested, and
+all applicable dimensions must match. An author suggestion is not a tested result;
+a negative experimental/theoretical result can still show the question was studied.
+
+Group targets sharing a prior paper into one comparison request, preserving separate
+pair outputs. Different papers run concurrently (default four in-flight calls).
+Each draft receives a fresh-context independent review of its source support,
+attribution, candidate fidelity and label consistency. The reviewer receives no
+previous review or generator conversation. The reviewer may use a separately
+configured model/client; otherwise a separate call uses the same configured model.
+This is independence of context, not guaranteed independence of model errors.
+
+Invalid JSON, references or quotations allow one format/reference repair per creation
+or revision. A valid review requesting corrections permits one substantive revision
+and a fresh review. Unresolved, abstained, invalid, truncated or failed reviews withhold
+the comparison; the rejected draft/review remains in the audit trail. Provider and
+budget failures do not silently retry or yield novelty labels. Only a comparison
+identical to its last passing review snapshot can be published.
+
+### Coverage, budgets and operation
+
+Every shortlisted pair has a completed comparison or an explicit failed, unresolved
+or skipped outcome. Original retrieval status is retained by target. Empty/failed
+retrieval, an unresolved comparison, or unknown evidence is never a novelty claim.
+`--paper-id` can explicitly select a subset for staged inspection; every omitted
+shortlist pair stays recorded as skipped. A successful subset command means the
+selected work completed, not that the full shortlist was examined.
+
+Input/output allowances follow `NOVELTY_MAX_INPUT_TOKENS` and
+`NOVELTY_MAX_OUTPUT_TOKENS` (default 500,000 each). Complete prompts are measured;
+there is no silent text truncation or target omission to fit. Provider hard limits
+still apply. Default attempt allowance is 500 calls, counted atomically before each
+request; callers can reduce/increase it. Caller-supplied clients remain caller-owned.
+
+```bash
+uv run python -m novelty.compare \
+  --directions /path/directions.json --search /path/novelty-search.json \
+  --root /srv/research_finder/markdown --out /path/novelty-comparison.json \
+  --provider deepseek --concurrency 4 --max-calls 500
+
+uv run pytest -q tests/test_novelty_comparison.py
+```
+
+The CLI refuses to overwrite an output file and writes all diagnostics alongside
+results. No original candidate, source artifact, extraction, or search result is
+rewritten. This section is the implementation approach; validation outcomes follow
+below when checks complete.
+
+### Section-12 validation status (2026-10-04)
+
+- **42 comparison-specific offline tests passed.** The full suite passes **318 tests
+  plus 13 subtests**, with only the existing FAISS/NumPy deprecation warning.
+- Covered exact saved-input binding; changed/missing source and prior artifacts;
+  all available page loading; explicit missing referenced pages; invented or wrong-
+  paper quotes; invalid candidate pointers; missing/duplicate dimensions and targets;
+  truncation; bounded repair; independent reviewer client/model routing; fresh review
+  after one substantive revision; unresolved-review withholding; call/input budgets;
+  persisted-review tampering; empty/failed retrieval; concurrent paper batches;
+  explicit subset coverage; and isolation of one paper failure from other results.
+- Offline source preflight checked **54 unique shortlisted papers per topic** for
+  both RAG and MOMENTKV. All saved paper hashes match, all papers have original page
+  markdown, and none of the structured referenced pages is missing. This is an
+  artifact-availability check, not an overlap assessment. Report:
+  `/home/hema/research_runs/novelty_comparison_preflight.json`.
+- **Live section-12 validation is pending.** Automatic approval review rejected both
+  prepared DeepSeek runs because prior-paper JSON/original pages broaden the earlier
+  approved payload. No comparison API calls ran. A specific authorization request is
+  pending; earlier signature/retrieval live results do not count as comparison tests.
+
+Prepared live scope is the RAG seed plus Reward Shaping (`7d99134e9be1`) and MASH
+(`7ff2a18abb9c`), and the MOMENTKV seed plus CriticalKV (`a60b8c0468d0`), Fast KV
+Compaction (`4d683d7340e6`) and ReST-KV (`3db4139adeef`). These seven papers exercise
+shared source methods, different interventions, related mechanisms, and hypothesis-
+specific retrieval. Every target for which a selected paper was shortlisted is
+compared; all other pairs remain explicitly skipped. Expected inspection questions
+are preservation of RAG's unknown original prompt contents and conditional mechanism,
+training versus prompting/help-seeking distinctions, and preservation of MOMENTKV's
+specific variance/normalizer/order relationships without treating a shared cache
+objective as proof those relationships were tested. Exact overlap labels are not
+preselected as a presumed scientific ground truth.
+
+The next acceptance step is those live comparisons and source-level inspection of
+their outputs. Sections 13–15 should follow that validation, not replace it.

@@ -434,3 +434,23 @@ of exhaustive recall. Follow-up: 27 DeepSeek calls; full suite: **276 tests plus
 fixtures, full results and call ledger are documented in the single
 [Novelty Search module document](novelty_search.md). Candidate-versus-prior-work
 comparison and novelty verdicts are still the next unimplemented stage.
+
+## 2026-10-04 — Section-12 original-evidence comparison implemented
+
+`novelty/` now adds `comparison.py`, `comparison_schemas.py`,
+`comparison_prompts.py` and the `novelty.compare` CLI. It compares every shortlisted
+pair across the architecture's eight dimensions using original available page
+markdown, with paper-level concurrent batching, fresh independent review, one
+substantive revision, and exact reviewed-output binding. The existing
+`novelty/pipeline.py` call helper also routes comparison reviews to the configured
+reviewer. Earlier notes that comparison was unimplemented are superseded by this
+entry. Pairwise overlap labels do not certify literature-wide novelty.
+
+The module approach, precise edits, CLI and scope are appended to the single
+[Novelty Search document](novelty_search.md). Added 42 comparison tests; the full
+suite passes **318 tests plus 13 subtests**. Offline preflight found matching artifact
+hashes and available original pages for all 54 shortlisted papers in each of the
+two saved topics. Live comparison validation is pending specific payload approval:
+automatic approval review blocked the new prior-paper JSON/page transfers to
+DeepSeek. No section-12 live results are claimed. Aggregate novelty interpretation,
+refinement and research critique remain downstream work after validation.
