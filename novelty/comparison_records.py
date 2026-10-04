@@ -125,7 +125,7 @@ class ReviewFormatRepair(Strict):
 
 
 class EvidenceReview(Strict):
-    version: int = Field(ge=0, le=2)
+    version: int = Field(ge=0, le=7)
     trigger: Literal['initial','evidence_repair','comparison_reopen']
     record: EvidenceRecord
     revision_notes: list[Text]

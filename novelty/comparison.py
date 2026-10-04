@@ -12,6 +12,7 @@ from novelty import comparison_prompts as prompts
 from novelty.comparison_schemas import (CandidateComparison, ComparisonDraft, ComparisonResponse,
     ComparisonReview, NoveltyComparisonResult, PaperComparison, ReviewFormatRepair, ComparisonReport, Passage)
 from novelty.comparison_workflow import EvidenceBuilder, eligible, assemble, accepted_targets, project, proposal_requirements
+from novelty.comparison_repair import InterpretationPatch, apply_interpretation_patch, affected_pair_ids, review_addresses
 from novelty.pipeline import ModelOutputError, NoveltySearcher, Settings as SearchSettings, validate_signature
 from novelty.comparison_evidence import passages_for_pages, table_context_refs, candidate_view, validate_comparison, validate_report
 from novelty.schemas import NoveltySearchResult
@@ -68,12 +69,17 @@ class NoveltyComparator:
             body={'payload':payload,'eligible_target_ids':sorted(ids),
                 'reviewed_evidence':{'claims':[c.model_dump() for c in claims],
                     'relationships':[r.model_dump() for r in evidence.record.relationships if r.target_id in ids]}}
-            if previous is not None:body.update(comparison=previous.model_dump(),corrections=corrections)
+            affected = affected_pair_ids(previous, ComparisonReport.model_validate(corrections)) if previous is not None else set()
+            if previous is not None:body.update(comparison=previous.model_dump(),corrections=corrections,affected_target_ids=sorted(affected))
             request=body
             for attempt in range(2):
                 try:
-                    response,_=await self.io._call(('compare_prior_work' if round==0 else 'revise_comparison') if attempt==0 else 'repair_comparison',
-                        prompts.COMPARE,ComparisonResponse,request)
+                    sparse = previous is not None
+                    response,_=await self.io._call(('patch_comparison' if sparse else 'compare_prior_work') if attempt==0 else 'repair_comparison',
+                        prompts.PATCH_INTERPRETATION if sparse else prompts.COMPARE,
+                        InterpretationPatch if sparse else ComparisonResponse,request)
+                    if sparse:
+                        response=apply_interpretation_patch(previous,response,affected)
                     if response.abstention_reason:raise ValueError('comparison_abstained: '+response.abstention_reason)
                     if response.evidence_requests:
                         for r in response.evidence_requests:
@@ -100,7 +106,7 @@ class NoveltyComparator:
             base={'payload':payload,'eligible_target_ids':sorted(ids),
                 'withheld_target_ids':sorted({t.target_id for t in targets}-ids),
                 'relationships':[r.model_dump() for r in evidence.record.relationships if r.target_id in ids],
-                'comparison':draft.model_dump()};request=base
+                'comparison':draft.model_dump(),'valid_review_fields':review_addresses(draft)};request=base
             try:
                 for attempt in range(2):
                     try:
@@ -123,7 +129,9 @@ class NoveltyComparator:
             if report.decision=='pass' or round==1 or report.decision=='abstain':
                 return project(draft,accepted_targets(report,draft,evidence))
             previous,corrections=draft,report.model_dump()
-            if any(i.category in ('grounding','attribution') for i in report.issues):
+            claim_issues = [i for i in report.issues if i.field_path.startswith('/claims/')]
+            if claim_issues:
+                corrections['disputed_claim_ids'] = sorted({draft.claims[int(i.field_path.split('/')[2])].claim_id for i in claim_issues})
                 evidence=await builder.reopen(payload,targets,passages,evidence_history,corrections)
                 previous=corrections=None  # regenerate from changed evidence, no stale interpretation
         return None
@@ -264,4 +272,5 @@ class NoveltyComparator:
                 'review_prompt':prompts.REVIEW_VERSION, 'evidence_prompt':prompts.EVIDENCE_VERSION, 'token_counter':TOKEN_COUNTER,
                 'selected_papers':sorted(paper_ids) if paper_ids is not None else None,
                 'stopped_for_provider_error':self.io.fatal,
+                'repair_policy':{'evidence_corrections_per_phase':3,'comparison_corrections':1,'repeated_record_stop':True},
                 'scope':'pairwise_overlap_on_available_extracted_evidence'})

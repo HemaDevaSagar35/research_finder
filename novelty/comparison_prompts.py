@@ -156,3 +156,37 @@ is sufficient for its dependents. Check all rationales for unsupported paper-wid
 wording and qualifier loss, not only the structured status. A fresh review sees no prior
 review narrative. If an objection is not established by the source, do not invent one.
 '''+RULES
+
+
+PATCH_EVIDENCE = '''Repair ONLY the allowed claims and relationship mappings in repair_scope.
+Return a sparse patch: claims and relationships contain only replacements using existing
+stable IDs, plus new claims only when allow_new_claims is true. Omit unaffected entries;
+code preserves them exactly. Do not delete or suppress counterevidence. Correct every
+recorded defect against original sources, preserving other valid clauses and qualifications.
+Known missing citations have already been attached by code. Inspect them, do not invent IDs.
+A claim correction can require adjusting its dependent relationship mappings; inspect those
+allowed targets for changed support. All claims and mappings will receive a fresh independent
+audit, including checks for omitted decisive evidence. If the objection is wrong, leave the
+entry unchanged and explain a source-backed disagreement in revision_notes.
+''' + EXTRACT
+
+PATCH_INTERPRETATION = '''Return replacements ONLY for affected_target_ids. Omit every
+unaffected target; code preserves it exactly. Repair the disputed rationales, claim references,
+and any dependent classification while preserving other supported dimensions. Every field
+of a replacement pair is required, including additional_uncertainties. Do not change evidence
+claims. Pair-level grounding objections often need a correct existing claim citation or a
+narrower rationale, not new evidence extraction. If decisive evidence is truly absent from
+the reviewed record, return evidence_requests instead. A fresh review checks the full merged
+comparison against the unchanged source evidence.
+''' + COMPARE
+
+REVIEW += '''
+valid_review_fields maps legal field_path values to their stable claim/target/dimension.
+Select the exact pointer from this mapping; do not compute or guess array indices.
+Distinguish a defect in a claim (point to /claims/.../text) from a rationale that misuses
+correct claims (point to the affected pair field). The latter needs interpretation repair,
+not regeneration of the evidence record.
+'''
+VERSION='novelty_comparison_v7_targeted_repair'
+REVIEW_VERSION='novelty_comparison_review_v7_addressed'
+EVIDENCE_VERSION='novelty_evidence_v3_targeted_repair'

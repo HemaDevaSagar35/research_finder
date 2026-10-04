@@ -125,8 +125,13 @@ class NoveltySearcher:
 
     async def _call(self, task, system, schema, body):
         messages = [{'role': 'system', 'content': system + '\nReturn a JSON object matching the supplied schema.'}, {'role': 'user', 'content': json.dumps(
-            {'task': task, 'schema': schema.model_json_schema(), **body})}]
-        if estimate_tokens(json.dumps(messages)) > self.settings.max_input_tokens:
+            {'task': task, 'schema': schema.model_json_schema(), **body},
+            ensure_ascii=False, separators=(',', ':'))}]
+        # Estimate actual message text, not a second JSON encoding that adds
+        # escapes to quotes/newlines. Allow 32 tokens per message for framing;
+        # the provider's own context limit remains independent of this estimate.
+        input_tokens = sum(estimate_tokens(m['content']) + 32 for m in messages)
+        if input_tokens > self.settings.max_input_tokens:
             raise ValueError('input_budget: complete context exceeds allowance; no silent omission')
         async with self.sem:
             if self.fatal:
@@ -139,7 +144,7 @@ class NoveltySearcher:
                     self.provider = self.client.provider
                     self.model = self.model or self.client.default_model
                     self.chat = self.client.chat_result
-                review = task in ('review_signature', 'review_comparison', 'repair_comparison_review', 'review_comparison_evidence', 'repair_evidence_review')
+                review = task in ('review_signature', 'review_comparison', 'repair_comparison_review', 'review_comparison_evidence', 'repair_evidence_review', 'review_novelty_assessment', 'repair_review_novelty_assessment')
                 call = (self.review_chat or self.chat) if review else self.chat
                 model = (self.review_model or self.model) if review else self.model
                 result = await call(messages=messages, model=model,

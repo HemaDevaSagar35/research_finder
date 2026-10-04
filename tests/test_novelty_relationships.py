@@ -10,7 +10,7 @@ from tests.test_direction_generator import inputs
 
 EVIDENCE=('extract_comparison_evidence','revise_comparison_evidence','repair_comparison_evidence')
 AUDIT=('review_comparison_evidence','repair_evidence_review')
-INTERPRET=('compare_prior_work','revise_comparison','repair_comparison')
+INTERPRET=('compare_prior_work','patch_comparison','repair_comparison')
 
 
 @pytest.mark.parametrize('coverage,kind,result,status',[
@@ -73,7 +73,7 @@ def test_omitted_decisive_passage_reopens_record_before_interpretation(ready):
             if n==1:out['coverage_checks'][0].update(decision='revise',
                 explanation='The second passage discusses compression; examine omitted evidence.',
                 passage_ids=[req['payload']['prior_passages'][1]['passage_id']])
-        if req['task']=='revise_comparison_evidence':
+        if req['task']=='patch_comparison_evidence':
             assert 'omitted evidence' in req['corrections']['coverage_checks'][0]['explanation']
             out['record']['claims'].append({'claim_id':'c2','text':'Future work could study compression-aware routing.',
                 'kind':'discussion','passage_ids':[req['payload']['prior_passages'][1]['passage_id']]})
@@ -90,7 +90,7 @@ def test_wrong_reviewer_objection_can_be_disputed_using_source(ready):
         if req['task']=='review_comparison_evidence':
             count+=1
             if count==1:out['claim_checks'][0].update(decision='revise',explanation='Claim allegedly absent.')
-        if req['task']=='revise_comparison_evidence':
+        if req['task']=='patch_comparison_evidence':
             out['revision_notes']=['Retained claim: the cited source explicitly states caching is evaluated.']
         if req['task'] in AUDIT:assert 'corrections' not in req  # fresh audit, objection not treated as truth
     result,_=run(ready,Chat(mutate));paper=result.candidates[0].papers[0]
@@ -131,7 +131,7 @@ def test_interpretation_can_reopen_evidence_once_and_only_once(ready):
                 'reason':'Inspect original discussion.', 'passage_ids':[req['payload']['prior_passages'][1]['passage_id']]}])
     result,chat=run(ready,Chat(mutate));paper=result.candidates[0].papers[0]
     assert len(paper.evidence_requests)==2 and paper.comparison is None
-    assert sum(r['task']=='revise_comparison_evidence' for r,_ in chat.calls)==1
+    assert sum(r['task']=='patch_comparison_evidence' for r,_ in chat.calls)==1
     assert paper.evidence_reviews[-1].trigger=='comparison_reopen'
 
 
@@ -166,7 +166,7 @@ def test_missing_audit_entry_is_repaired_or_withheld(ready):
 
 
 def test_failed_local_repair_retains_already_accepted_unaffected_pairs(ready):
-    result,_=run(ready,Chat(decisions=['revise'],fail='revise_comparison'))
+    result,_=run(ready,Chat(decisions=['revise'],fail='patch_comparison'))
     paper=result.candidates[0].papers[0]
     assert paper.status=='partial' and len(paper.comparison.pairs)==2
     assert paper.outcomes()[0]['review_status']=='review_unresolved'

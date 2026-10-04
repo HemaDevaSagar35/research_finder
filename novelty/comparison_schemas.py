@@ -152,7 +152,7 @@ class ComparisonReport(Strict):
 
 class ComparisonReview(Strict):
     round: Literal[0,1]
-    evidence_version: int = Field(ge=0,le=2)
+    evidence_version: int = Field(ge=0,le=7)
     draft: ComparisonDraft
     format_repairs: list[ReviewFormatRepair] = Field(default_factory=list,max_length=1)
     model: str | None
@@ -194,7 +194,7 @@ class PaperComparison(Strict):
     evidence_scope: Literal['available_extracted_pages'] = 'available_extracted_pages'
     comparison: ComparisonDraft | None
     reviews: list[ComparisonReview]
-    evidence_reviews: list[EvidenceReview] = Field(default_factory=list,max_length=3)
+    evidence_reviews: list[EvidenceReview] = Field(default_factory=list,max_length=8)
     evidence_requests: list[EvidenceRequest] = Field(default_factory=list)
     diagnostic: str | None
 
@@ -288,7 +288,7 @@ class CandidateComparison(Strict):
 
 
 class NoveltyComparisonResult(Strict):
-    schema_version: Literal['novelty_comparison_v5'] = 'novelty_comparison_v5'
+    schema_version: Literal['novelty_comparison_v5','novelty_comparison_v6'] = 'novelty_comparison_v6'
     directions_ref: dict[str,str]
     search_ref: dict[str,str]
     candidates: list[CandidateComparison]
@@ -299,6 +299,8 @@ class NoveltyComparisonResult(Strict):
 
     @model_validator(mode='after')
     def unique(self):
+        if self.schema_version == 'novelty_comparison_v5' and any(len(p.evidence_reviews)>3 for c in self.candidates for p in c.papers):
+            raise ValueError('expanded repair history requires comparison v6')
         if len({c.direction_id for c in self.candidates}) != len(self.candidates):
             raise ValueError('duplicate comparison candidates')
         return self

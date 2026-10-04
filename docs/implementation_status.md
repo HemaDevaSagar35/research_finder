@@ -546,3 +546,96 @@ flagged unsuitable for downstream use in its manual findings. Final standalone r
 controls matched 6/9 expectations; failures and the subsequently corrected caption-layout
 bug remain documented. This is not clean semantic acceptance or a novelty verdict.
 All calls have finished; changes remain uncommitted.
+
+## 2026-10-04 — Sections 13–14 implemented: joint novelty assessment and refinement
+
+Added `novelty/assessment.py`, `assessment_schemas.py`,
+`assessment_evidence.py`, `assessment_prompts.py`, and the `novelty.assess`
+CLI. Existing `novelty/pipeline.py` now routes independent assessment reviews.
+Each direction is assessed with all its hypotheses and accepted comparisons in
+one context; independent directions run concurrently. Exact artifact lineage,
+explicit manually invalidated evidence, and all missing/skipped/failed comparison
+coverage are retained. Refinement preserves original proposals and requires new
+novelty checks for scientific edits.
+
+**447 tests plus 13 subtests passed**, including 78 assessment tests.
+**36 DeepSeek calls completed.** The final six synthetic boundary controls matched
+expectations. The final inspected MOMENTKV synthesis reports partial overlap for
+H1/H3/H4 and unresolved direction/H2; it defers remaining novelty because shortlist
+coverage is incomplete. The manually rejected CriticalKV replay is blocked with
+zero calls. Earlier live failures, reviewer misses, their fixes, and per-module
+changes are preserved in the existing [Novelty Search document](novelty_search.md).
+
+Sections 13–14 are implemented and tested within that scope. Completing real
+shortlist coverage and the earlier section-12 evidence repairs remains separate
+from implementing section 15's scientific critic. No literature-wide novelty or
+scientific usefulness guarantee is made. Refinement edits are proposed, not
+silently applied. Changes are not committed.
+
+## 2026-10-04 — Full MOMENTKV shortlist and sections 13–14 executed
+
+The complete saved shortlist was attempted: **100 target–paper pairs across 54
+papers, zero skipped**. Fresh comparisons and documented recoveries produce 69
+accepted pairs and 31 withheld pairs. All 100 coverage entries are carried into
+joint synthesis; no selected-paper diagnostic substitutes for this full run.
+Both MOMENTKV and CriticalKV have all five comparisons accepted in the new
+artifacts. Remaining scope/citation/format failures are explicitly recorded.
+
+The local novelty input allowance is now **1M**. A provider context rejection
+exposed a difference from the local token estimate. `novelty/pipeline.py` now
+uses compact JSON and sizes actual message text; `assessment_evidence.py` and
+`assessment.py` send every source passage's full text and ID while preserving
+repeated provenance metadata in the immutable input artifacts. The full
+assessment uses a 65,536-token output reservation. No findings or source text are
+removed. Assessment prompts v5 additionally prevent unsupported transfers of
+conditions between separately scoped claims.
+
+The final independently reviewed assessment publishes **PARTIAL_OVERLAP for the
+direction and all four hypotheses**. It retains all four, with refinement
+**defer**: the high-spread questions remain distinct in accepted evidence, but
+31 withheld comparisons leave remaining novelty unresolved. This is five
+section-14 outcomes, not zero outputs or confirmed novelty. The saved handoff
+routes to resolving comparison coverage; section 15 has not run.
+
+**174 novelty tests pass**, including 80 assessment tests. A fresh live regression
+correctly rejects the earlier unsupported sigma-to-ablation linkage; the corrected
+full synthesis passes fresh independent review and focused source inspection.
+The full execution used 380 API requests (379 responses, one context rejection)
+and six local extraction replays; all calls have finished. Module changes,
+rejected attempts, recovery provenance and limitations are appended to the single
+[Novelty Search module document](novelty_search.md). Final results are under
+`/home/hema/research_runs/novelty_kv_consolidated_v1/` and
+`/home/hema/research_runs/novelty_kv_full_assessment_v3/`. Changes are uncommitted.
+
+## 2026-10-04 — Targeted repair resolves all 31 withheld comparisons
+
+Section 12 now uses sparse, source-checked repairs in the new
+`novelty/comparison_repair.py`, integrated into existing comparison workflow,
+comparator, prompts and schemas. Known missing citations are attached by code and
+re-audited; semantic edits preserve unaffected claims/targets. Pair-rationale
+errors no longer automatically regenerate evidence. Bounded follow-up patches
+handle newly discovered defects, and repeated records stop further retries.
+Comparison v6 preserves old v5 reading while recording expanded audited history.
+Assessment transport uses reversible short source labels to retain the entire
+scientific packet within the provider context; original references are restored
+before validation and persistence.
+
+The complete saved MOMENTKV shortlist is now **100/100 accepted comparisons across
+54 complete papers, zero skipped or withheld**. The follow-up used **91 API calls**
+and 47 separately counted local checkpoint replays. **223 novelty tests pass**;
+all calls have finished. Final consolidation is
+`/home/hema/research_runs/novelty_kv_consolidated_v4/result.json`.
+
+The final sections-13/14 assessment retains all four original hypotheses with
+**PARTIAL_OVERLAP** and complete recorded coverage. Their novelty status is now
+`partial_overlap`, not `unresolved`; no edits/removals are applied. The saved handoff
+routes to **section 15, Research Critic**, which has not run. Final assessment:
+`/home/hema/research_runs/novelty_kv_complete_assessment_v5/result.json`.
+
+A complete-context reviewer again missed the sigma-to-ablation wording defect in
+an earlier synthesis; that attempt is manually rejected and preserved. The final
+source-based correction passed fresh independent review and focused inspection.
+Model review remains fallible; complete comparison coverage is not a global
+novelty or usefulness guarantee. Exact module changes, recovery history, tests,
+artifacts and limitations are appended to the single
+[Novelty Search module document](novelty_search.md). Changes remain uncommitted.

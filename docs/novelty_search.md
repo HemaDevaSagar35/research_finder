@@ -1392,3 +1392,510 @@ different model/dataset alone nor a target number of output hypotheses should ca
 an unresolved candidate to be promoted to novel. Section-12 reliability work can
 continue alongside aggregation implementation; it remains open rather than being
 reclassified as fully validated.
+
+### 2026-10-04 — Sections 13–14: joint novelty assessment and refinement
+
+The earlier sections-13/14 requirements above are now implemented. This addition
+consumes section 12's comparisons; it does not change Landscape Builder,
+Cross-Paper Reasoner, Opportunity Miner, Direction Generator, retrieval, or the
+section-12 evidence extraction/comparison algorithm. Section 15's scientific
+critic remains a separate, unimplemented stage.
+
+| Module | Added or changed behavior |
+|---|---|
+| `novelty/assessment_schemas.py` (new) | Typed assessment inputs/results, artifact-bound invalidations, target coverage, evidence references, refinement edits, independent scope checks, and persisted review binding. |
+| `novelty/assessment_evidence.py` (new) | Verifies cross-stage lineage, builds coverage and the accepted-evidence packet, resolves invalidation dependencies, and checks generated references/edits. |
+| `novelty/assessment.py` (new) | Joint synthesis per direction, fresh independent review, at most one substantive correction, bounded format repair, concurrent independent directions. |
+| `novelty/assessment_prompts.py` (new) | Scientific-overlap reasoning, preservation of result scope, uncertainty-aware review, and refinement rules. |
+| `novelty/assess.py` (new) | CLI for saved generation, search, comparisons, and optional explicit invalidations. |
+| `novelty/pipeline.py` (changed) | Routes assessment reviews and their format repairs to the separately injected reviewer/model. Existing signature/comparison routing is preserved. |
+| `tests/test_novelty_assessment.py` (new) | Coverage, provenance, failure, refinement, review, and concurrency regressions. |
+| `tools/validate_novelty_assessment.py` (new) | Real-artifact live runs with raw requests/responses and summaries. |
+| `tools/validate_novelty_assessment_controls.py` (new) | Predeclared synthetic live scientific-overlap controls; these exercise synthesis/review, not extraction or retrieval. |
+
+**Inputs and trust boundary.** `NoveltyAssessor.run(generation, search,
+comparisons, invalidations=...)` strictly reloads the existing typed artifacts.
+Generation/search digests, each candidate snapshot, signatures, complete target
+identities, shortlists, retrieval statuses and prior-paper artifact hashes must
+agree before any API call. One comparison artifact is authoritative per run:
+the stage does not silently merge older passing comparisons with newer failures.
+The result embeds the input snapshots and their digest so saved assessments can
+be revalidated without reopening an index or loading changed paper files.
+
+The model sees the original proposal, reviewed signatures, every target's
+coverage, all accepted comparisons/relationships/claims together, and the complete
+available extracted passages of papers with accepted pairs. Passages are
+deduplicated within a direction. Unsupported/withheld comparisons remain visible
+in the coverage ledger but cannot be cited as accepted evidence. No arbitrary
+batch partitions hypotheses or related findings within a direction. Independent
+directions run concurrently; author → review → correction → re-review is
+sequential because those steps depend on their preceding outputs.
+
+**Coverage and invalidation.** Each original direction/hypothesis retains every
+shortlisted paper as `reviewed`, `withheld`, `skipped`, `failed`, or
+`invalidated`. Missing referenced extracted pages, incomplete retrieval,
+upstream diagnostics and an empty shortlist all block complete coverage. This
+does not infer PDF completeness or require appendices.
+
+Manual findings must be supplied explicitly as `novelty_invalidations_v1`.
+The manifest contains `comparison_sha256` (the existing canonical
+`digest(comparisons.model_dump())`) and entries with `direction_id`,
+`paper_id`, optional `target_ids`/`claim_ids`, and a reason. Empty target and
+claim lists invalidate the whole paper for that direction. Claim-scoped entries
+invalidate accepted pairs depending on those claims through relationships or
+comparison references. Unknown references and mismatched digests fail before
+calls. Arbitrary nearby `manual_findings.json` files are not discovered
+automatically: callers must supply known invalidations. For the documented
+CriticalKV replay, the validation explicitly converts the manual rejection into
+a hash-bound whole-paper invalidation.
+
+**Assessment.** Each target receives a separate finding:
+`ALREADY_STUDIED`, `PARTIAL_OVERLAP`, `COMPONENTS_KNOWN`,
+`LOW_PRIOR_OVERLAP`, or `UNRESOLVED`, with claim references and a scientific
+distinction where justified. This is synthesis of relationships and conditions,
+not majority voting over paper labels. A supported matching paper can establish
+overlap even when other comparisons are unfinished. A direct empirical test with
+a negative/mixed/inconclusive result still investigates that relationship;
+theoretical analysis is distinguished in reasoning, and inference/discussion
+cannot be called an empirical test. Components studied separately do not prove
+their interaction was studied; a new model name alone does not establish a new
+scientific relationship.
+
+Code permits low prior overlap only with complete recorded retrieval/comparison
+coverage, accepted same-target evidence, a stated scientific distinction, and no
+accepted same/very-close/direct/inferred counterevidence. Coverage gaps never
+become positive novelty evidence. `CandidateAssessment.outcomes()` separates
+the finding from the novelty status: partial overlap with incomplete coverage
+still has `novelty_status=unresolved`. All results retain
+`literature_wide_novelty=unverified` and `scientific_quality=not_assessed`.
+The strongest low-overlap conclusion is scoped to the saved retrieval and
+available extracted evidence; it is not a guarantee about all literature.
+
+**Independent review and repair.** The reviewer receives the same evidence and
+the draft in a fresh conversation, without the author's correction history.
+Every target needs a scope check: a result's unspecified model/benchmark cannot
+be filled from a broad evaluation setup, and an inferred comparator cannot become
+an observed one. Acknowledged synthesis-scope defects require revision even if
+the overlap label would remain unchanged. Correctly reporting incomplete coverage
+can pass review; an unresolved novelty question does not itself mean the
+synthesis is incorrect.
+
+There is at most one substantive correction and one format/reference repair per
+author/reviewer call. Invalid responses, provider failures, budget exhaustion,
+unresolved review and missing accepted evidence withhold the assessment and
+retain diagnostics. A reviewer can request targeted section-12 reassessment.
+Such requests **always withhold publication**, even if the reviewer considers the
+draft's uncertainty handling correct and returns `pass`. They are retained as
+actionable requests; this stage never silently repairs upstream evidence.
+Separate reviewer functions/models are supported. The live checks here use fresh
+DeepSeek conversations with the same model, not a different-provider ensemble.
+
+**Refinement and downstream contract.** The original proposal is immutable.
+Refinement is an explicit `retain`, `narrow`, `reframe`, `reject`, or
+`defer` plan. Retained/removed IDs partition the original hypotheses; novelty-based
+removal requires positive already-studied evidence. A known H1 can be removed
+while H2 survives unchanged. Scientific edits identify existing proposal fields
+and their new values; they cannot overwrite IDs, evidence or grounding rationale.
+This first version proposes edits to existing hypotheses, not new hypotheses
+or a silently applied replacement candidate.
+
+`refinement_handoff(direction)` reports unchanged experiment-to-surviving-
+hypothesis links, unresolved targets, original candidate hash, and targets
+requiring a fresh novelty check. Removing a hypothesis changes direction scope;
+scientific edits require renewed generation consistency checks followed by
+signature/search/comparison for changed targets. Global scientific edits affect
+all retained hypotheses. Rejected candidates stop. An unchanged candidate with
+unresolved coverage resolves that coverage; eligible unchanged candidates can
+proceed to the later scientific critic. There is no automatic scientific-edit
+application or execution of later stages in this module.
+
+**CLI and budgets.**
+
+```bash
+uv run python -m novelty.assess \
+  --directions directions.json --search novelty_search.json \
+  --comparisons comparisons.json --invalidations invalidations.json \
+  --out novelty_assessment.json
+```
+
+Omit `--invalidations` only when there are no known manual exclusions to supply.
+The CLI refuses to overwrite output and writes a result even when synthesis is
+withheld. Exit 0 means every candidate has an independently accepted assessment;
+it does **not** mean novelty was established. The JSON summary includes outcomes
+and refinement handoffs. Input/output allowances remain 500,000 tokens by
+default (actual provider limits still apply); a complete prompt over allowance
+fails visibly rather than dropping papers. All generation, review, correction
+and format-repair attempts share the existing call budget and semaphore.
+
+**Validation results (this implementation).** The full repository suite passed:
+**447 tests plus 13 subtests**, including 78 assessment tests. The only warning
+is the pre-existing FAISS/NumPy deprecation. Checks cover saved-result tampering,
+cross-stage mismatch, whole-paper and claim/target invalidation, real skipped/
+failed/unresolved input states, missing referenced pages, empty shortlists,
+partial retrieval, absent signatures, negative empirical results, known work
+despite other gaps, separate components, changed-field rechecks, surviving test
+links, independent reviewer routing, bounded repairs, provider/budget failures,
+and shared-semaphore concurrency. The CLI help and patch-format check pass.
+
+Completed **36 DeepSeek calls** for this stage, with raw calls preserved:
+
+| Artifact under `/home/hema/research_runs/` | Calls | Result |
+|---|---:|---|
+| `novelty_assessment_moment_live/` | 3 | Initial review returned pass with issues, then incorrectly treated incomplete novelty coverage as grounds to abstain. No assessment published. |
+| `novelty_assessment_moment_v2_live/` | 2 | Automated pass, manually rejected: synthesis attached general evaluation models to a measurement whose model/benchmark was unspecified. Reviewer had called this non-blocking. |
+| `novelty_assessment_controls_live/` | 13 | 5/6 expectations matched. The source-contradiction case was safely withheld but lost its typed reassessment request because pass-plus-request failed validation twice. |
+| `novelty_assessment_moment_v3_live/` | 2 | Automated pass, manually rejected: H1 prose blurred the observed sigma range with a theoretical validity boundary. |
+| `novelty_assessment_controls_v3_live/` | 13 | All six predeclared expectations matched; source contradiction produced an explicit upstream reassessment request and no published assessment. |
+| `novelty_assessment_range_scope_control/` | 1 | Reviewer rejected the deliberately false theoretical-cutoff assertion. Exploratory probe: its reused candidate was also off-topic, so this is not an isolated or clean paired semantic evaluation. |
+| `novelty_assessment_moment_v4_live/` | 2 | Final accepted synthesis, independently reviewed and inspected against cited claims/passages. |
+| `novelty_assessment_critical_invalidated/` | 0 | Exact CriticalKV manual rejection blocked all five targets; no API call and no novelty promotion. |
+
+The six final live control expectations were: a negative test still counts as
+already studied; that positive overlap survives skipped other work; a model
+change alone does not make the relationship new; separately known components
+do not establish their interaction; a mechanism-relevant regime change leaves
+a possible distinction; and contradictory source evidence routes back to
+section 12. These are small synthetic boundary controls, not a measured rate of
+novel or scientifically useful hypotheses.
+
+The final review contract separates **correct synthesis** from **sound upstream
+evidence**: pass-plus-reassessment is allowed as a report, but publication is
+unconditionally blocked by any reassessment request. Unit coverage explicitly
+verifies that boundary. Per-target scope checks additionally block acknowledged
+qualifier defects; final prompts distinguish an observed range from the domain
+of a theoretical claim. Earlier unsuccessful runs remain recorded, and the v2/v3
+MOMENTKV trials have `manual_findings.json` marking them unsuitable for downstream
+use. Only the final v4 run above is the inspected real-assessment example.
+These prototype runs are validation history, not alternate versions to select
+merely because they show an automated pass.
+
+Final MOMENTKV assessment:
+- Direction and H2: **UNRESOLVED**, because their section-12 comparisons are withheld.
+- H1, H3 and H4: **PARTIAL_OVERLAP**, preserving empirical versus theoretical
+  distinctions and the unspecified model/benchmark of the sigma measurements.
+- All five targets: remaining novelty **unresolved**, because the saved run
+  skipped other shortlisted papers.
+- Refinement: **defer**, retaining all four original hypotheses and their test
+  links unchanged. The next action for this artifact is to resolve coverage.
+
+Inspection confirms the final output leaves the sigma-measurement models/
+benchmarks explicitly unspecified, preserves the numerical result qualifiers
+where repeated, and treats the measured band as an observed range rather than
+claiming theory becomes invalid above 1.8. The saved final assessment reloads
+against the final schema, as does the zero-call invalidation artifact.
+
+**Remaining limits.** This completes implementation and the listed validation
+of sections 13–14; it does not resolve the earlier section-12 missing citations,
+compare the complete real shortlists, or establish literature-wide novelty.
+The real test used one saved direction with partial coverage. Independent model
+review remains fallible, as the preserved failed trials demonstrate; the scope
+checks enforce recorded defects, not perfect semantic detection. No repeated
+stability study, complete-shortlist novelty validation, or hypothesis-usefulness
+evaluation was performed. Refinement plans are reviewable outputs; scientific
+edits and section-15 criticism still require their separate downstream work.
+No implementation changes in this section have been committed yet.
+
+### 2026-10-04 — Full-shortlist execution and 1M input allowance
+
+The live-run requirement for this project is the complete agreed shortlist;
+a selected-paper diagnostic must not be substituted for that run. The MOMENTKV
+candidate has 100 target–paper pairs across 54 distinct papers (20 shortlisted
+papers for each of the direction and four hypotheses). The full run uses fresh
+section-12 extraction and reviews for every shortlisted paper, including MOMENTKV
+and CriticalKV, rather than reusing the previously rejected replay.
+
+At the user's request, the local `.env` now sets
+`NOVELTY_MAX_INPUT_TOKENS=1000000`. Output allowance remains 500000, subject to the
+configured provider output maximum. Aggregation retains every accepted comparison
+and the complete available source passages; the 54 papers contain 559 extracted
+pages (approximately 616343 tokens before comparison/assessment context). No
+findings or papers are removed to fit the earlier 500k input allowance.
+
+The already-running per-paper comparisons retain their recorded 500k input
+setting because each individual request fits it; new assessment/recovery
+instances read the 1M override. The assessment regression suite passes all 78
+tests with that override. Full-run execution results follow below once complete.
+
+#### Complete section-12 execution and recovery ledger
+
+The full saved MOMENTKV shortlist was executed: **100 target–paper pairs across
+54 distinct papers; zero pairs skipped**. This is the saved index shortlist, not
+an exhaustive comparison with every paper in the literature. The original run
+and both recovery runs have finished and their raw responses remain preserved.
+
+| Artifact under `/home/hema/research_runs/` | Actual API calls | Scope/result |
+|---|---:|---|
+| `novelty_kv_complete_comparison/` | 310 | All 54 papers; 30 complete, 4 partial, 18 unresolved, 2 failed paper results. |
+| `novelty_kv_recovery_round1/` | 22 | Three closed structural failures; latest results: 1 complete, 1 partial, 1 unresolved. |
+| `novelty_kv_recovery_round2/` | 40 | Nine closed evidence failures; latest results: 6 complete, 3 unresolved. Six additional local extraction replays are **not** API calls. |
+| `novelty_kv_consolidated_v1/` | 0 | Validated latest-attempt consolidation: 37 complete, 5 partial, 12 unresolved papers; 69 accepted pairs, 31 withheld. |
+
+The six replayed extractions only attached the exact existing passage IDs named
+by the previous scope audit. Claim text and relationships were unchanged; each
+received a **fresh independent evidence audit**, interpretation and review.
+Other recoveries supplied the failed attempt/objections to source-grounded
+regeneration; independent reviews remained fresh. A recovery replaces the entire
+selected paper's prior result even when the recovery still fails. The
+consolidator never picks whichever attempt has a favorable outcome. Generation,
+search, candidate, signature, shortlist, target and prior-artifact identities are
+checked before replacement; per-paper lineage and input digests are saved.
+
+| Original target | Accepted comparisons | Attempted shortlist |
+|---|---:|---:|
+| Direction | 13 | 20 |
+| H1 | 13 | 20 |
+| H2 | 16 | 20 |
+| H3 | 13 | 20 |
+| H4 | 14 | 20 |
+
+Both MOMENTKV and CriticalKV now have five accepted target comparisons in these
+fresh runs. This supersedes their earlier incomplete/invalidated diagnostic
+artifacts for this full-run handoff; it does not retroactively approve those
+older outputs. The other 31 pairs are withheld for remaining claim/scope defects,
+citation gaps, or malformed comparison/review responses. Exact latest diagnoses
+are in `novelty_kv_consolidated_v1/unresolved_details.json`; being attempted does
+not mean evidence was accepted. These gaps must not become a low-overlap finding.
+
+#### Full-context transport and provider limit
+
+The first full assessment attempt, `novelty_kv_full_assessment_v1/`, was rejected
+before generation. DeepSeek reported **1,258,954 input tokens**, plus the client's
+393,216-token output reservation, exceeding its 1,048,576-token context limit.
+This is a provider rejection, not an approval restriction or a novelty result.
+The local `chars/4` counter underestimated provider tokens; a local 1M allowance
+does not enlarge the provider context window.
+
+The implementation changed as follows, preserving the earlier design and saved
+provenance rather than removing papers or batching the scientific judgment:
+
+- **`novelty/pipeline.py` (existing):** compact Unicode-preserving JSON; estimate
+  actual message text plus conservative framing overhead instead of counting a
+  second JSON encoding's escaped quotes/newlines. Provider limits still apply.
+- **`novelty/assessment_evidence.py` (new section-13/14 module, updated):**
+  `model_packet()` sends every source passage's exact ID and complete text.
+  Repeated page hashes, page IDs and byte offsets stay in immutable saved inputs
+  and are checked using the original packet. All accepted comparisons, claims,
+  relationships, targets and coverage rows remain in the model request.
+- **`novelty/assessment.py` (new module, updated):** author, independent reviewer,
+  revision and format-repair calls use that same complete model-facing packet;
+  validators and persisted lineage continue using the original input records.
+- **`tests/test_novelty_assessment.py`:** added lossless transport/provenance and
+  exact input-budget-boundary regressions. The assessment suite now has **80
+  passing tests**. The preceding shared-call change also passed the 173-test
+  assessment/comparison/evidence/search regression suite.
+
+The second full assessment run uses the unchanged local **1,000,000 input**
+allowance and a run-specific **65,536 output** reservation so prompt and response
+can fit together. This output setting does not modify other modules' allowances.
+All accepted-paper source text and all 100 comparison coverage rows are retained.
+
+#### Full sections-13/14 outcomes and final validation
+
+| Artifact under `/home/hema/research_runs/` | API requests | Outcome |
+|---|---:|---|
+| `novelty_kv_full_assessment_v1/` | 1 | Provider context rejection described above; no generated assessment. |
+| `novelty_kv_full_assessment_v2/` | 4 | Full-context synthesis, review, correction, review. Reviewer caught missing numerical qualifiers but then passed an unsupported link between separate claims. Manually rejected; see `manual_findings.json`. |
+| `novelty_kv_full_assessment_v3/` | 2 | Full-context correction with explicit recorded feedback, followed by a fresh independent review: pass; final synthesis inspected against decisive source claims. |
+| `novelty_scope_join_control/` | 1 | Fresh full-context review of the exact erroneous v2 draft correctly requested revision for the unsupported measurement-to-ablation linkage. |
+
+The v2 error was specific: H3 called the named order ablation a **low-sigma
+operating point**, while the separate sigma-measurement claim leaves its model
+and benchmark unspecified. Repeating that caveat elsewhere does not establish
+that the ablation used the measured sigma regime. The final v3 text separates
+the ablation from those aggregate measurements and explicitly leaves its spread
+unknown. Existing **`novelty/assessment_prompts.py`** now uses v5 author/review
+instructions prohibiting unsupported condition transfers between separate
+claims. This is a synthesis correction; original candidates, accepted evidence
+records and all comparison coverage remain unchanged. The v3 runner and feedback
+manifest preserve the exact rejected draft, feedback and source digest; the
+independent reviewer receives no correction history.
+
+The final artifact contains **five published assessments**, rather than zero
+section-14 outputs:
+
+| Target | Finding | Remaining scientific distinction in the accepted evidence |
+|---|---|---|
+| Direction | PARTIAL_OVERLAP | Jointly diagnose moment-approximation error, normalization bias and accuracy in deliberately populated high-spread strata. |
+| H1 | PARTIAL_OVERLAP | Test whether MOMENTKV's accuracy advantage changes with measured logit spread at matched settings. |
+| H2 | PARTIAL_OVERLAP | Test whether downward-biased Jensen normalization protects accuracy compared with exact/less-biased normalizers at high spread. |
+| H3 | PARTIAL_OVERLAP | Test how the first-order versus zeroth-order gain changes across measured spread strata; the existing order ablation does not establish that relationship. |
+| H4 | PARTIAL_OVERLAP | Test whether moment-informed eviction's suppression of spread saturates in high-spread strata. |
+
+Refinement is **defer**, preserving all four hypotheses and their test links,
+with no scientific edits or removals. The supported distinction is a question
+about the behavior of an existing method, not a claim that its components are
+new. These are perceived overlap/distinction outcomes. Remaining novelty is
+**unresolved for all five targets** because the full attempted run still has 31
+withheld comparisons. No target is promoted to LOW_PRIOR_OVERLAP, and no numerical
+novelty probability or guarantee is inferred from acceptance counts.
+
+The final saved artifact reloads through the strict schema. Verification checks
+that all 100 coverage rows survive, no paper is skipped, and every comparison and
+complete available accepted-paper source text is identical in the author and
+reviewer requests. Original offsets/hashes remain preserved in saved inputs.
+**174 novelty regression tests pass**, including 80 assessment tests; the final
+source-scope control correctly rejects the known erroneous draft. The final
+assessment has a fresh passing independent review with no reassessment requests.
+Manual inspection confirms the known sigma/ablation linkage is removed and the
+observed sub-1.8 range is not made a theoretical validity boundary. This inspection
+is focused on synthesis and decisive claims, not a ground-truth audit of every
+sentence across all 54 papers.
+
+Full-run totals: **380 API requests: 379 successful responses and one context-limit
+rejection**, plus six separately accounted local extraction replays. All calls
+have finished. The complete ledger is
+`/home/hema/research_runs/novelty_kv_full_run_summary.json`; authoritative results
+are `novelty_kv_consolidated_v1/result.json` and
+`novelty_kv_full_assessment_v3/result.json` under the same directory. All earlier
+failed/rejected artifacts remain preserved. The saved assessment routes the next
+work to **resolve_coverage**; section 15's scientific critic has not run. This full
+execution supersedes the earlier statement that only a selected-paper assessment
+had been run, but does not erase the remaining evidence failures or establish
+literature-wide novelty. Current implementation/documentation changes remain
+uncommitted.
+
+### Targeted section-12 repair — implementation follow-up
+
+The full-run failures exposed a repair-loop problem in the implementation above:
+a local citation or claim objection previously regenerated the entire evidence
+record, and a pair-rationale grounding objection automatically reopened evidence.
+That could introduce unrelated defects. The single evidence-correction allowance
+also left newly identified, actionable defects stranded after a fresh audit.
+
+The implementation now changes these existing modules and adds one internal helper:
+
+- **`novelty/comparison_repair.py` (new):** typed sparse `EvidencePatch` and
+  `InterpretationPatch` responses, explicit edit scopes, validated attachment of
+  reviewer-named source IDs, and exact reviewer field-address maps. Code merges
+  allowed replacements by stable claim/target ID. Unaffected claims and target
+  comparisons are preserved; duplicate, unknown, and out-of-scope edits fail.
+  Evidence additions require an explicit omission/reopen. A citation attachment
+  does not approve its supporting claim.
+- **`novelty/comparison_workflow.py` (changed):** known missing citations are
+  attached before the next audit. Pure citation defects do not require a model
+  to rewrite claim text. Scientific objections use sparse claim/mapping patches;
+  all resulting claims and relationships receive a fresh independent audit,
+  including an omitted-evidence check over the original passages. Subsequent
+  newly discovered defects can receive up to three corrections per evidence
+  phase. An identical/cycling record gets one fresh disagreement audit, then
+  stops; the shared API attempt budget remains enforced. Outcome diagnostics
+  distinguish processing errors, citation/claim repair, coverage review, and
+  model abstention from an accepted insufficient-evidence finding.
+- **`novelty/comparison.py` (changed):** objections to a pair's rationale/reference
+  now patch that target's interpretation, preserving the evidence and other
+  target pairs. Objections to evidence claims, or explicit requests for omitted
+  evidence, reopen evidence. Independent interpretation reviewers receive exact
+  valid field paths with target/dimension labels. Format repairs remain separate
+  bounded calls; failed local interpretation repairs retain the last valid review
+  and its accepted unaffected pairs. Independent papers remain concurrent.
+- **`novelty/comparison_records.py` and `comparison_schemas.py` (changed):**
+  comparison v6 permits at most eight consecutive evidence-review versions:
+  initial audit plus three corrections, and at most one comparison-triggered
+  reopen plus three corrections. Existing v5 artifacts remain readable without
+  changing their serialized schema version or hashes; v5 cannot claim the expanded
+  history. Every interpretation remains bound to its exact evidence version, and
+  the published result must match the latest independent accepted projection.
+- **`novelty/comparison_prompts.py` (changed):** explicit sparse-edit instructions,
+  original-source verification, preservation of counterevidence, and reviewer
+  address selection. These replace broad regeneration for local defects; they do
+  not lower evidence-acceptance requirements.
+- **Tests (changed/new):** existing comparison, relationship and scope fixtures
+  now exercise sparse responses. `tests/test_novelty_targeted_repair.py` adds
+  adverse-edit rejection, unaffected-content preservation, dependency rechecking,
+  citation repair without automatic acceptance, pair-only grounding repairs, and
+  retention of valid state after a failed patch. The complete novelty suite
+  passes **219 tests** after the bounded-repair change.
+
+The live follow-up resumes all 17 affected papers from their exact saved records.
+Only structurally valid, identical-context earlier audits can be replayed. All
+new edits are reviewed through fresh API calls; replayed checkpoint responses are
+accounted separately. Candidate, source, signature and shortlist identities remain
+unchanged. Final coverage and assessment results are recorded below after the
+follow-up completes.
+
+The larger accepted comparison set also required a lossless transport update in
+**`novelty/assessment_evidence.py`**: complete source passages are now grouped by
+original page ID and use short `srcN` reference labels in the model request.
+Every scientific text and accepted comparison is retained. Only typed source-ID
+fields are translated; prose is unchanged. **`novelty/assessment.py`** restores
+response references to the original IDs before validation or persistence, and
+records transport version `page_grouped_source_aliases_v1`. Unknown or wrong-paper
+references still fail. **`tools/validate_novelty_assessment.py`** saves the exact
+alias mapping alongside the immutable inputs for auditability. Two regressions
+check exact restoration of reassessment requests and rejection of unknown aliases.
+The complete novelty suite now passes **223 tests**, including successive monotonic
+citation repair and stopping after an unchanged disagreement audit.
+
+A final malformed evidence audit exposed an omitted nonempty scope check despite
+otherwise complete JSON. **`EvidenceBuilder.audit()`** now supplies the exact IDs
+of all result/evaluation/theoretical claims requiring those checks. This supplements
+the schema and prompt; it does not invent a check or accept a malformed judgment.
+
+#### Targeted-repair live results — complete shortlist now accepted
+
+This follow-up resolves the **31 withheld comparisons** recorded above. The same
+original candidate, signatures, retrieval and 100-pair shortlist are retained;
+no paper was dropped and no acceptance gate was relaxed.
+
+| Artifact under `/home/hema/research_runs/` | API calls | Local checkpoint replays | Consolidated accepted pairs |
+|---|---:|---:|---:|
+| `novelty_kv_targeted_repair_live/` | 52 | 17 extractions + 16 validated audits | 83 / 100 |
+| `novelty_kv_bounded_repair_live/` | 32 | 7 extractions + 6 validated audits | 97 / 100 |
+| `novelty_kv_final_audit_live/` | 3 | 1 extraction | **100 / 100** |
+
+The first pass tested sparse patches with the previous single-correction bound.
+Newly identified source defects motivated the bounded follow-up implementation
+above. Six remaining papers completed there; the last paper needed a fresh audit
+because its earlier reviewer omitted required result-scope checks. The last run
+reused its unchanged evidence record rather than regenerating claims. Exact input
+matching remains required for audit replay; otherwise a fresh review is made.
+All failed attempts remain saved and replacement is by latest selected paper
+result, including failures—not by the most favorable past outcome.
+
+The authoritative **`novelty_kv_consolidated_v4/result.json`** is comparison v6,
+with **54 complete paper results, 100 accepted pairs, zero skipped and zero
+withheld pairs**. Each target has 20 accepted comparisons and a complete recorded
+coverage ledger. `novelty_targeted_repair_integrity.json` additionally verifies
+all five live semantic evidence patches: unchanged claims were preserved exactly,
+and no sparse patch attempted an out-of-scope edit. Other evidence corrections
+were citation attachments followed by independent reviews.
+
+| Assessment artifact | API calls | Result |
+|---|---:|---|
+| `novelty_kv_complete_assessment_v4/` | 2 | Full-coverage synthesis passed automated review but repeated the unsupported sigma-to-ablation linkage. Manually rejected; `manual_findings.json` records it. |
+| `novelty_kv_complete_assessment_v5/` | 2 | Explicit source-based synthesis correction using the same complete packet; fresh independent review passed, followed by focused source inspection. |
+
+**The reviewer limitation remains real:** the prior saved-error control passed,
+yet a later full-context review missed the same kind of scope transfer. The fix
+to comparison repair does not make model judgment infallible. The erroneous
+assessment remains unsuitable for downstream use. Final v5 separates the named
+order ablation from sigma measurements whose model/benchmark is unspecified and
+does not treat the measured sub-1.8 range as a theoretical validity cutoff.
+The final artifact has no upstream reassessment requests and reloads against the
+strict schema. Raw author/reviewer packets were checked to contain the same full
+scientific context, with exact reversible source labels. This final assessment
+used the local 1M estimated input allowance and a **32,768-token output reserve**;
+all responses finished normally without truncation. Source text was not sampled.
+
+The final **section-14 result is retain**, replacing the earlier **defer**:
+
+- Direction and H1–H4 all have `finding=PARTIAL_OVERLAP` and complete coverage.
+- Their code-owned novelty status is now `partial_overlap`, **not unresolved**.
+- The retained distinction is the high-spread diagnostic and its specific
+  margin, normalizer, approximation-order, and suppression-saturation questions
+  concerning existing MOMENTKV mechanisms.
+- All four hypotheses and their original test links are retained unchanged;
+  no hypothesis is removed and no scientific edit is silently applied.
+- `unresolved_target_ids=[]`; the saved handoff is **`research_critic`**, matching
+  architecture **section 15**. This stage has not been implemented/run here.
+
+This is a scoped perceived-novelty/refinement outcome over the recorded retrieval,
+not a percentage guarantee of globally novel or scientifically valuable ideas.
+The comparison backlog is resolved for this candidate; section 15 evaluates the
+quality and significance of the surviving scientific questions.
+
+Follow-up total: **91 successful API calls**, with **47 local checkpoint replays**
+accounted separately. All calls have finished. **223 novelty tests pass**. Final
+machine-readable ledger: `/home/hema/research_runs/novelty_targeted_repair_summary.json`.
+Final handoff: `/home/hema/research_runs/novelty_kv_complete_assessment_v5/result.json`.
+Implementation and documentation changes remain uncommitted.

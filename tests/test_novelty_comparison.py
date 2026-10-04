@@ -1,5 +1,6 @@
 """Section-12 evidence, scoped overlap, exact reviewed handoff and async failures."""
 import asyncio
+from copy import deepcopy
 import json
 import pytest
 from pydantic import ValidationError
@@ -67,6 +68,8 @@ class Chat:
             raise RuntimeError('provider unavailable')
         if req['task'] in ('extract_comparison_evidence','revise_comparison_evidence','repair_comparison_evidence'):
             out=evidence_output(req['payload'])
+        elif req['task'] in ('patch_comparison_evidence','repair_evidence_patch'):
+            out={'record':deepcopy(req['record']),'abstention_reason':None,'revision_notes':[]}
         elif req['task'] in ('review_comparison_evidence','repair_evidence_review'):
             out=evidence_report(req['record'])
         elif req['task'] in ('review_comparison', 'repair_comparison_review'):
@@ -82,10 +85,17 @@ class Chat:
                 p.pop('hypothesis_tested');p.pop('hypothesis_claim_ids')
             out={'pairs':[p for p in pairs if p['target_id'] in req['eligible_target_ids']],
                 'evidence_requests':[],'abstention_reason':None}
-            if req['task'] == 'revise_comparison':
+            if req['task'] == 'patch_comparison':
+                out['pairs']=[p for p in out['pairs'] if p['target_id'] in req['affected_target_ids']]
                 out['pairs'][0]['rationale'] = 'Corrected explicit comparison scope.'
         if self.mutate:
             self.mutate(out, req)
+        if req['task'] in ('patch_comparison_evidence','repair_evidence_patch'):
+            original={c['claim_id']:c for c in req['record']['claims']}
+            mappings={r['target_id']:r for r in req['record']['relationships']}
+            out=dict(claims=[c for c in out['record']['claims'] if c != original.get(c['claim_id'])],
+                relationships=[r for r in out['record']['relationships'] if r != mappings.get(r['target_id'])],
+                revision_notes=out['revision_notes'],abstention_reason=out['abstention_reason'])
         return ChatResult(json.dumps(out), 'stop', 'stub')
 
 

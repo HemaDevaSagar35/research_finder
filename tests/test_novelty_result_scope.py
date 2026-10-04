@@ -63,7 +63,7 @@ def test_mixed_model_scope_revision_happens_before_interpretation(ready):
             if audits==1:
                 check=out['claim_checks'][0];check['decision']='revise'
                 check['scope_checks'][0].update(aspect='model',decision='overstated',explanation='Model A result was generalized.')
-        if req['task']=='revise_comparison_evidence':
+        if req['task']=='patch_comparison_evidence':
             assert req['corrections']['claim_checks'][0]['scope_checks'][0]['decision']=='overstated'
             out['record']['claims'][0]['text']='Caching is evaluated under the stated stable workloads.'
     result,chat=run(ready,Chat(mutate));paper=result.candidates[0].papers[0]
@@ -86,9 +86,6 @@ def test_known_unattached_scope_support_enters_evidence_repair_not_format_retry(
             audits+=1
             if audits==1:
                 out['claim_checks'][0]['scope_checks'][0]['passage_ids']=[req['payload']['prior_passages'][1]['passage_id']]
-        if req['task']=='revise_comparison_evidence':
-            refs=req['citation_repairs']['c1']
-            out['record']['claims'][0]['passage_ids']+=refs
     result,chat=run(ready,Chat(mutate));paper=result.candidates[0].papers[0]
     assert paper.status=='complete' and len(paper.evidence_reviews)==2
     assert not any(r['task']=='repair_evidence_review' for r,_ in chat.calls)
@@ -96,12 +93,17 @@ def test_known_unattached_scope_support_enters_evidence_repair_not_format_retry(
     assert paper.evidence_reviews[1].record.claims[0].passage_ids!=paper.evidence_reviews[0].record.claims[0].passage_ids
 
 
-def test_unrepaired_scope_citation_gap_blocks_publication(ready):
+def test_new_scope_citation_gap_after_bounded_repair_blocks_publication(ready):
+    for number in (3,4,5):
+        (ready[0]/'outside-paper'/f'{number:02d}.md').write_text(f'Additional condition {number} discovered on re-audit.')
+    audits=0
     def mutate(out,req):
-        if req['task'] in ('review_comparison_evidence','repair_evidence_review'):
-            out['claim_checks'][0]['scope_checks'][0]['passage_ids']=[req['payload']['prior_passages'][1]['passage_id']]
+        nonlocal audits
+        if req['task']=='review_comparison_evidence':
+            audits+=1
+            out['claim_checks'][0]['scope_checks'][0]['passage_ids']=[req['payload']['prior_passages'][audits]['passage_id']]
     result,_=run(ready,Chat(mutate));paper=result.candidates[0].papers[0]
-    assert paper.comparison is None and len(paper.evidence_reviews)==2
+    assert paper.comparison is None and len(paper.evidence_reviews)==4
 
 
 def test_current_records_cannot_drop_associated_table_context():

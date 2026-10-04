@@ -126,6 +126,25 @@ def project(draft,target_ids):
     return type(draft)(claims=[c for c in draft.claims if c.claim_id in used],pairs=pairs)
 
 
+def repair_blockers(paper, target_id):
+    """Distinguish processing defects from an accepted insufficient-evidence finding."""
+    if paper.status == 'skipped': return ['not_attempted']
+    if paper.diagnostic and ('evidence_abstained:' in paper.diagnostic or 'comparison_abstained:' in paper.diagnostic):
+        return ['model_abstention']
+    if paper.diagnostic and paper.diagnostic.startswith(('ValueError:', 'RuntimeError:', 'HTTP ', 'input_budget:')):
+        return ['processing_error']
+    if not paper.evidence_reviews: return ['evidence_not_reviewed']
+    review = paper.evidence_reviews[-1]
+    if not review.report: return ['evidence_review_error']
+    relationship = next(r for r in review.record.relationships if r.target_id == target_id)
+    refs = relationship.refs()
+    blockers = []
+    if refs & scope_citation_gaps(review.report, review.record).keys(): blockers.append('citation_repair')
+    if any(c.claim_id in refs and c.decision != 'supported' for c in review.report.claim_checks): blockers.append('claim_repair')
+    if any(c.target_id == target_id and c.decision != 'adequate' for c in review.report.coverage_checks): blockers.append('coverage_review')
+    return blockers or ['interpretation_review']
+
+
 def outcomes(paper):
     accepted={p.target_id:p for p in paper.comparison.pairs} if paper.comparison else {}
     evidence=paper.evidence_reviews[-1] if paper.evidence_reviews else None
@@ -137,7 +156,7 @@ def outcomes(paper):
         status=('insufficient_evidence' if rel and rel.coverage=='insufficient_evidence' else
             'no_matching_result_found' if rel and rel.coverage=='no_match_found' else 'reviewed') if reviewed else (
             'not_assessed' if paper.status=='skipped' else 'review_unresolved')
-        result.append({'target_id':tid,'review_status':status,'coverage':rel.coverage if reviewed else None,
+        result.append({'target_id':tid,'review_status':status,'repair_blockers':[] if reviewed else repair_blockers(paper,tid),'coverage':rel.coverage if reviewed else None,
             'result':rel.result if reviewed else None,'relationship':rel.model_dump() if reviewed else None,
             'classification':accepted[tid].classification if reviewed else None,
             'evidence_scope':paper.evidence_scope,'missing_referenced_pages':paper.missing_referenced_pages,
@@ -150,12 +169,10 @@ class EvidenceBuilder:
     def __init__(self,io,prompts):self.io,self.prompts=io,prompts
 
     async def generate(self,payload,targets,passages,previous=None,corrections=None):
-        body={'payload':payload}
         if previous is not None:
-            body.update(record=previous.record.model_dump(),corrections=corrections or (previous.report.model_dump() if previous.report else previous.error),
-                citation_repairs=scope_citation_gaps(previous.report,previous.record),
-                citation_repair_instruction='The review used these known passages outside attached claim evidence. Attach the needed source IDs or narrow the claim. Preserve valid conditions. The revised record will be independently reviewed.')
-        task='extract_comparison_evidence' if previous is None else 'revise_comparison_evidence'
+            return await self.patch(payload, targets, passages, previous, corrections)
+        body={'payload':payload}
+        task='extract_comparison_evidence'
         request=body
         for attempt in range(2):
             try:
@@ -172,9 +189,39 @@ class EvidenceBuilder:
             if attempt:raise ValueError('invalid_evidence_after_repair: '+detail)
             request={**body,'invalid_output':raw,'validation_errors':detail}
 
+    async def patch(self,payload,targets,passages,previous,corrections=None):
+        from novelty.comparison_repair import (EvidencePatch, attach_review_citations,
+            repair_scope, apply_evidence_patch)
+        from novelty.comparison_evidence import attach_table_context
+        record = attach_review_citations(previous.record, previous.report, passages)
+        scope = repair_scope(previous, corrections)
+        notes = ['Attached known supporting citations from the independent audit; no claim is accepted without fresh review.']
+        if not scope['claim_ids'] and not scope['target_ids'] and not corrections:
+            return EvidenceResponse(record=record, abstention_reason=None, revision_notes=notes)
+        body = dict(payload=payload, record=record.model_dump(), repair_scope=scope,
+            corrections=corrections or (previous.report.model_dump() if previous.report else previous.error))
+        request = body
+        for attempt in range(2):
+            try:
+                patch, _ = await self.io._call('patch_comparison_evidence' if attempt == 0 else 'repair_evidence_patch',
+                    self.prompts.PATCH_EVIDENCE, EvidencePatch, request)
+                response = apply_evidence_patch(record, patch, scope)
+                response.record = attach_table_context(response.record, passages)
+                response.revision_notes = notes + response.revision_notes
+                validate_record(response.record, targets, passages, require_alignment=True, require_context=True)
+                return response
+            except ModelOutputError as exc: detail, raw = str(exc), exc.raw
+            except ValueError as exc:
+                if str(exc).startswith('evidence_abstained:'): raise
+                detail, raw = str(exc), patch.model_dump()
+            if attempt: raise ValueError('invalid_evidence_patch_after_repair: ' + detail)
+            request = {**body, 'invalid_output': raw, 'validation_errors': detail}
+
     async def audit(self,payload,response,passages,history,trigger):
         repairs=[];report=error=None;model=self.io.review_model or self.io.model
-        body={'payload':payload,'record':response.record.model_dump()};request=body
+        body={'payload':payload,'record':response.record.model_dump(),
+            'required_scope_claim_ids':[c.claim_id for c in response.record.claims
+                if c.kind in ('result','evaluation','theoretical_result')]};request=body
         try:
             for attempt in range(2):
                 try:
@@ -196,14 +243,31 @@ class EvidenceBuilder:
                 revision_notes=response.revision_notes,format_repairs=repairs,model=model,report=report,error=error))
         return history[-1]
 
+    async def repair_remaining(self,payload,targets,passages,history):
+        from opportunities.miner import digest
+        seen = {digest(history[-1].record.model_dump())}
+        for _ in range(3):
+            audit = history[-1]
+            needs_repair = (scope_citation_gaps(audit.report,audit.record)
+                or any(c.decision!='supported' for c in audit.report.claim_checks)
+                or any(c.decision!='adequate' for c in audit.report.coverage_checks))
+            if not needs_repair: break
+            response = await self.generate(payload,targets,passages,audit)
+            fingerprint = digest(response.record.model_dump())
+            repeated = fingerprint in seen
+            seen.add(fingerprint)
+            await self.audit(payload,response,passages,history,'evidence_repair')
+            # A source-backed disagreement gets one fresh audit, but identical
+            # or cycling records must not consume another correction round.
+            if repeated: break
+        return history[-1]
+
     async def initial(self,payload,targets,passages,history):
         response=await self.generate(payload,targets,passages)
-        audit=await self.audit(payload,response,passages,history,'initial')
-        if scope_citation_gaps(audit.report,audit.record) or any(c.decision!='supported' for c in audit.report.claim_checks) or any(c.decision!='adequate' for c in audit.report.coverage_checks):
-            response=await self.generate(payload,targets,passages,audit)
-            audit=await self.audit(payload,response,passages,history,'evidence_repair')
-        return audit
+        await self.audit(payload,response,passages,history,'initial')
+        return await self.repair_remaining(payload,targets,passages,history)
 
     async def reopen(self,payload,targets,passages,history,corrections):
         response=await self.generate(payload,targets,passages,history[-1],corrections)
-        return await self.audit(payload,response,passages,history,'comparison_reopen')
+        await self.audit(payload,response,passages,history,'comparison_reopen')
+        return await self.repair_remaining(payload,targets,passages,history)
