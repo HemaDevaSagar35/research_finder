@@ -64,7 +64,7 @@ async def main(args):
             runner = NoveltySearcher(PaperStore(Path(args.root)), retriever, chat,
                 provider=client.provider, model=client.default_model, corpus_id=str(Path(args.index_dir).resolve()),
                 retrieval_mode='bm25_only' if args.no_vector else 'hybrid',
-                settings=Settings(max_calls=args.max_calls, max_queries=2, candidate_k=20, rerank_k=5))
+                settings=Settings(max_calls=args.max_calls, max_queries=args.max_queries, candidate_k=args.candidate_k, rerank_k=args.rerank_k))
             result = await runner.run(generation)
         result.run['validation_retrieval_mode'] = 'bm25_only' if args.no_vector else 'hybrid'
         save(out/'result.json', result.model_dump())
@@ -97,5 +97,8 @@ if __name__ == '__main__':
     parser.add_argument('--index-dir', default='/srv/research_finder/index')
     parser.add_argument('--max-calls', type=int, default=12)
     parser.add_argument('--no-vector', action='store_true')
+    parser.add_argument('--max-queries', type=int, default=2)
+    parser.add_argument('--candidate-k', type=int, default=20)
+    parser.add_argument('--rerank-k', type=int, default=5)
     parser.add_argument('--reuse-signature-call', help='Reuse a saved raw creation response with identical context; review/revision/search remain live.')
     raise SystemExit(0 if asyncio.run(main(parser.parse_args())) else 1)

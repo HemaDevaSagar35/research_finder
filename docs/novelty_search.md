@@ -314,3 +314,134 @@ The implemented handoff is ready for the next development stage: section 12
 candidate-versus-prior-work comparison using original evidence from the shortlist.
 That next stage must preserve the source-fact/proposal/unknown distinction and
 report search/evidence coverage; it must not infer novelty from an empty result.
+
+## 2026-10-04 — Follow-up: remaining reranks, attribution and retrieval coverage
+
+The user authorized completing the remaining tests with as many API calls as needed.
+This supersedes the prior live-validation call bound for this follow-up only; normal
+production attempt limits remain unchanged. Existing artifacts are retained.
+
+`novelty/prompts.py` now uses `novelty_signature_v3_conditional_premises` and
+`novelty_signature_review_v2_conditional_premises`. The instructions distinguish
+an untested intervention prediction from a factual premise about an existing
+implementation. A `candidate_proposal` label does not qualify a categorical
+“Because A omits X, Y happens” claim. Without source support for A omitting X, that
+premise must be unknown and the explanation conditional. Neutral cache/prefetching
+examples illustrate unsupported premises, legitimate proposed effects and genuinely
+source-supported details. These are semantic instructions, not a runtime keyword
+rule specialized to the RAG paper. The signature schema and production call flow
+are unchanged.
+
+Additional reproducible tools:
+
+| File | Purpose |
+| --- | --- |
+| `tools/validate_novelty_reranks.py` | Reuse exact saved hybrid pools and rerank selected targets concurrently, without new embeddings or upstream generation. |
+| `tools/validate_novelty_attribution.py` | Live negative/positive controls: the historical unsupported premise, explicit unknown plus conditional explanation, and an original-text-supported detail. |
+| `tools/check_novelty_coverage.py` | Compare predeclared related papers against raw pools and reranked shortlists, preserving per-target positions and checking control-source hashes. |
+| `tools/validate_novelty_search.py` | Adds explicit query-count, candidate-pool and shortlist parameters so full production-depth checks are reproducible. |
+
+All three previously unrerun targets (`dir-000-h01`, `dir-000-h03`, `dir-000-h04`)
+completed with five ranked papers each in three concurrent calls. Artifacts:
+`/home/hema/research_runs/novelty_remaining_reranks`. This closes their pending
+JSON-request regression check; it does not reapprove the old signature.
+
+The first attribution-control run rejected the exact historical unsupported premise
+with original-page support. The intended positive fixtures were not yet clean:
+one retained a categorical note-generation/decision-allocation assertion; another
+classified an unresolved question as a proposal. Those are additional attribution
+issues, not evidence that the judge falsely rejected correct content. The fixture
+was corrected explicitly and rerun; both sets of raw controls/reports remain saved
+in `novelty_attribution_controls` and `novelty_attribution_controls_clean`.
+
+Before the new coverage searches, related papers were selected from catalog titles
+and original first pages. The manifest records selection rationale and page hashes
+at `/home/hema/research_runs/novelty_coverage_followup/predeclared_controls.json`.
+RAG includes reward-shaped refusal and selective help-seeking; KV includes output
+perturbation, attention matching and output reconstruction. No control paper IDs
+are injected into production queries. These are targeted coverage checks, not
+novelty labels or a statistically representative retrieval benchmark. One RAG
+control was seen in the earlier run and is explicitly treated as a regression
+control. Adjacent work need not outrank closer papers in every hypothesis shortlist.
+
+
+The cleaned attribution controls all met their predeclared expectations: the judge
+rejected the exact unsupported premise and passed both the unknown/conditional
+version and the genuinely source-supported detail. Manual inspection confirmed the
+negative verdict identified `/targets/0/mechanism/3/text`, with p6/p8 quotations,
+and distinguished observed zero refusals from an unestablished prompt omission.
+These paired controls validate the targeted correction without requiring rejection
+of legitimate hypotheses. They are not a statistical estimate of judge reliability.
+
+Fresh RAG and MOMENTKV validation uses production-depth retrieval settings:
+maximum four queries per target, up to 100 candidate papers, up to 20 reranked papers.
+Both are full runs from saved v3 directions through new signature creation, review,
+any bounded correction, hybrid retrieval and ranking; no hand-edited signature is
+injected into either run. Their artifacts are `novelty_rag_full_live` and
+`novelty_kv_full_live` under `/home/hema/research_runs/`.
+
+
+### Follow-up results: all requested checks completed
+
+The final code passes **276 tests plus 13 subtests**; the prompt changes do not
+change deterministic contracts. CLI/help and `git diff --check` pass. The existing
+FAISS/NumPy warning is unchanged. This follow-up made **27 actual DeepSeek calls**:
+three pending reranks, two three-control attribution runs, and two nine-call full
+pipeline runs. Production budgets remain unchanged. Each full run used one creation,
+one review, one substantive revision, one fresh review and five reranks, with peak
+API concurrency four. There were no provider errors, truncations, missing-artifact
+diagnostics or final withheld signatures in either full run.
+
+| Topic | Targets | Retrieved pool sizes (direction, H1–H4) | Shortlist sizes | Source/novelty status |
+| --- | ---: | --- | --- | --- |
+| RAG | 5 | 100, 92, 96, 64, 95 | 20 for every target | Reviewed signature; novelty not assessed. |
+| MOMENTKV | 5 | 90, 63, 100, 88, 61 | 20 for every target | Reviewed signature; novelty not assessed. |
+
+Each target used four queries, searched without corpus restrictions and ranked
+19 papers outside its one-paper seed set alongside the seed. Counts are per target;
+the same paper can occur in several shortlists. The forty hybrid query searches
+use configured DeepInfra embeddings; embedding transport attempts were not separately
+instrumented in the DeepSeek call ledger.
+
+Manual inspection confirmed the **fresh, unedited RAG signature fixes the historical
+premise error**. Its intervention facet states: “Whether the original Chain-of-Note
+or few-shot CoT comparators include an explicit decision step or refusal exemplars
+is unknown.” Its mechanism states: “If the decision is left implicit, the model may
+default to answering; an explicit decision step might allocate a generation step
+to the decision.” This supersedes the earlier open attribution status for the
+novelty signature in this tested case. The original upstream Direction Generator
+artifacts were not rewritten, and this does not establish universal judge accuracy.
+H1/H2 thresholds, H3's per-comparator prediction and H4's two-component comparison
+remain intact. The review also corrected primary-measure choices labeled as facts.
+
+MOMENTKV manual inspection confirmed all four effect directions/comparators and
+matched-condition requirements remain, high-sigma accuracy behavior stays unknown,
+and the Jensen-gap/approximate-weight distinction is preserved. The initial judge
+requested precise source spans for equations, numbers and low-sigma conditions;
+the revision supplied them and passed fresh review. The signature does not claim
+high-sigma failure was established in the source paper.
+
+Predeclared coverage outcomes:
+
+| Related paper | Example pool → shortlist rank | Coverage interpretation |
+| --- | --- | --- |
+| Reward Shaping for Robust Refusal (`7d99134e9be1`) | RAG direction 7 → 3 | Found in all five RAG targets. |
+| MASH / selective help-seeking (`7ff2a18abb9c`) | RAG direction 89 → 9 | Alternate abstention vocabulary found in all five targets. |
+| CriticalKV (`a60b8c0468d0`) | KV direction 15 → 2 | Perturbation-based eviction found in all five targets. |
+| Fast KV Compaction / Attention Matching (`4d683d7340e6`) | KV H2 100 → 3 | Found only by H2's normalizer-focused search in this run; near the pool boundary. |
+| ReST-KV (`3db4139adeef`) | KV H1 2 → 3 | Found in H1–H4, not the direction-level pool. |
+
+All five controls appear in at least one raw pool and shortlist. These results
+illustrate why hypothesis-specific retrieval and a wider pool matter; a direction-
+only or twenty-paper-only search would miss some related work here. They do not
+establish exhaustive recall, statistical accuracy or that these papers invalidate
+the hypotheses. The paper at rank 100 is a concrete remaining recall-sensitivity
+example, not proof that the entire corpus was exhaustively compared.
+
+Artifacts and precise semantic checks are retained in each full run's
+`semantic_inspection.json`; the coverage manifests, per-target ranks and aggregate
+call ledger are in `novelty_coverage_followup/`. The pending rerank checks and the
+specific signature-attribution regression are closed for these tested cases.
+The next implementation stage remains original-evidence candidate-versus-prior-work
+comparison (architecture section 12), followed by direction/hypothesis novelty
+interpretation and refinement. No extra model calls were used to claim novelty.

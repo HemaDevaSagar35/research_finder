@@ -414,3 +414,23 @@ unestablished causal premise remains inside a proposed-mechanism facet rather th
 being fully split into an unknown; it is not a source-fact claim. Full live coverage,
 failed runs, fixes and limits are recorded in [Novelty Search](novelty_search.md).
 No candidate-versus-prior-work novelty verdicts have been implemented yet.
+
+
+### 2026-10-04 — Novelty validation follow-up completed
+
+The prior three pending reranks now pass. `novelty/prompts.py` distinguishes
+unsupported implementation premises from conditional research hypotheses;
+paired live controls reject the historical error while accepting conditional and
+source-supported versions. A fresh RAG signature explicitly marks original prompt
+contents unknown and makes the explanation conditional, closing that specific
+novelty-signature regression in the tested case. Original upstream drafts remain
+unchanged.
+
+Fresh full-depth RAG and MOMENTKV runs completed all ten targets, each with a
+20-paper shortlist; all five predeclared related-paper controls appeared in at
+least one pool and shortlist. Coverage is reported per target, not as a guarantee
+of exhaustive recall. Follow-up: 27 DeepSeek calls; full suite: **276 tests plus
+13 subtests passed**. Reproducible tools, source-backed controls, failed initial
+fixtures, full results and call ledger are documented in the single
+[Novelty Search module document](novelty_search.md). Candidate-versus-prior-work
+comparison and novelty verdicts are still the next unimplemented stage.

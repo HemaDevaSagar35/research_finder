@@ -1,6 +1,6 @@
 """Separate construction, fidelity review and retrieval relevance roles."""
-SIGNATURE_VERSION = 'novelty_signature_v2_provenance'
-REVIEW_VERSION = 'novelty_signature_review_v1'
+SIGNATURE_VERSION = 'novelty_signature_v3_conditional_premises'
+REVIEW_VERSION = 'novelty_signature_review_v2_conditional_premises'
 RANK_VERSION = 'novelty_rerank_v2_json'
 
 SIGNATURE = """Decompose the supplied research direction and EACH individual hypothesis
@@ -27,6 +27,26 @@ Do not infer missing prompt contents from observed behavior. Do not describe an
 untested predicted effect as an established result. Label candidate assertions not
 established by the pages as unknown; preserve their intended comparison as a proposal.
 
+
+A candidate_proposal label is NOT a blanket uncertainty qualifier for the text.
+Separate an untested research relationship from an assertion about an existing
+system. In particular, a causal sentence "Because method A omits X, Y happens"
+asserts the premise that A omits X even if the whole facet is labeled proposal.
+Without source support for that premise, represent "Whether A includes X is
+unknown" as unknown, and any explanation as "If X is absent, it might explain Y".
+An unknown elsewhere does not qualify an unconditional sentence here. Observing Y
+does not establish the implementation detail or its cause. Preserve the proposed
+WITH/WITHOUT-X comparison without claiming the original lacks X.
+
+Contrastive examples (illustrative, not claims about the supplied papers):
+- Unsupported: "Because CacheA disables prefetching, it stalls" / candidate_proposal.
+  Correct: "Whether CacheA enables prefetching is unknown" / unknown; "If prefetching
+  is absent, enabling it may reduce stalls" / candidate_proposal.
+- Allowed: "Adding prefetching may reduce CacheA stalls" / candidate_proposal. This
+  predicts an intervention effect and need not prove that it is true.
+- Allowed: "CacheA disables prefetching" / source_fact ONLY with original text that
+  states this. A measured stall rate alone does not supply that support.
+
 Produce up to max_queries complementary queries per target using the semantic
 facets and alternative terminology. Include both the combined research relationship
 and less restrictive component/mechanism searches so different regimes or vocabulary
@@ -50,6 +70,31 @@ Check that queries cover the intended relationship and useful alternative vocabu
 without converting missing evidence into absence of prior work or adding corpus
 restrictions. Do not demand detailed protocols, statistical power or proof of the
 proposed hypothesis. Explicit speculative proposals are permitted.
+
+A candidate_proposal label is NOT a blanket uncertainty qualifier for the text.
+Separate an untested research relationship from an assertion about an existing
+system. In particular, a causal sentence "Because method A omits X, Y happens"
+asserts the premise that A omits X even if the whole facet is labeled proposal.
+Without source support for that premise, represent "Whether A includes X is
+unknown" as unknown, and any explanation as "If X is absent, it might explain Y".
+An unknown elsewhere does not qualify an unconditional sentence here. Observing Y
+does not establish the implementation detail or its cause. Preserve the proposed
+WITH/WITHOUT-X comparison without claiming the original lacks X.
+
+Contrastive examples (illustrative, not claims about the supplied papers):
+- Unsupported: "Because CacheA disables prefetching, it stalls" / candidate_proposal.
+  Correct: "Whether CacheA enables prefetching is unknown" / unknown; "If prefetching
+  is absent, enabling it may reduce stalls" / candidate_proposal.
+- Allowed: "Adding prefetching may reduce CacheA stalls" / candidate_proposal. This
+  predicts an intervention effect and need not prove that it is true.
+- Allowed: "CacheA disables prefetching" / source_fact ONLY with original text that
+  states this. A measured stall rate alone does not supply that support.
+
+In review, reject the unsupported premise even if it is copied exactly from the
+candidate or marked candidate_proposal. The remedy is unknown/conditional wording,
+not just switching its basis to candidate_proposal or splitting off another fact.
+Do not demand uncertainty wording for an implementation detail actually established
+by a supplied original quotation, or reject a correctly conditional explanation.
 Return pass with no issues, revise with actionable issues, or abstain if unjudgeable.
 Issues use JSON Pointers into the signature object (starting /targets/...). Grounding
 and attribution issues require verbatim original-page supporting quotations. Do not
