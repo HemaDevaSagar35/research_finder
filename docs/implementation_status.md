@@ -454,3 +454,95 @@ two saved topics. Live comparison validation is pending specific payload approva
 automatic approval review blocked the new prior-paper JSON/page transfers to
 DeepSeek. No section-12 live results are claimed. Aggregate novelty interpretation,
 refinement and research critique remain downstream work after validation.
+
+## 2026-10-04 — Section-12 live tests completed; acceptance failed
+
+Committed implementation as `4c73e34` before testing. Completed **63 DeepSeek calls**
+on seven selected papers (30 target–paper pairs), including targeted retests and
+semantic judge controls. Latest outcomes: **one paper passed the automated gate,
+five remain unresolved, and one failed exact-quote validation**. Earlier passing
+results that later checks contradicted are not counted as accepted. Manual inspection
+also found a scope-wording caveat in the gate-passing ReST-KV result; no clean overall
+acceptance or novelty conclusion is claimed.
+
+Follow-up edits improve exact quote/pointer diagnostics, candidate-uncertainty and
+claim-level citation prompts, and add one audited review-format repair. Added a live
+control tool. **321 tests plus 13 subtests pass.** The implementation, per-file changes,
+all live failures, final results, 63-call ledger and next required evidence-construction
+work are appended to [novelty_search.md](novelty_search.md). These live-test follow-up
+fixes and documentation updates are uncommitted. All calls have finished; no approval
+block remains. Section-12 evidence fidelity must improve before progressing to novelty
+aggregation/refinement.
+
+## 2026-10-04 — Section-12 reference-based redesign implemented and tested
+
+This supersedes the proposed evidence-construction work in the preceding entry.
+`novelty/comparison_evidence.py` now supplies stable source-passage IDs, exact candidate
+views and resolved evidence. `comparison_schemas.py`, `comparison.py` and
+`comparison_prompts.py` use preserved reviewed targets and shared prior claims instead
+of copied candidate statements/quotations. `comparison_legacy.py` retains the v1 reader.
+Full approach, per-module changes, compatibility and test findings are appended to the
+single [novelty_search.md](novelty_search.md) document; older implementation history is
+preserved.
+
+**331 tests plus 13 subtests pass.** Offline replay preserved all source characters
+and candidate/unknown fields across seven historical payloads. Eleven historical
+artifacts remain readable. Completed **37 new DeepSeek calls**: seven-paper rerun
+plus four semantic judge controls. Automated outcomes improved to **19/30 pairs
+passing and 11 withheld**; 170 unselected pairs remain skipped. Both false-tested
+injections were caught, but both baseline re-reviews returned revise, and source
+inspection found both real missed defects and an inaccurate reviewer premise.
+
+This is **not clean semantic acceptance**. Remaining failures concern secondary
+clauses missing supporting passages, source qualifiers lost in prior claims, and
+unqualified absence wording. Stable references and unchanged candidate text now work;
+scientific entailment/reviewer consistency remain the limiting factors. No aggregate
+novelty conclusion is produced and sections 13–15 should not treat these examples as
+validated. All calls finished; no approval blocker remains. Changes are uncommitted.
+
+## 2026-10-04 — Section-12 evidence-first comparison implemented and validated
+
+This extends the reference-based redesign above. New `comparison_records.py` and
+`comparison_workflow.py` add per-claim evidence audits, per-target omission review,
+explicit empirical/theoretical/discussion/inference relationships, bounded evidence
+reopening and dependency-based partial publication. Existing `comparison.py`,
+`comparison_schemas.py`, `comparison_prompts.py` and `pipeline.py` integrate these
+stages and preserve separate review routing. Final artifacts use v4; dedicated v2/v3
+readers preserve historical results. Final proposal anchoring prevents background
+problem evidence alone from counting as investigation of the proposed intervention.
+
+**355 tests plus 13 subtests passed.** Completed **85 additional DeepSeek calls**,
+including failed initial cases, corrections and eleven final controls that all
+matched expectations. Latest artifacts contain automated accepted comparisons for
+all thirty selected pairs across seven papers; 170 unselected pairs remain skipped.
+The two source papers were rerun with final v4 anchoring; other selected results
+remain v3. Source RAG's false direct-coverage result is corrected to related evidence;
+MOMENTKV's mechanism discussion is separated from testing the proposed diagnostic.
+
+This does not certify every sentence: source inspection still found omitted model
+qualification/caption citations and historical unqualified absence prose. Exact
+examples, the ambiguous earlier control, version boundaries and the complete run
+ledger are appended to the single [Novelty Search module document](novelty_search.md).
+No literature-wide novelty verdict is produced. Sections 13–14 remain downstream;
+no unassessed or unresolved result should be interpreted as novelty. All calls have
+finished. These implementation and documentation changes remain uncommitted.
+
+## 2026-10-04 — Result-scope and citation fixes tested; live acceptance remains mixed
+
+The section-12 follow-up adds explicit assertion/condition checks to existing claim
+reviews, deterministic table-caption/setup attachment, persisted context validation,
+and correct routing of citation gaps through bounded evidence repair. It also fixes
+the eligible-target contract sent to interpretation reviewers and partial evidence-view
+rendering. The implementation remains inside `novelty/`; per-module changes and all
+results are appended to [novelty_search.md](novelty_search.md).
+
+**369 tests plus 13 subtests pass.** Completed **92 additional DeepSeek API calls**,
+with exact saved-response replays accounted separately. The original MOMENTKV model
+qualification/Table 5 references and CriticalKV table-caption issue are corrected in
+inspected outputs. Latest MOMENTKV handoff: three accepted pairs, two withheld for a
+remaining formula-reference gap. CriticalKV has an earlier complete corrected run,
+but the latest replay missed the uncited alpha-setting clause again and is explicitly
+flagged unsuitable for downstream use in its manual findings. Final standalone review
+controls matched 6/9 expectations; failures and the subsequently corrected caption-layout
+bug remain documented. This is not clean semantic acceptance or a novelty verdict.
+All calls have finished; changes remain uncommitted.

@@ -1,11 +1,10 @@
-"""Section-12 v4 contracts: immutable candidate context and source-addressed claims."""
+"""Section-12 v2 contracts: immutable candidate context and source-addressed claims."""
 from typing import Literal
 import hashlib
 from pydantic import Field, model_validator
 from directions.schemas import Strict, Text
 from reasoning.schemas import ReviewSource
 from novelty.schemas import SignatureDraft, TargetSignature
-from novelty.comparison_records import PriorClaim, Relationship, EvidenceReview, ReviewFormatRepair
 
 DIMENSIONS = ('problem', 'method', 'mechanism', 'signal', 'regime', 'evaluation', 'scientific_question', 'hypothesis')
 Overlap = Literal['SAME', 'VERY_CLOSE', 'PARTIAL_OVERLAP', 'ADJACENT', 'DIFFERENT']
@@ -34,6 +33,19 @@ class Passage(Strict):
         return page_id + ':' + hashlib.sha256(key).hexdigest()[:12]
 
 
+class PriorClaim(Strict):
+    claim_id: Text
+    text: Text = Field(description='One narrow prior-paper factual claim, supported in full by selected passages. No combined lists of method, benchmark and result.')
+    kind: Literal['method', 'evaluation', 'result', 'discussion', 'explicit_noncoverage']
+    passage_ids: list[Text] = Field(min_length=1)
+
+    @model_validator(mode='after')
+    def unique(self):
+        if len(set(self.passage_ids)) != len(self.passage_ids):
+            raise ValueError('duplicate passages in a claim')
+        return self
+
+
 class DimensionComparison(Strict):
     dimension: Literal['problem', 'method', 'mechanism', 'signal', 'regime', 'evaluation', 'scientific_question', 'hypothesis']
     relation: Literal['SAME', 'CLOSE', 'PARTIAL', 'DIFFERENT', 'UNKNOWN', 'NOT_APPLICABLE']
@@ -54,7 +66,7 @@ class PairComparison(Strict):
     dimensions: list[DimensionComparison] = Field(min_length=8, max_length=8)
     classification: Overlap | None
     rationale: Text
-    hypothesis_tested: Literal['tested', 'inferred', 'discussed_only', 'not_established', 'not_applicable']
+    hypothesis_tested: Literal['tested', 'discussed_only', 'not_established', 'not_applicable']
     hypothesis_claim_ids: list[Text]
     additional_uncertainties: list[Text] = Field(description='Only additional comparison limitations. Candidate unknowns are preserved by code; never rewrite or repeat them here.')
 
@@ -62,7 +74,7 @@ class PairComparison(Strict):
     def dimensions_and_claim(self):
         if sorted(d.dimension for d in self.dimensions) != sorted(DIMENSIONS):
             raise ValueError('all eight dimensions must appear exactly once')
-        if self.hypothesis_tested in ('tested','inferred','discussed_only') and not self.hypothesis_claim_ids:
+        if self.hypothesis_tested in ('tested','discussed_only') and not self.hypothesis_claim_ids:
             raise ValueError('tested/discussed hypotheses require prior claims')
         if self.hypothesis_tested in ('not_established','not_applicable') and self.hypothesis_claim_ids:
             raise ValueError('unestablished hypotheses cannot carry claims as proof of testing')
@@ -89,36 +101,23 @@ class ComparisonDraft(Strict):
                 raise ValueError('unknown prior claim reference')
             used |= refs
             kinds = {claims[c].kind for c in pair.hypothesis_claim_ids}
-            if pair.hypothesis_tested == 'tested' and not kinds & {'result','theoretical_result'}:
+            if pair.hypothesis_tested == 'tested' and 'result' not in kinds:
                 raise ValueError('tested hypothesis requires a reported empirical/theoretical result claim')
             if pair.hypothesis_tested == 'discussed_only' and 'discussion' not in kinds:
                 raise ValueError('discussed-only hypothesis requires a discussion claim')
+        if used != claims.keys():
+            raise ValueError('unreferenced prior claims must be removed')
         return self
 
 
-class InterpretationPair(Strict):
-    target_id: Text
-    dimensions: list[DimensionComparison] = Field(min_length=8,max_length=8)
-    classification: Overlap | None
-    rationale: Text
-    additional_uncertainties: list[Text]
-
-
-class EvidenceRequest(Strict):
-    target_ids: list[Text] = Field(min_length=1)
-    reason: Text
-    passage_ids: list[Text] = Field(min_length=1)
-
-
 class ComparisonResponse(Strict):
-    pairs: list[InterpretationPair]
-    evidence_requests: list[EvidenceRequest]
+    comparison: ComparisonDraft | None
     abstention_reason: Text | None
 
     @model_validator(mode='after')
     def exclusive(self):
-        if sum(bool(x) for x in (self.pairs,self.evidence_requests,self.abstention_reason))!=1:
-            raise ValueError('return pairs, evidence requests, or abstention exclusively')
+        if (self.comparison is None) == (self.abstention_reason is None):
+            raise ValueError('return comparison or abstention exclusively')
         return self
 
 
@@ -150,9 +149,14 @@ class ComparisonReport(Strict):
         return self
 
 
+class ReviewFormatRepair(Strict):
+    invalid_output: str | dict
+    validation_error: Text
+    model: str | None
+
+
 class ComparisonReview(Strict):
     round: Literal[0,1]
-    evidence_version: int = Field(ge=0,le=2)
     draft: ComparisonDraft
     format_repairs: list[ReviewFormatRepair] = Field(default_factory=list,max_length=1)
     model: str | None
@@ -178,7 +182,7 @@ def check_references(draft, targets, passages):
         if by_target[p.target_id].level == 'hypothesis':
             if p.hypothesis_tested == 'not_applicable':
                 raise ValueError('hypothesis target must assess whether the relationship was tested')
-            if p.classification == 'SAME' and p.hypothesis_tested not in ('tested','inferred'):
+            if p.classification == 'SAME' and p.hypothesis_tested != 'tested':
                 raise ValueError('SAME hypothesis requires evidence of testing')
 
 
@@ -186,7 +190,7 @@ class PaperComparison(Strict):
     paper_id: Text
     target_ids: list[Text] = Field(min_length=1)
     targets: list[TargetSignature]
-    status: Literal['complete','partial','unresolved','failed','skipped']
+    status: Literal['complete','unresolved','failed','skipped']
     expected_artifact_sha256: Text
     context_pages: list[ReviewSource]
     passages: list[Passage]
@@ -194,8 +198,6 @@ class PaperComparison(Strict):
     evidence_scope: Literal['available_extracted_pages'] = 'available_extracted_pages'
     comparison: ComparisonDraft | None
     reviews: list[ComparisonReview]
-    evidence_reviews: list[EvidenceReview] = Field(default_factory=list,max_length=3)
-    evidence_requests: list[EvidenceRequest] = Field(default_factory=list)
     diagnostic: str | None
 
     @model_validator(mode='after')
@@ -213,48 +215,25 @@ class PaperComparison(Strict):
         for p in self.passages:
             if pages.get(p.page_id) != p.page_sha256:
                 raise ValueError('passage belongs to a different page or source version')
-        from novelty.comparison_evidence import validate_report
-        from novelty.comparison_workflow import validate_record, validate_evidence_report, eligible, project, accepted_targets, bind_relationships
-        versions={e.version:e for e in self.evidence_reviews}
-        if len(versions)!=len(self.evidence_reviews) or list(versions)!=list(range(len(versions))):
-            raise ValueError('evidence versions must be consecutive')
-        for evidence in self.evidence_reviews:
-            validate_record(evidence.record,self.targets,self.passages,require_alignment=True,require_context=True)
-            if evidence.report:validate_evidence_report(evidence.report,evidence.record,self.passages,require_scope=True)
-        for request in self.evidence_requests:
-            if not set(request.target_ids)<=set(self.target_ids) or not set(request.passage_ids)<={p.passage_id for p in self.passages}:
-                raise ValueError('invalid evidence reopen request')
         for review in self.reviews:
-            ev=versions.get(review.evidence_version)
-            if ev is None or ev.report is None:raise ValueError('comparison must bind to an evidence review')
-            ids,claims=eligible(ev)
-            requested=[t for t in self.targets if t.target_id in ids]
-            check_references(review.draft,requested,self.passages)
-            if review.draft.claims!=claims:raise ValueError('comparison changed the reviewed evidence claims')
-            if bind_relationships(review.draft,ev)!=review.draft:raise ValueError('comparison changed reviewed relationship coverage')
-            if review.report:validate_report(review.report,review.draft,self.passages)
+            check_references(review.draft,self.targets,self.passages)
+            if review.report:
+                from novelty.comparison_evidence import validate_report
+                validate_report(review.report,review.draft,self.passages)
         if self.comparison is not None:
-            if self.status not in ('complete','partial') or not self.context_pages or not self.passages or not self.reviews:
+            if self.status!='complete' or self.diagnostic or not self.context_pages or not self.passages or not self.reviews:
                 raise ValueError('published comparison requires completed evidence-backed review')
             last=self.reviews[-1]
-            if last.evidence_version!=len(versions)-1:raise ValueError('comparison uses superseded evidence')
-            accepted=accepted_targets(last.report,last.draft,versions[last.evidence_version]) if last.report else set()
-            expected=project(last.draft,accepted)
-            if expected!=self.comparison:raise ValueError('published pairs must equal independently accepted draft projection')
-            complete=len(accepted)==len(self.target_ids)
-            if (self.status=='complete')!=complete or (self.diagnostic is None)!=complete:
-                raise ValueError('partial coverage must remain explicit')
-        elif self.status in ('complete','partial') or not self.diagnostic:
+            if last.report is None or last.report.decision!='pass' or last.draft!=self.comparison:
+                raise ValueError('comparison must equal latest passing independent review')
+            check_references(self.comparison,self.targets,self.passages)
+        elif self.status=='complete' or not self.diagnostic:
             raise ValueError('withheld comparison needs incomplete status and diagnostic')
         return self
 
-    def outcomes(self):
-        from novelty.comparison_workflow import outcomes
-        return outcomes(self)
-
     def evidence_view(self):
         from novelty.comparison_evidence import render_comparison
-        return render_comparison(self.comparison,[t for t in self.targets if t.target_id in {p.target_id for p in self.comparison.pairs}],self.passages) if self.comparison else None
+        return render_comparison(self.comparison,self.targets,self.passages) if self.comparison else None
 
 
 class CandidateComparison(Strict):
@@ -288,7 +267,7 @@ class CandidateComparison(Strict):
 
 
 class NoveltyComparisonResult(Strict):
-    schema_version: Literal['novelty_comparison_v5'] = 'novelty_comparison_v5'
+    schema_version: Literal['novelty_comparison_v2'] = 'novelty_comparison_v2'
     directions_ref: dict[str,str]
     search_ref: dict[str,str]
     candidates: list[CandidateComparison]

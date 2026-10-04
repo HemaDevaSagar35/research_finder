@@ -1,4 +1,4 @@
-"""Section-12 v4 contracts: immutable candidate context and source-addressed claims."""
+"""Section-12 v3 contracts: immutable candidate context and source-addressed claims."""
 from typing import Literal
 import hashlib
 from pydantic import Field, model_validator
@@ -219,8 +219,8 @@ class PaperComparison(Strict):
         if len(versions)!=len(self.evidence_reviews) or list(versions)!=list(range(len(versions))):
             raise ValueError('evidence versions must be consecutive')
         for evidence in self.evidence_reviews:
-            validate_record(evidence.record,self.targets,self.passages,require_alignment=True,require_context=True)
-            if evidence.report:validate_evidence_report(evidence.report,evidence.record,self.passages,require_scope=True)
+            validate_record(evidence.record,self.targets,self.passages)
+            if evidence.report:validate_evidence_report(evidence.report,evidence.record,self.passages)
         for request in self.evidence_requests:
             if not set(request.target_ids)<=set(self.target_ids) or not set(request.passage_ids)<={p.passage_id for p in self.passages}:
                 raise ValueError('invalid evidence reopen request')
@@ -254,7 +254,7 @@ class PaperComparison(Strict):
 
     def evidence_view(self):
         from novelty.comparison_evidence import render_comparison
-        return render_comparison(self.comparison,[t for t in self.targets if t.target_id in {p.target_id for p in self.comparison.pairs}],self.passages) if self.comparison else None
+        return render_comparison(self.comparison,self.targets,self.passages) if self.comparison else None
 
 
 class CandidateComparison(Strict):
@@ -288,7 +288,7 @@ class CandidateComparison(Strict):
 
 
 class NoveltyComparisonResult(Strict):
-    schema_version: Literal['novelty_comparison_v5'] = 'novelty_comparison_v5'
+    schema_version: Literal['novelty_comparison_v3'] = 'novelty_comparison_v3'
     directions_ref: dict[str,str]
     search_ref: dict[str,str]
     candidates: list[CandidateComparison]

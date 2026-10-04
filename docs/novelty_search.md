@@ -596,3 +596,758 @@ preselected as a presumed scientific ground truth.
 
 The next acceptance step is those live comparisons and source-level inspection of
 their outputs. Sections 13–15 should follow that validation, not replace it.
+
+## 2026-10-04 — Live comparison validation and follow-up fixes
+
+The section-12 implementation above was committed as **`4c73e34`** before the live
+runs. The user then authorized the seven-paper DeepSeek tests and later explicitly
+reauthorized the CriticalKV retest when automatic approval review inconsistently
+blocked that same payload. These runs use saved direction/search inputs; they do not
+rerun upstream mining/generation or expand retrieval. Original run artifacts and
+unsuccessful attempts are retained rather than overwritten.
+
+### What changed after the committed implementation
+
+- **`novelty/comparison.py`:** the initial quote-validation exception named neither
+  the field nor the offending quotation. Live repairs consequently repeated errors.
+  Validation now reports every invalid quotation and candidate pointer with its exact
+  output path and source page. Repairs must copy contiguous original text, preserving
+  internal Markdown/LaTeX and punctuation. Matching rules have not been weakened and
+  the code does not rewrite model claims or substitute approximate quotations.
+- **`novelty/comparison_prompts.py`:** explicitly identifies allowed signature-pointer
+  roots, requires candidate pointers to support the actual proposed clause rather
+  than merely a related source fact, scopes absence claims in every field to supplied
+  evidence, preserves candidate unknowns/hedges, and requests source support for each
+  prior-side factual clause. Valid contiguous substrings need not include formatting
+  delimiters outside the quoted substring. Prompt history is retained in raw calls;
+  the current comparison/review versions are `v3_scoped_evidence`.
+- **`novelty/comparison.py`, `comparison_schemas.py`, existing `pipeline.py`:** live
+  reviewers also produced inexact quotations. One bounded review-format repair is now
+  permitted per review round and routed to the configured reviewer client/model.
+  The invalid response and precise error remain under `format_repairs`; the repaired
+  report is revalidated. This changes the earlier no-repair-on-invalid-review behavior.
+  A persistently invalid review still withholds the result. It adds no extra substantive
+  revision loop: at most one comparison revision and a fresh review remain allowed.
+- **`tests/test_novelty_comparison.py`:** added regression coverage for reporting all
+  bad spans, retaining invalid reviewer output, independent reviewer routing during
+  repair, and attempt-budget enforcement. **45 comparison tests pass; the complete
+  suite passes 321 tests plus 13 subtests**, with the existing FAISS/NumPy warning only.
+- **New `tools/validate_novelty_comparison_controls.py`:** replays two historically
+  passed comparison drafts and creates two deliberately false claims that a specific
+  candidate hypothesis was tested. Their quotes are real and pass deterministic
+  reference validation; detecting the false inference requires semantic review.
+
+### Findings that must not be hidden by an eventual passing run
+
+The first RAG run used six calls: its source-paper comparison passed, but Reward
+Shaping and MASH failed their bounded structural/quote repairs. The first KV run used
+11 calls: the source-paper comparison passed; ReST-KV and CriticalKV failed structural/
+quote repairs; Attention Matching was withheld after its second review contained an
+invalid quotation. No failed comparison was published as a novelty result.
+
+The Attention Matching reviewer identified a real method error: the draft attributed
+compact-key construction to nonnegative least squares. The paper selects compact keys
+first, fits biases with NNLS and values with least squares. Later reviews also found
+claims listing methods/metrics that their attached quotations did not establish.
+MASH review distinguished an unresolved oracle-helper failure from a solved method.
+These are substantive evidence checks, separate from literal quotation formatting.
+
+Both injected false-tested claims were rejected at the affected fields: the RAG
+claim invented a matched decision-tag experiment; the KV claim invented a high-sigma
+stratified first-order-versus-zeroth-order result. However, **both historically passed
+baseline drafts received `revise` on re-review**. The RAG draft contained broad absence
+claims; the MOMENTKV draft had candidate-mechanism pointer mismatches and incomplete
+support for a prior-side question. These were valid defects, not simply counted as
+judge false positives. The initial passes therefore cannot establish correctness or
+reviewer reliability, and later retests supersede them. This four-case check is not a
+statistical estimate of judge accuracy.
+
+The model can still produce uncited clauses, lose a hedge while paraphrasing a
+candidate, or fail a literal quote repair. The strict output boundary withholds such
+results; a recorded model pass alone is not a guarantee. Detailed final run outcomes
+and the call ledger are recorded below after the pending calls complete.
+
+### Final live outcome: acceptance did not pass
+
+**All live calls completed: 63 DeepSeek calls across initial runs, targeted retests
+and the four judge controls.** No embedding calls were needed. The seven selected
+papers cover 30 target–paper pairs; the other 170 pairs from the two saved 100-pair
+shortlists were not tested. This is explicitly a selected-paper validation.
+
+Latest outcomes (earlier passes do not override later failed checks):
+
+| Paper | Target pairs | Latest automated outcome | Remaining issue |
+| --- | ---: | --- | --- |
+| Conflict-aware RAG source | 5 | Withheld after revise → revise | Citation coverage, overly broad absence wording and candidate-pointer support. |
+| Reward Shaping | 5 | Withheld after revise → revise | Two hypothesis-side prior claims lack attached support; candidate unknowns omitted. |
+| MASH | 5 | Withheld after revise → revise | Uncited prior-side factual clauses and an unsupported candidate condition. |
+| MOMENTKV source | 5 | Withheld after revise → revise | Missing support, broad absence wording and loss of proposed-mechanism hedges. |
+| CriticalKV | 5 | Withheld after revise → revise | Two uncited prior clauses, a candidate-pointer mismatch and omitted candidate unknowns. |
+| Fast KV Compaction / Attention Matching | 1 | Failed bounded quote repair | The generated p8 log-perplexity quote is not an exact original substring. |
+| ReST-KV | 4 | Passed after revise → pass | ADJACENT; exact candidate hypotheses remain not established. Manual wording caveat below. |
+
+Thus the automated boundary publishes **4 of 30 selected pairs** and withholds 26.
+This does **not** establish clean manual acceptance of the four: targeted inspection
+of ReST-KV also found unqualified “does not test” wording in overall rationales,
+despite scoped non-establishment language in its uncertainty fields. The mechanism
+and effect-direction distinctions are useful, but that wording still needs correction.
+No novelty verdict or novelty percentage follows from these results.
+
+The final CriticalKV retest used five calls and completed after the user's explicit
+reauthorization. It still returned revise after its one substantive revision. There
+is no approval blocker or running comparison process left; the remaining limitations
+are output quality and source support. The added reviewer-format repair has offline
+regression coverage; the final live runs did not exercise that new branch, so no live
+success claim is made for it.
+
+Full aggregate ledger and latest-result mapping:
+`/home/hema/research_runs/novelty_comparison_validation_summary.json`.
+The reproducible aggregation script is
+`/home/hema/research_runs/summarize_comparison_validation.py`.
+All twelve run directories, raw requests/responses, failed drafts and review snapshots
+are retained under `/home/hema/research_runs/novelty_comparison_*`.
+
+**Next required work remains within section 12.** Improve evidence construction so
+candidate descriptions preserve reviewed text/uncertainty directly, and prior claims
+are built from individually supported source passages instead of repeatedly generating
+broad prose and trying to repair it. Retest those concrete failure cases. The green
+321-test offline suite verifies contracts, withholding, budgets and concurrency; it
+does not demonstrate reliable model output. Section 12 is not ready to be treated as
+validated input to aggregate novelty/refinement in sections 13–15.
+
+
+## 2026-10-04 — Reference-based section-12 evidence construction (v2)
+
+This changes the comparison implementation described above, preserving those entries
+as history. The architecture remains section 12: eight dimensions, separate direction
+and hypothesis targets, selected-paper coverage, and scoped overlap. No novelty
+aggregation, hypothesis refinement or appendix extraction is introduced.
+
+### Representation and execution
+
+The model no longer writes a second candidate description or copies quotations.
+`novelty/comparison_evidence.py` (new) partitions every available extracted page into
+blank-line blocks, retaining all non-whitespace characters, Markdown, equations and
+tables. A passage ID binds paper/page identity, page SHA-256, character offsets and
+exact text. Repeated paragraphs at different offsets receive different IDs. Source
+pages remain read-only. Paragraph selection is evidence addressing, not retrieval or
+relevance filtering: the complete extracted text remains available to the model.
+
+The reviewed `TargetSignature` is copied unchanged into the result. `candidate_view`
+provides deterministic dimension-to-facet references and carries all unknown facets.
+Conditions and hedges therefore survive without asking the model to repeat them in
+every comparison field. Interpretations can still contradict those conditions; that
+is a semantic defect for the independent review to catch, not something text copying
+alone can prevent.
+
+The model creates a small shared list of atomic prior claims. Each has a kind
+(method, evaluation, result, discussion or explicit author-stated noncoverage) and
+one or more passage IDs. Each dimension references claim IDs and supplies its scoped
+interpretation. `tested` requires a result claim; `discussed_only` requires a discussion
+claim. These structural rules do not prove that the claim follows from its passages
+or that the exact candidate relationship was tested. A fresh independent reviewer
+checks those questions, attribution, effect directions, conditions and classification.
+The reviewer also cites passage IDs, rather than generating quotations.
+
+`render_comparison`/`PaperComparison.evidence_view()` resolve every claim reference
+into exact source text alongside the unchanged candidate. Unknown candidate properties
+are preserved separately from additional comparison-specific uncertainties. Missing
+tests mean **not established in supplied evidence**, not a claim of global absence.
+Only the exact draft accepted by the latest valid independent review is published.
+
+Per-paper calls remain asynchronous. All shortlisted targets for a paper share one
+claim set and comparison context. The existing one substantive revision plus fresh
+review limit remains; malformed generation and review outputs each have their existing
+bounded format-repair allowance. Failures remain explicit, with no novelty verdict.
+
+### Modules changed and artifact compatibility
+
+- **New `novelty/comparison_evidence.py`:** stable source addressing, exact candidate
+  views, resolved evidence rendering, comparison/reference and report validation.
+- **Changed `novelty/comparison_schemas.py`:** `novelty_comparison_v2`; added `Passage`,
+  `PriorClaim`, `ComparisonReport` and reference-based issue records; replaced copied
+  candidate/prior statements and quotes with preserved targets and shared claim IDs.
+  Persisted targets must equal the parent reviewed signature; passage versions must
+  match the page manifest. Published output must equal its passing review snapshot.
+- **New `novelty/comparison_legacy.py`:** frozen v1 schemas for reading earlier audits.
+  No silent migration or inherited approval of old outputs. External consumers must
+  choose the reader for the artifact's explicit schema version. V2 consumers use
+  `PaperComparison.evidence_view()` when they need resolved human-readable evidence.
+- **Changed `novelty/comparison.py`:** builds the passage catalog from existing
+  `PaperStore` pages and preserves the candidate; uses reference-based semantic reports.
+  Source/candidate hash checks, budgets, withholding and concurrent scheduling remain.
+- **Changed `novelty/comparison_prompts.py`:** comparison/review prompt versions
+  `v4_reference_claims`, distinguishing atomic facts from comparison interpretation,
+  with no repeated candidate prose or quotation generation.
+- **Changed `novelty/pipeline.py`:** retains the follow-up reviewer-format-repair
+  routing described above. Signature creation/retrieval behavior is unchanged here.
+- **Changed `tools/validate_novelty_comparison.py`:** writes `evidence_views.json` as
+  well as raw calls, result, call ledger and coverage summary.
+- **Changed `tools/validate_novelty_comparison_controls.py`:** v2 paired re-review
+  controls inject unsupported experimental claims with valid passage references.
+- **New `tools/replay_novelty_comparison_failures.py`:** offline replay of saved v1
+  contexts, testing source-character coverage, exact candidate/unknown preservation,
+  and rejection of the retired copied-prose fields. This is not a semantic reapproval.
+- **Changed `tests/test_novelty_comparison.py`; new
+  `tests/test_novelty_comparison_evidence.py`:** adapted existing gate tests and added
+  passage identity/coverage, candidate hedge preservation, wrong-paper rejection,
+  exact rendering and discussion-versus-result regressions.
+
+### Validation at implementation time
+
+The complete local suite passes **331 tests plus 13 subtests** (one existing FAISS/
+NumPy deprecation warning). A regression exposed and fixed loss of the final paragraph
+when page text ended with whitespace. All source characters are now covered.
+
+Offline replay used seven distinct saved paper payloads from the previous runs. All
+original target fields and unknowns survived exactly; all non-whitespace source text
+remained addressable. It identified 75 historical inexact-quote occurrences and rejected
+1,176 historical v1 dimension outputs under the new schema. These are repeated output
+occurrences across attempts, not independent scientific examples or accuracy estimates.
+Report: `/home/hema/research_runs/novelty_comparison_v2_replay.json`.
+
+Live validation uses the same seven selected papers and 30 target–paper pairs, with
+fresh output directories `novelty_comparison_v2_rag_live` and
+`novelty_comparison_v2_kv_live` under `/home/hema/research_runs`. Final live outcomes
+and semantic-control results are recorded below when complete; passing local tests
+alone does not establish scientific acceptance.
+
+### Completed v2 live validation: representation improved; semantic acceptance remains incomplete
+
+All calls finished: **37 DeepSeek calls** (15 RAG comparisons/reviews, 18 KV
+comparisons/reviews, four paired judge controls), with peak concurrency three per
+comparison run and four for controls. No embedding calls or new corpus extraction
+were needed. The same seven papers cover 30 pairs; the other 170 pairs remain skipped.
+There were no failed passage-ID/quotation-copy repairs in these runs. Seven generation
+format repairs removed unused claims; all seven reached semantic review. Keeping
+unused claims out of the shared set still costs repair calls and should be stated
+more explicitly to the generator in a future prompt revision.
+
+| Paper | Pairs | Automated outcome | Evidence finding |
+| --- | ---: | --- | --- |
+| Conflict-aware RAG source | 5 | revise → pass | Added the passage establishing held-out benchmark status. Later control/manual issues below prevent clean acceptance. |
+| Reward Shaping | 5 | revise → pass | Missing evidence for the candidate's hypothesis now yields UNKNOWN rather than DIFFERENT; reward training versus prompting remains an affirmative method distinction. Manual scope caveat below. |
+| MASH | 5 | revise → revise; withheld | Oracle-helper result cites the collapse within 50 steps but omits the setup paragraph establishing gold answers and all variants. |
+| MOMENTKV source | 5 | pass | Separates discussed Jensen self-regulation from empirical high-sigma testing. Later review discrepancy and scope caveat below. |
+| CriticalKV | 5 | revise → revise; withheld | Evaluation claim includes 13 RULER tasks and 40% cache size without the paragraphs supporting those two details. |
+| Fast KV Compaction / Attention Matching | 1 | revise → revise; withheld | Claim about key selection includes aggregation and NNLS-refitting details not supported by its selected passages. |
+| ReST-KV | 4 | revise → pass | Added exact model-identifier support; reconstruction and smoothing comparison remains ADJACENT, with the four candidate relations not established. |
+
+The automated gate publishes **19/30 pairs**, versus 4/30 in the earlier latest
+results. This is a representation-and-gating outcome, **not a scientific accuracy
+rate**. The three unresolved papers retain their rejected drafts and reports and
+publish no comparison. They stopped at the existing revision bound; no repeated
+attempts were used to replace these failures with a convenient passing result.
+
+#### Judge controls and source inspection
+
+Both injected false-tested claims were rejected at their affected fields: the RAG
+mandatory-decision-tag experiment and the MOMENTKV sigma-stratified approximation-order
+experiment. The injected claims used real passage IDs and passed structural validation,
+so this exercised semantic checking. However, both previously passed baseline drafts
+received `revise` when reviewed again. Thus only **two of four expected control outcomes
+matched**; this is not a judge-reliability estimate or an overall passing control suite.
+
+Inspection distinguished real defects from a reviewer error:
+
+- **RAG baseline:** re-review correctly flagged paper-wide non-testing assertions and
+  dimension rationales whose local claim IDs did not establish their trace-supervision
+  facts. Separately, claim `prior-14` says broadly that trace supervision does not improve
+  answer quality, whereas its p7 source qualifies the null by prompt conditions and
+  reports improved grounding under sparse instructions. That lost qualifier was missed
+  in both review passes. Candidate text is now preserved mechanically, but prior-claim
+  interpretation can still overgeneralize source findings.
+- **MOMENTKV baseline:** the control reviewer says claim `c13`'s selected passages do
+  not mention LongBench. The selected p9 passage `60ca1bf96321` explicitly compares
+  margins with LongBench. Directly citing the LongBench setup would improve precision,
+  but the reviewer's stated no-mention premise is false. Do not count this automatically
+  as a correctly detected defect. Manual inspection separately found unqualified
+  “does not test” wording in some pair rationales despite scoped wording elsewhere.
+- **Reward Shaping:** the training-versus-prompting method distinction is supported,
+  but H3's overall rationale says the prior paper does not use conflict labels or
+  conflict-aware prompting, an unqualified absence assertion that its pass missed.
+- **ReST-KV:** targeted inspection supports the reconstruction-error, temporal EMA
+  and adaptive spatial-smoothing distinction. The four hypotheses remain unestablished
+  in supplied evidence. No additional defect was identified in that targeted inspection;
+  this does not claim an exhaustive scientific audit.
+
+**Section 12 still lacks clean semantic acceptance.** Stable IDs solve copying and
+reference integrity, and unchanged targets solve candidate rewrite drift; they do not
+prove that every clause in a prior claim follows from its selected paragraphs. The
+remaining work is clause-level claim support/qualification and consistent scoped
+interpretation, including reviewer false positives and missed defects. A passing
+model report must not be used to claim novelty or to advance these validation examples
+as scientifically verified input to sections 13–15.
+
+The exact ledger, run paths, all outcomes and manual observations are saved in
+`/home/hema/research_runs/novelty_comparison_v2_validation_summary.json`.
+Reproduce it from the repository root with:
+
+```bash
+uv run python -c "import runpy; runpy.run_path('/home/hema/research_runs/summarize_comparison_v2_validation.py', run_name='__main__')"
+```
+
+This also verifies that the frozen v1 reader can still read all eleven saved historical
+comparison artifacts. The v2 result round trips and resolved evidence views were checked
+by both live harnesses. `novelty.compare --help` and `git diff --check` pass. The earlier
+331-test/13-subtest result remains the final full-suite result; subsequent edits were
+validation tools and documentation, with those tools executed on the real artifacts.
+
+## 2026-10-04 — Evidence-first relationship comparison and proposal alignment
+
+This implements the consolidated section-12 plan discussed after the v2 validation.
+It changes evidence construction and review inside the existing novelty module. The
+eight overlap dimensions and direction/hypothesis separation remain. Earlier entries
+are retained as implementation/test history, not overwritten by this design.
+
+### Purpose and decision boundaries
+
+The question is what this prior paper already investigates or establishes about the
+candidate's proposed contribution. A negative or inconclusive experiment still studies
+a relationship; theoretical establishment does not require an experiment. An inferred
+implication is our deduction, with explicit premises, steps and established assumptions,
+and is never presented as an experiment or an author-stated result. A bound on an
+approximation's error alone does not establish an accuracy prediction. Conversely,
+a different benchmark, model or metric does not automatically make the relationship new.
+
+Evidence that establishes the candidate's motivating problem is not sufficient to mark
+its proposed intervention/relationship directly investigated. The live rollout exposed
+this exact error on the RAG direction, despite an evidence review and an interpretation
+review passing it. Positive coverage now needs a `ProposalMatch` for every proposed
+intervention, comparison, regime and expected-effect facet. References are checked by
+code; the reviewer checks scientific equivalence, including whether a changed setting
+matters. Effect sign is assessed separately so a contradicting result can still cover
+the relationship. Partial correspondence stays related or unresolved. This applies to
+directions as well as individual hypotheses.
+
+### Flow and bounds
+
+1. Build one deduplicated context for a prior paper and all its shortlisted targets.
+   Preserve reviewed target text/basis/provenance. Keep every available original prior
+   passage and candidate-source pages not already present among those prior pages.
+   Use structured paper data for page navigation and immutable artifact validation;
+   omit repeated upstream opportunity/paper dumps and duplicated candidate views from
+   API requests. The input/output allowances remain unchanged.
+2. Extract relevant `PriorClaim` records plus one `Relationship` per target. Map prior
+   intervention, comparator, conditions, outcome and conclusion to claim IDs. Keep
+   material qualifications and distinguish empirical results, theoretical results and
+   discussion. The record is a candidate-specific evidence selection, not a generic
+   paper summary or a claim of scientific truth.
+3. Independently review **every claim** for support and **every target** for mapping
+   and omitted evidence that could overturn the proposed distinction. All extracted
+   prior passages remain available. A selective but individually true claim set can
+   therefore receive a coverage correction. Unsupported objections may be disputed
+   in a source-backed revision; the next audit is fresh and does not inherit the old
+   review narrative. Both the objection and revision notes remain in the artifact.
+4. Permit one evidence revision and re-audit. Proceed only with supported claims and
+   targets whose relationship dependencies and coverage audit are adequate. Retain
+   unresolved checks in history. A nonessential unsupported claim can be excluded;
+   an unresolved material dependency blocks its target, not all unrelated targets.
+5. Generate interpretations across the eight dimensions. The model returns pairs only;
+   code supplies the reviewed claims and the relationship/testing status. It cannot
+   replace claims while writing the final comparison. If original passages expose a
+   material omission, the model can request evidence reopening with target/passage IDs.
+6. Independently review interpretation, including factual premises, candidate conditions,
+   meaningful scientific overlap and scope language. A grounding/attribution objection
+   can reopen evidence, once, before regenerating and re-reviewing interpretation.
+   Evidence snapshots are versioned; conclusions cannot use a superseded version.
+   There is at most one interpretation revision/reopen cycle. No unbounded consensus
+   or repeated retry-until-pass loop is added.
+
+Initial extraction/revision calls and review calls each retain one bounded format repair.
+There are at most three evidence snapshots (initial, evidence repair, comparison reopen)
+and two interpretation attempts. Shared attempt/input/output budgets still apply. Papers
+run concurrently; source loading also runs concurrently. Dependent stages within a paper
+are sequential. No per-claim API fan-out is introduced.
+
+### Output and uncertainty
+
+The artifact separates overlap from evidence/review status. `PaperComparison.outcomes()`
+returns one outcome for every requested target, including withheld and skipped targets:
+
+- `reviewed`: accepted scoped comparison, with its coverage and effect result;
+- `no_matching_result_found`: no matching result established in inspected evidence;
+- `insufficient_evidence`: an accepted assessment that material evidence is insufficient,
+  with a null overall overlap classification;
+- `review_unresolved`: evidence/review could not establish a reliable comparison;
+- `not_assessed`: outside explicitly selected scope.
+
+Every outcome retains `literature_novelty: not_assessed`, inspected-evidence scope and
+missing referenced pages. Code renders the missing-match statement consistently.
+Free-text reasoning is still reviewed for unqualified absence assertions; the structured
+status is not a license for contradictory prose. Sections 13–14 must not interpret
+missing evidence or review failures as novelty, and handle coverage across multiple papers.
+
+A paper may be `partial`. Only exact independently accepted pairs are published. Claim
+issues block their dependent pairs; localized pair issues block the affected pair.
+Unlocalizable objections or an abstaining interpretation reviewer withhold the relevant
+batch. If a local revision call fails while earlier unaffected pairs remain accepted
+against the current evidence version, those pairs are retained. Changed or failed new
+evidence does not silently reuse stale acceptance.
+
+### Modules and compatibility
+
+- **New `novelty/comparison_records.py`:** evidence claims, scientific relationships,
+  implications, proposal-facet matches, per-claim support/per-target coverage reports,
+  versioned evidence audits and revision notes.
+- **New `novelty/comparison_workflow.py`:** evidence generation/audit with bounded repairs,
+  exact audit coverage validation, eligible-target selection, proposal anchoring,
+  dependency-based partial publication, evidence rebinding and deterministic outcomes.
+- **Changed `novelty/comparison.py`:** runs evidence review before interpretation,
+  deduplicates API context, supports bounded source reopening and retains partial results.
+- **Changed `novelty/comparison_schemas.py`:** final artifact version
+  `novelty_comparison_v4`. Comparison responses contain interpretation pairs or explicit
+  evidence requests, not mutable prior claims. Persisted drafts bind to evidence versions,
+  claims and relationship states; accepted projections and proposal anchors are validated.
+- **Changed `novelty/comparison_prompts.py`:** final comparison version
+  `v5_2_proposal_alignment`; evidence version `v1_2_proposal_alignment`. Instructions cover
+  clause qualification, omitted counterevidence, theory/implication, actual proposal
+  coverage, scope and reviewer disagreement. Initial v3 live artifacts retain their
+  original prompt/schema metadata and raw calls.
+- **Changed existing `novelty/pipeline.py`:** evidence audit and evidence-review repair
+  tasks route to the configured independent review client/model. Upstream signature,
+  retrieval and generation contracts are unchanged.
+- **New `novelty/comparison_legacy_v2.py` and `comparison_legacy_v3.py`:** historical
+  artifact readers; existing `comparison_legacy.py` retains v1. No old result is silently
+  promoted to a new-schema reviewed output. Choose the reader by `schema_version`.
+- **Changed `tools/validate_novelty_comparison.py`:** saves evidence audit summaries,
+  per-target outcomes and resolved views for incomplete as well as complete papers.
+- **New `tools/validate_novelty_evidence_controls.py`:** constructed boundary cases and
+  saved real-paper controls for support, omission, negative results, theoretical coverage,
+  unsupported implications, qualifier loss and background-versus-proposal confusion.
+  It uses the production bounded evidence-review repair path and records raw calls.
+- **Changed historical `tools/validate_novelty_comparison_controls.py`:** reads v2 drafts
+  explicitly and reuses their saved reviewer prompts so historical controls remain
+  reproducible after the production prompt changes.
+- **Changed existing comparison tests; new `tests/test_novelty_relationships.py`:**
+  stages/budgets, separate reviewer routing, omission repair, disputed objections,
+  theoretical/negative-result statuses, implication assumptions, proposal anchoring,
+  missing evidence, dependent withholding, local repair failure, bounded reopening,
+  persisted version/claim/projection checks and concurrent paper execution.
+
+Final test counts, selected-paper results, controls and remaining limits follow after
+all live calls complete. Automated approval is not scientific ground truth; source
+inspection and counterexamples remain necessary parts of this validation.
+
+### 2026-10-04 — Final evidence-first validation results
+
+The preceding implementation is now exercised offline and live. **355 tests plus
+13 subtests passed**; the only warning was the existing FAISS/NumPy deprecation.
+Saved outputs validate with their appropriate readers: four v3 comparison artifacts
+and two v4 artifacts. No historical artifact was rewritten into a new-schema result.
+
+This evidence-first validation used **85 additional DeepSeek calls**. This count is
+separate from the earlier 63-call and 37-call validation entries above. All calls have
+finished. The complete machine-readable ledger is
+`/home/hema/research_runs/novelty_comparison_evidence_validation_20261004.json`.
+Each run directory below is under `/home/hema/research_runs/` and retains its raw
+requests/responses and summary; comparison runs also retain result and evidence views.
+
+| Run directory | Calls | Outcome |
+|---|---:|---|
+| `novelty_comparison_v3_rag_live` | 17 | Source RAG and MASH completed; Reward Shaping failed response-format repair. |
+| `novelty_comparison_v3_kv_live` | 23 | CriticalKV, ReST-KV and AttentionMatching completed; MOMENTKV failed evidence-kind validation. |
+| `novelty_comparison_v3_reward_retest` | 4 | Explicit response/state instructions added; five pairs completed. |
+| `novelty_comparison_v3_moment_retest` | 6 | Five pairs passed automated review; manual inspection then found overstated proposal coverage. |
+| `novelty_comparison_v3_evidence_controls` | 10 | Six constructed cases matched expectations; four real-source cases failed structural review validation. |
+| `novelty_comparison_v3_evidence_controls_repair` | 5 | Production bounded review repair used; three real cases matched, one ambiguous negative control did not. |
+| `novelty_comparison_v3_grounding_control` | 1 | Explicit loss of the sparse-prompt grounding condition correctly rejected. |
+| `novelty_comparison_v4_controls` | 11 | All eleven final controls matched expectations; no format repair needed. |
+| `novelty_comparison_v4_rag_source` | 4 | All five source-RAG pairs completed; background evidence no longer counted as testing the proposal. |
+| `novelty_comparison_v4_moment_source` | 4 | All five source-MOMENTKV pairs completed; discussion no longer counted as testing the proposed contrast. |
+| **Total** | **85** | Failures, corrections and superseded results retained. |
+
+The latest selected results cover the same **seven papers / 30 target–paper pairs**:
+RAG source (5), Reward Shaping (5), MASH (5), MOMENTKV source (5), CriticalKV (5),
+ReST-KV (4), AttentionMatching (1). All 30 have an automated accepted comparison in
+the latest selected artifacts. **170 other shortlisted pairs remain unassessed**;
+do not add the skipped counts from targeted retries. Only the two source papers
+were rerun with final v4 proposal anchoring; the other five retain v3 outputs.
+This is not a claim that all seven papers passed a complete final-v4 live run.
+
+The final eleven controls cover: a negative result that still investigates the
+hypothesis; omitted matching negative evidence; a matching theoretical result;
+an unsupported theory-to-accuracy implication; the same investigated relationship
+on a different dataset; discussion mistaken for a result; background evidence
+mistaken for the proposed direction; explicit grounding-condition loss; a supported
+qualified null result; a supported LongBench mention; and a fabricated matched
+prompt experiment. Both valid evidence and deliberately wrong interpretations are
+included. These are fixed checks, not an estimate of population judge accuracy or
+a benchmark of how often generated hypotheses are novel.
+
+The historical negative control “Trace supervision does not improve answer quality”
+is **ambiguous**, because the source uses that wording for single-truth recall while
+separately reporting sparse-prompt grounding gains. The reviewer accepted it with
+that interpretation. Its original nonmatching result remains saved; it is excluded
+from the eleven final controls. The replacement explicitly asserted that grounding
+never improves even with sparse instructions; the reviewer correctly rejected that
+assertion. Earlier wording treating the broad answer-quality control as an
+unambiguous judge failure is qualified by this finding.
+
+### What source inspection established, and what it did not
+
+The v3 RAG record incorrectly labeled the direction directly investigated because
+the paper established the motivating prompting deficit. Its proposed decision-tag,
+refusal-exemplar and prompting-only oracle interventions were not established as
+reported experiments. The v4 record now reports `related` / `not_assessed` for all
+five targets and preserves the neighboring oracle experiment on fine-tuned models.
+The final injected background-versus-proposal control also rejects the same mistake.
+
+The v3 MOMENTKV record overstated the paper's theoretical mechanism as direct coverage
+of the proposed diagnostic and H2 contrast. The v4 record reports `discussed` /
+`not_assessed` for the direction and H2, and `related` / `not_assessed` for H1, H3
+and H4. It retains the Jensen lower bound, self-regulation discussion, reported
+sigma values and existing ablations without claiming those establish the proposed
+high-sigma comparison against less-biased or exact normalizers. Positive coverage
+now requires supported anchors for every proposed relationship facet.
+
+The omission audit also improved recognized overlap in AttentionMatching by adding
+the attention-mass weighted mixture and the no-bias versus fitted-bias ablation.
+MASH's revised oracle claim includes the gold-answer setup and collapse result.
+These show why reviewing omission matters in addition to checking individual claims.
+
+**Remaining precision limitations are not hidden by automated acceptance:**
+
+- Historical AttentionMatching prose still contains a paper-wide sounding absence
+  assertion even though structured scope is restricted to inspected pages. Downstream
+  consumers must retain the structured evidence scope; this prose is not a certified
+  absence finding.
+- In final MOMENTKV output, claim C14 combines ranking on both models with numerical
+  margins that the source gives for LLaMA, without explicitly restricting those
+  margins to that model. C15 cites table values but omits the separate caption that
+  supplies setup conditions. Historical CriticalKV claim c10 similarly omits the
+  separate caption supplying its 40% setting. The full supplied pages contain these
+  conditions, but individual attached citations and qualifications remain imperfect.
+- These inspections are targeted, not an exhaustive adjudication of every clause in
+  all thirty comparisons. A fresh LLM review is fallible, including when it agrees
+  with an earlier one. The tests establish the implemented safeguards and observed
+  corrections; they do not establish scientific truth or literature-wide novelty.
+
+No appendix extraction or completeness requirement was added. Paper-reported bounds
+remain paper-reported evidence; an appendix reference in the source does not mean
+its proof was extracted or independently verified. Input/output allowances remain
+500,000. Independent papers and controls run concurrently; evidence generation,
+evidence review and interpretation within a paper have necessary dependencies.
+Sections 13–14 remain downstream work and must consume review status, relationship,
+source scope and uncertainty alongside overlap labels.
+
+## 2026-10-04 — Explicit result-scope checks and table-context references
+
+This follow-up addresses the specific qualifier and caption defects recorded above.
+All extracted pages were already supplied to the evidence reviewer; those defects
+were failures of claim qualification and reference attachment, not missing retrieval.
+The architecture and stage boundaries remain unchanged: section 12 records what
+prior work establishes; sections 13–14 assess and refine novelty across that evidence.
+A change of model or dataset does not automatically imply a new scientific relationship.
+
+### Implementation changes
+
+- **`novelty/comparison_records.py`:** adds `ScopeCheck` and explicit `scope_checks` /
+  `scope_summary` on each claim review. Checks identify a concrete result, model,
+  comparator, dataset, regime, measurement, assumption or other relevant assertion,
+  with exact evidence IDs and `supported`, `missing_citation`, `overstated` or
+  `unresolved` status. Conditions are selected for relevance, not a mandatory list
+  of every conceivable experimental detail.
+- **`novelty/comparison_workflow.py`:** production audits require those fields.
+  Result, evaluation and theoretical-result claims need at least one substantive
+  check. A supported scope assertion must cite evidence attached to the claim;
+  a claim cannot be supported if any of its scope checks reports a defect. Defects
+  enter the existing bounded evidence-revision path. Dependency-based withholding
+  and reassessment remain unchanged. These are structural consistency checks;
+  semantic completeness and source entailment still require the reviewer.
+- **`novelty/comparison_evidence.py`:** adds deterministic `table_context_refs` and
+  `attach_table_context`. A clearly adjacent, explicitly labeled caption and trailing
+  note are attached to cited Markdown tables. Table headers are already inside the
+  original table passage. An upcoming table's caption is not attached to the previous
+  table. Remote setup paragraphs, ambiguous associations and cross-page references
+  are not guessed; the extractor must cite them explicitly. Existing passage IDs,
+  text and offsets remain unchanged. Attachment is idempotent and occurs before audit.
+- **`novelty/comparison.py`:** supplies the small table-to-context reference map in
+  the shared payload. All original passages remain available without duplication.
+- **`novelty/comparison_prompts.py`:** explicitly separates a both-model ranking
+  from model-specific margins and requests evidence for material conditions. The
+  reviewer records scope checks rather than relying on one blanket support decision.
+  Missing citations and overstated claims are distinct defects. Scientific overlap
+  is assessed separately from exact model/dataset equality. Prompt versions are
+  `novelty_comparison_v6_result_scope`, `novelty_comparison_review_v6_result_scope`
+  and `novelty_evidence_v2_result_scope`.
+- **`novelty/comparison_schemas.py`:** current artifacts use
+  `novelty_comparison_v5` and validate the explicit scope audit when reloaded.
+  **New `novelty/comparison_legacy_v4.py`** preserves the previous artifact reader.
+  Older records may lack scope checks; they are readable as historical outputs,
+  not silently promoted to outputs that passed the new check.
+- **`tests/test_novelty_result_scope.py`:** adds regressions for caption/header/note
+  association, the next table's caption, unsupported or unattached scope evidence,
+  contradictory support decisions, persisted missing audits, and correction before
+  interpretation. Existing comparison fixtures now include explicit scope checks.
+- **`tools/validate_novelty_evidence_controls.py`:** adds saved MOMENTKV/CriticalKV
+  claims with missing/restored captions, mixed/correctly qualified model results,
+  an explicit wrong-model numerical claim, a different-model/same-relationship
+  case and a material stationary/changing-workload difference.
+
+No additional judge, per-claim API fan-out, exact-setup novelty rule or new pipeline
+stage is introduced. Independent papers and controls run concurrently. The same
+bounded repair limits and 500,000-token allowances apply. Incorrect retained claims
+must be corrected even when their correction leaves the overlap label unchanged.
+
+The full offline suite passed **364 tests plus 13 subtests** (one existing FAISS/NumPy
+warning). Four historical v3 and two v4 comparison artifacts also reload successfully
+with their respective readers. Live outcomes and source inspection are recorded below
+when the targeted runs finish; offline success is not a substitute for those results.
+
+### Refinements discovered during this follow-up's live checks
+
+The first scope implementation treated a supported scope check citing an unattached
+but known passage as a malformed review. That was the wrong repair category. The
+current `scope_citation_gaps` derives missing references from the review and record;
+they exclude the affected claim from eligibility and enter the existing substantive
+evidence-repair/re-audit cycle. The original model report is preserved unchanged.
+The repair request includes the explicit missing passage IDs. If the gap survives
+the bounded repair, dependent comparisons remain withheld. Unknown IDs and invalid
+schemas still use the bounded format-repair path. Tests cover both successful
+citation repair and a gap that remains unresolved.
+
+The reviewer also initially treated the ambiguous original mixed-model claim as
+acceptable under a charitable reading. The final instructions require clarification
+when a material numerical qualifier is missing, even if an interpretation could be
+true. The scope-check explanation must not silently supply a qualification absent
+from the claim itself. Final prompt versions are
+`novelty_comparison_v6_2_result_scope`,
+`novelty_comparison_review_v6_2_result_scope`, and `novelty_evidence_v2_2_result_scope`;
+these supersede the initial versions in the preceding implementation note.
+
+Adversarial reviews that bypassed automatic caption attachment sometimes still
+accepted a table claim without its caption. Production therefore also validates
+that every evidence record retains all clearly associated table context before
+interpretation and when loading a v5 artifact (`validate_record(require_context=True)`).
+The original missing-caption inputs are additionally exercised through the actual
+`attach_table_context` step. This guarantees attachment for the supported adjacent
+caption/note patterns; it does not claim semantic detection of every remote setup
+passage or every possible Markdown table layout. No historical v4 record is silently
+upgraded or subjected to the new persisted requirement.
+
+The real MOMENTKV layout exposed an additional attachment bug during validation:
+Table 5's caption is followed by a separate `Baseline: SnapKV.` block before its
+body. The initial immediate-neighbor rule could attach Table 6's heading instead.
+The final rule follows an explicit **preceding** caption through short labeled setup
+blocks to its next table, stopping at another caption, unrelated prose or a page
+boundary. It does not attach a following table heading to the preceding table.
+A regression reproduces the two caption/setup/table sequences. Against the actual
+saved pages, Table 5 now resolves to `p10:38de7bdbf130` (caption) and
+`p10:3b90267f908a` (baseline), while CriticalKV's table resolves to
+`p6:d0b67d1cbaae` (Ruler, 40% cache).
+
+`tools/validate_novelty_comparison.py` now optionally accepts
+`--reuse-extraction-from DIR` for targeted recovery. It validates saved extraction
+responses and checks exact prior-artifact hash, targets, prior passages and candidate
+source passages before reuse. The saved live extraction is replayed; evidence review,
+any substantive correction, interpretation and interpretation review make fresh API
+calls. Reused extractions are explicitly recorded and excluded from `api_calls`;
+run attempt-budget counters include the replay. This avoids changing the generated
+claim set merely to retest corrected attachment/review behavior. It does not change
+the production comparator's normal fresh-generation path.
+
+After these corrections the full suite passed **368 tests plus 13 subtests**.
+
+### Eligible-target review contract
+
+Live MOMENTKV validation exposed a separate handoff defect: a comparison reviewer
+objected to two missing pairs that the evidence gate had intentionally withheld.
+The full immutable target list was present for context, but the reviewer was not
+explicitly told which targets it was allowed to review. `comparison.py` now sends
+`eligible_target_ids` and `withheld_target_ids` to the interpretation reviewer.
+`comparison_prompts.py` (review version
+`novelty_comparison_review_v6_3_eligible_scope`) makes clear that withheld targets
+are not omitted comparisons and must not be generated or treated as novel. This
+preserves the existing partial-publication contract rather than weakening the gate.
+A regression verifies exact agreement between eligible IDs and supplied pairs.
+
+For targeted validation, the live comparison tool additionally supports
+`--reuse-evidence-from DIR`: only evidence-stage responses whose **entire structured
+request** matches the new request are replayed; otherwise the API is called normally.
+Interpretation and its review always remain fresh. Replayed responses and their
+paths are recorded separately from API calls. This was used to isolate the handoff
+fix without rerolling the already reviewed scientific evidence.
+
+The final full suite after this handoff fix passed **369 tests plus 13 subtests**,
+with the same existing FAISS/NumPy warning. Earlier counts above describe earlier
+checkpoints, not additional independent tests to sum.
+
+The first successful partial handoff also exposed an evidence-view export bug:
+`PaperComparison.evidence_view()` passed all requested targets to a renderer that
+requires exact pair coverage. It now passes only the accepted targets to that
+renderer; `outcomes()` continues to report every target, including withheld ones.
+The partial-publication regression checks both counts. The already saved MOMENTKV
+live result was reloaded and its failed evidence-view export/summary regenerated
+locally after this fix, without making additional API calls or changing its result.
+
+### Final live results for the result-scope follow-up
+
+All live calls finished. This follow-up used **92 additional DeepSeek API calls**;
+saved-response replays are excluded. The complete per-run ledger (including failed
+attempts and controls) is
+`/home/hema/research_runs/novelty_result_scope_validation_20261004.json`.
+This is separate from the earlier 85-call evidence-first validation.
+
+| Run directory under `/home/hema/research_runs/` | New API calls | Outcome |
+|---|---:|---|
+| `novelty_scope_controls_live` | 16 | 6/9 matched; ambiguous model scope accepted, and two cases exhausted review repair. |
+| `novelty_scope_controls_refined` | 10 | 2/6 matched; schema and citation-binding failures retained. |
+| `novelty_scope_caption_refined` | 3 | 1/2 matched. |
+| `novelty_scope_controls_final` | 11 | 6/9 matched; model-qualification and material/incidental-condition controls matched, isolated caption controls remained inconsistent. |
+| `novelty_scope_context_restored_live` | 3 | 0/2 matched; exposed the caption/baseline association bug and additional citation requests. This run predates the corrected association rule. |
+| `novelty_comparison_v5_scope_live` | 10 | CriticalKV complete with 5 accepted pairs after citation repair; MOMENTKV exhausted review-format repair. |
+| `novelty_comparison_v5_moment_scope_retest` | 2 | MOMENTKV failed extraction repair (malformed JSON). |
+| `novelty_comparison_v5_scope_final` | 16 | CriticalKV complete; MOMENTKV unresolved. Predates the final caption mapping and eligible-target review contract. |
+| `novelty_comparison_v5_scope_repaired` | 17 | Two extractions replayed; original citation fixes present, but interpretation reviewers objected to intentionally withheld pairs. |
+| `novelty_comparison_v5_scope_handoff` | 2 | Four evidence calls replayed exactly; MOMENTKV 3 accepted / 2 withheld. Partial evidence export recovered locally after renderer fix. |
+| `novelty_comparison_v5_critical_handoff` | 2 | Three evidence calls replayed exactly; 5 automatically accepted, but manual inspection found a missed citation defect. This replay is not accepted for downstream use. |
+| **Total** | **92** | No clean all-cases live acceptance claim. |
+
+The final standalone controls caught the original ambiguous mixed-model claim and
+an explicit false attribution of the numerical margins to both models, while accepting
+the correctly qualified claim. They also recognized the same investigated relationship
+on a different model, and rejected generalizing a stationary-workload result to a
+changing-workload claim. The two deliberately unattached-caption controls were sometimes
+accepted by the reviewer when production attachment was bypassed. The positive CriticalKV
+caption case requested extra supporting references and consequently did not match its
+expected immediate acceptance. These are recorded failures, not reclassified as passes.
+The deterministic attachment/record invariant addresses the supported caption layouts;
+it does not make the semantic reviewer infallible.
+
+Source inspection confirms the original defects are corrected in inspected records:
+
+- MOMENTKV C9 explicitly scopes the +1.35 and +0.59 margins to LLaMA-3.1-8B.
+- MOMENTKV C11 carries Table 5's LongBench/LLaMA/L=128 caption and the SnapKV baseline
+  block along with its table values. C13 also gains the benchmark-naming source.
+- The MOMENTKV sigma claim explicitly notes that the cited measurement passage does
+  not further specify which model/benchmark produced those values; it does not invent
+  that qualification from the overall evaluation setup.
+- CriticalKV's Ruler/40%-cache caption is attached. In the earlier complete corrected
+  run (`novelty_comparison_v5_scope_live`), the alpha-setting clause was split into
+  separately cited clm-15; it even retains the source's Algorithm 1 discrepancy
+  (input alpha = 0.25 versus prose alpha = 0.5). The corrected CriticalKV paper object
+  still validates against the current schema.
+
+MOMENTKV's latest handoff accepts H1, H3 and H4. Direction and H2 remain withheld:
+the second evidence audit used an additional formula passage for C2
+(`436775470aa1#p7:42610cf2750b`) that was not attached after the one evidence revision.
+The gate keeps that remaining citation gap explicit; it does not turn withholding
+into a claim of novelty. The final interpretation reviewer now respects the eligible
+set and no longer rejects the supported pairs merely because these two are absent.
+
+**A remaining semantic miss must be explicit.** The latest CriticalKV handoff replay
+started with the earlier flawed extraction. Its reviewers accepted clm-06's alpha = 0.5
+clause as supported by assumption/theorem passages that do not state that experimental
+value. It is supported elsewhere, at `p5:b3b3103572ca` / `p5:0aa0cd425866`, and had been
+corrected in the earlier run, but review consistency is not established. A separate
+`manual_findings.json` in `novelty_comparison_v5_critical_handoff/` flags that replay
+`accepted_for_downstream: false` without rewriting the raw model output. Do not select
+it merely because it is the latest automated pass. This shows the limit of the fix:
+explicit checks and deterministic caption binding improve traceability and catch the
+specified errors, but a reviewer can still misread which passage supports a clause.
+
+Implementation and regression validation are complete; live semantic acceptance is
+**mixed**, not fully passed. No literature-wide novelty result is produced. Changes
+remain uncommitted. Future aggregation must not treat the withheld MOMENTKV targets
+or the manually rejected CriticalKV replay as validated novelty evidence.

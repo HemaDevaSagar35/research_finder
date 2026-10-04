@@ -6,14 +6,15 @@ from pathlib import Path
 import os
 
 from pydantic import BaseModel, Field
-from directions.judge import validate_report
-from directions.schemas import CorrectnessResponse, GenerationResult
+from directions.schemas import GenerationResult
 from llm_client import errors, usage
 from novelty import comparison_prompts as prompts
 from novelty.comparison_schemas import (CandidateComparison, ComparisonDraft, ComparisonResponse,
-    ComparisonReview, NoveltyComparisonResult, PaperComparison)
-from novelty.pipeline import ModelOutputError, NoveltySearcher, Settings as SearchSettings, pointer, validate_signature
-from novelty.schemas import FACETS, NoveltySearchResult
+    ComparisonReview, NoveltyComparisonResult, PaperComparison, ReviewFormatRepair, ComparisonReport, Passage)
+from novelty.comparison_workflow import EvidenceBuilder, eligible, assemble, accepted_targets, project, proposal_requirements
+from novelty.pipeline import ModelOutputError, NoveltySearcher, Settings as SearchSettings, validate_signature
+from novelty.comparison_evidence import passages_for_pages, table_context_refs, candidate_view, validate_comparison, validate_report
+from novelty.schemas import NoveltySearchResult
 from opportunities.miner import digest
 from reasoning.budget import TOKEN_COUNTER
 from reasoning.schemas import ReviewSource
@@ -47,28 +48,6 @@ def page_numbers(root, pid, paper):
     return sorted(local | referenced), referenced
 
 
-def validate_comparison(draft, payload):
-    targets = {t['target_id']: t for t in payload['targets']}
-    pages = {p['page_id']: p['text'] for p in payload['prior_pages']}
-    if {p.target_id for p in draft.pairs} != set(targets):
-        raise ValueError('comparison must cover exactly the requested targets')
-    def quote(span):
-        if span.page_id not in pages or ' '.join(span.quote.split()) not in ' '.join(pages[span.page_id].split()):
-            raise ValueError('comparison quote missing or belongs to a different paper')
-    for pair in draft.pairs:
-        target = targets[pair.target_id]
-        if pair.level != target['level']:
-            raise ValueError('comparison target level changed')
-        for dim in pair.dimensions:
-            for path in dim.candidate_paths:
-                if path.split('/')[1:2] not in [[key] for key in FACETS]:
-                    raise ValueError('candidate pointers must reference semantic signature facets')
-                pointer(target, path)
-            for span in dim.source_spans:
-                quote(span)
-        for span in pair.hypothesis_evidence:
-            quote(span)
-
 
 class NoveltyComparator:
     """One run per instance. Reuses existing evidence/call infrastructure, no search."""
@@ -79,50 +58,78 @@ class NoveltyComparator:
             model=model, review_model=review_model, settings=SearchSettings(**self.settings.model_dump(), max_queries=20))
         self.used = False
 
-    async def _reviewed(self, payload, reviews):
-        async def create(task, body):
-            request = body
+    async def _reviewed(self, payload, targets, passages, reviews, evidence_history, requests):
+        builder=EvidenceBuilder(self.io,prompts)
+        evidence=await builder.initial(payload,targets,passages,evidence_history)
+        previous=corrections=None
+        for round in range(2):
+            ids,claims=eligible(evidence)
+            if not ids:return None
+            body={'payload':payload,'eligible_target_ids':sorted(ids),
+                'reviewed_evidence':{'claims':[c.model_dump() for c in claims],
+                    'relationships':[r.model_dump() for r in evidence.record.relationships if r.target_id in ids]}}
+            if previous is not None:body.update(comparison=previous.model_dump(),corrections=corrections)
+            request=body
             for attempt in range(2):
                 try:
-                    response, _ = await self.io._call(task if attempt == 0 else 'repair_comparison',
-                        prompts.COMPARE, ComparisonResponse, request)
-                except ModelOutputError as exc:
-                    detail, raw = str(exc), exc.raw
-                else:
-                    if response.comparison is None:
-                        raise ValueError('comparison_abstained: ' + response.abstention_reason)
-                    try:
-                        validate_comparison(response.comparison, payload)
-                    except (ValueError, KeyError, IndexError) as exc:
-                        detail, raw = str(exc), response.model_dump()
+                    response,_=await self.io._call(('compare_prior_work' if round==0 else 'revise_comparison') if attempt==0 else 'repair_comparison',
+                        prompts.COMPARE,ComparisonResponse,request)
+                    if response.abstention_reason:raise ValueError('comparison_abstained: '+response.abstention_reason)
+                    if response.evidence_requests:
+                        for r in response.evidence_requests:
+                            if not set(r.target_ids)<=ids or not set(r.passage_ids)<={p.passage_id for p in passages}:
+                                raise ValueError('invalid evidence reopen references')
+                        draft=None
                     else:
-                        return response.comparison
-                if attempt:
-                    raise ValueError('invalid_comparison_after_repair: ' + detail)
-                request = {**body, 'invalid_output': raw, 'validation_errors': detail,
-                    'repair_instruction': 'Return complete corrected JSON with exact target IDs, target-relative pointers and verbatim prior-page quotes, or abstain. Do not invent evidence.'}
-        draft = await create('compare_prior_work', {'payload': payload})
-        for round in range(2):
-            report, error, model = None, None, self.io.review_model or self.io.model
+                        draft=assemble(response,evidence,targets)
+                        validate_comparison(draft,{**payload,'targets':[t.model_dump() for t in targets if t.target_id in ids]})
+                    break
+                except ModelOutputError as exc:detail,raw=str(exc),exc.raw
+                except ValueError as exc:
+                    if str(exc).startswith('comparison_abstained:'):raise
+                    detail,raw=str(exc),response.model_dump()
+                if attempt:raise ValueError('invalid_comparison_after_repair: '+detail)
+                request={**body,'invalid_output':raw,'validation_errors':detail}
+            if draft is None:
+                requests.extend(response.evidence_requests)
+                if round: return None
+                evidence=await builder.reopen(payload,targets,passages,evidence_history,
+                    {'evidence_requests':[r.model_dump() for r in response.evidence_requests]})
+                continue
+            report=error=None;model=self.io.review_model or self.io.model;repairs=[]
+            base={'payload':payload,'eligible_target_ids':sorted(ids),
+                'withheld_target_ids':sorted({t.target_id for t in targets}-ids),
+                'relationships':[r.model_dump() for r in evidence.record.relationships if r.target_id in ids],
+                'comparison':draft.model_dump()};request=base
             try:
-                report, model = await self.io._call('review_comparison', prompts.REVIEW, CorrectnessResponse,
-                    {'payload': payload, 'comparison': draft.model_dump()})
-                validate_report(report, draft, {'pages': payload['source_context']['pages'] + payload['prior_pages']})
+                for attempt in range(2):
+                    try:
+                        report,model=await self.io._call('review_comparison' if attempt==0 else 'repair_comparison_review',
+                            prompts.REVIEW,ComparisonReport,request)
+                        validate_report(report,draft,passages)
+                        break
+                    except ModelOutputError as exc:detail,raw=str(exc),exc.raw
+                    except ValueError as exc:detail,raw=str(exc),report.model_dump()
+                    report=None
+                    if attempt:raise ValueError('invalid_comparison_review_after_repair: '+detail)
+                    repairs.append(ReviewFormatRepair(invalid_output=raw,validation_error=detail,model=model))
+                    request={**base,'invalid_review':raw,'validation_errors':detail}
             except Exception as exc:
-                report, error = None, errors.describe(exc)
+                error=errors.describe(exc)
                 raise
             finally:
-                reviews.append(ComparisonReview(round=round, draft=draft.model_copy(deep=True),
-                    model=model, report=report, error=error))
-            if report.decision == 'pass':
-                return draft
-            if report.decision == 'abstain' or round == 1:
-                raise ValueError('comparison_review_unresolved: ' + report.summary)
-            draft = await create('revise_comparison', {'payload': payload,
-                'comparison': draft.model_dump(), 'corrections': report.model_dump()})
+                reviews.append(ComparisonReview(round=round,evidence_version=evidence.version,draft=draft.model_copy(deep=True),
+                    format_repairs=repairs,model=model,report=report,error=error))
+            if report.decision=='pass' or round==1 or report.decision=='abstain':
+                return project(draft,accepted_targets(report,draft,evidence))
+            previous,corrections=draft,report.model_dump()
+            if any(i.category in ('grounding','attribution') for i in report.issues):
+                evidence=await builder.reopen(payload,targets,passages,evidence_history,corrections)
+                previous=corrections=None  # regenerate from changed evidence, no stale interpretation
+        return None
 
     async def _paper(self, pid, targets, expected_hash, source_context):
-        reviews, refs, missing = [], [], []
+        reviews, refs, missing, passages, evidence_history, requests = [], [], [], [], [], []
         try:
             if Path(pid).name != pid or pid in ('.', '..'):
                 raise ValueError('unsafe prior paper ID')
@@ -138,20 +145,34 @@ class NoveltyComparator:
             if not loaded:
                 raise ValueError('no_original_prior_pages: ' + pid)
             refs = [ReviewSource(paper_id=p.paper_id, page=p.page, key_or_path=p.key_or_path, sha256=p.sha256) for p in loaded]
-            payload = {'source_context': source_context,
-                'targets': [t.model_dump() for t in targets], 'prior_paper_id': pid,
-                'prior_paper': paper.paper, 'prior_artifact_sha256': paper.sha256,
-                'prior_pages': [{'page_id': f'{pid}#p{p.page}', 'text': p.text} for p in loaded],
-                'missing_referenced_pages': missing, 'evidence_scope': 'available_extracted_pages'}
-            draft = await self._reviewed(payload, reviews)
-            return PaperComparison(paper_id=pid, target_ids=[t.target_id for t in targets], status='complete',
+            passages = passages_for_pages([{'page_id':f'{pid}#p{p.page}', 'sha256':p.sha256, 'text':p.text} for p in loaded])
+            if not passages:
+                raise ValueError('no_original_prior_text: ' + pid)
+            prior_page_ids={p.page_id for p in passages}
+            source_pages=[p for p in source_context['pages'] if p['page_id'] not in prior_page_ids]
+            payload={'targets':[t.model_dump() for t in targets], 'prior_paper_id':pid,
+                'proposal_requirements':{t.target_id:proposal_requirements(t) for t in targets},
+                'prior_artifact_sha256':paper.sha256,
+                'paper_navigation':{'title':paper.paper.get('title'), 'available_pages':[p.page for p in loaded],
+                    'structured_referenced_pages':sorted(referenced)},
+                'candidate_source_passages':[p.model_dump() for p in passages_for_pages(source_pages)],
+                'prior_passages':[p.model_dump() for p in passages],
+                'table_context_refs':table_context_refs(passages),
+                'missing_referenced_pages':missing,'evidence_scope':'available_extracted_pages'}
+            draft = await self._reviewed(payload,targets,passages,reviews,evidence_history,requests)
+            status='complete' if draft and len(draft.pairs)==len(targets) else 'partial' if draft else 'unresolved'
+            diagnostic=None if status=='complete' else 'Some target comparisons remain unresolved; inspect per-target outcomes and versioned evidence/reviews.'
+            return PaperComparison(paper_id=pid, target_ids=[t.target_id for t in targets], targets=targets, passages=passages, status=status,
                 expected_artifact_sha256=expected_hash, context_pages=refs, missing_referenced_pages=missing,
-                comparison=draft, reviews=reviews, diagnostic=None)
+                comparison=draft, reviews=reviews,evidence_reviews=evidence_history,evidence_requests=requests,diagnostic=diagnostic)
         except Exception as exc:
-            return PaperComparison(paper_id=pid, target_ids=[t.target_id for t in targets],
-                status='unresolved' if reviews else 'failed', expected_artifact_sha256=expected_hash,
-                context_pages=refs, missing_referenced_pages=missing, comparison=None,
-                reviews=reviews, diagnostic=errors.describe(exc))
+            retained=None
+            if reviews and evidence_history and reviews[-1].evidence_version==evidence_history[-1].version:
+                retained=project(reviews[-1].draft,accepted_targets(reviews[-1].report,reviews[-1].draft,evidence_history[-1]))
+            return PaperComparison(paper_id=pid, target_ids=[t.target_id for t in targets], targets=targets, passages=passages,
+                status='partial' if retained else 'unresolved' if reviews or evidence_history else 'failed', expected_artifact_sha256=expected_hash,
+                context_pages=refs, missing_referenced_pages=missing, comparison=retained,
+                reviews=reviews,evidence_reviews=evidence_history,evidence_requests=requests, diagnostic=errors.describe(exc))
 
     async def run(self, generation: GenerationResult, search: NoveltySearchResult, *, paper_ids=None):
         if self.used:
@@ -201,7 +222,7 @@ class NoveltyComparator:
                     hashes[p.paper_id] = h
                     grouped.setdefault(p.paper_id, []).append(by_target[s.target_id])
             def withheld(pid, status, why):
-                return PaperComparison(paper_id=pid, target_ids=[t.target_id for t in grouped[pid]],
+                return PaperComparison(paper_id=pid, target_ids=[t.target_id for t in grouped[pid]], targets=grouped[pid], passages=[],
                     status=status, expected_artifact_sha256=hashes[pid], context_pages=[],
                     missing_referenced_pages=[], comparison=None, reviews=[], diagnostic=why)
             try:
@@ -240,7 +261,7 @@ class NoveltyComparator:
             run={'started':started, 'ended':datetime.now(timezone.utc).isoformat(),
                 'provider':self.io.provider, 'model':self.io.model, 'review_model':self.io.review_model or self.io.model,
                 'settings':self.settings.model_dump(), 'comparison_prompt':prompts.VERSION,
-                'review_prompt':prompts.REVIEW_VERSION, 'token_counter':TOKEN_COUNTER,
+                'review_prompt':prompts.REVIEW_VERSION, 'evidence_prompt':prompts.EVIDENCE_VERSION, 'token_counter':TOKEN_COUNTER,
                 'selected_papers':sorted(paper_ids) if paper_ids is not None else None,
                 'stopped_for_provider_error':self.io.fatal,
                 'scope':'pairwise_overlap_on_available_extracted_evidence'})

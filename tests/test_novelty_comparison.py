@@ -23,14 +23,33 @@ def ready(prepared):
 
 
 def output(payload):
-    page = payload['prior_pages'][0]
-    span = {'page_id':page['page_id'], 'quote':page['text']}
-    return {'comparison': {'pairs': [dict(target_id=t['target_id'], level=t['level'],
-        dimensions=[dict(dimension=d, candidate_statement='Candidate comparison', candidate_paths=['/problem/0/text'],
-            prior_statement='Caching is evaluated.', relation='PARTIAL', source_spans=[span], rationale='Different conditions matter.') for d in DIMENSIONS],
+    passage = payload['prior_passages'][0]
+    return {'comparison': {'claims':[{'claim_id':'c1','text':'Caching is evaluated.',
+        'kind':'result','passage_ids':[passage['passage_id']]}],
+        'pairs': [dict(target_id=t['target_id'],
+        dimensions=[dict(dimension=d, relation='PARTIAL', claim_ids=['c1'],
+            rationale='Related findings, different conditions.') for d in DIMENSIONS],
         classification='PARTIAL_OVERLAP', rationale='Method family overlaps; the relationship is unresolved.',
-        hypothesis_tested='not_established', hypothesis_evidence=[], remaining_uncertainties=['Interaction not established in the supplied evidence.'])
+        hypothesis_tested='not_established', hypothesis_claim_ids=[], additional_uncertainties=[])
         for t in payload['targets']]}, 'abstention_reason':None}
+
+
+def evidence_output(payload):
+    claims=output(payload)['comparison']['claims']
+    return {'record':{'claims':claims,'relationships':[
+        {'target_id':t['target_id'],'intervention':['c1'],'comparator':[],'conditions':[],
+         'outcome':[],'conclusion':[],'coverage':'related','result':'not_assessed','inference':None,
+         'explanation':'Related cache study, exact relationship not established in supplied evidence.'}
+        for t in payload['targets']]},'abstention_reason':None,'revision_notes':[]}
+
+
+def evidence_report(record):
+    return {'claim_checks':[{'claim_id':c['claim_id'],'decision':'supported','explanation':'Fixture supported.',
+         'passage_ids':c['passage_ids'], 'scope_summary':'Fixture scope checked.',
+         'scope_checks':[{'aspect':'result','assertion':c['text'],'decision':'supported',
+             'passage_ids':c['passage_ids'],'explanation':'Fixture conditions supported.'}]} for c in record['claims']],
+        'coverage_checks':[{'target_id':r['target_id'],'decision':'adequate','explanation':'Fixture coverage inspected.',
+         'passage_ids':[]} for r in record['relationships']], 'summary':'Fixture evidence audit.'}
 
 
 class Chat:
@@ -46,17 +65,25 @@ class Chat:
         self.active -= 1
         if req['task'] == self.fail:
             raise RuntimeError('provider unavailable')
-        if req['task'] == 'review_comparison':
+        if req['task'] in ('extract_comparison_evidence','revise_comparison_evidence','repair_comparison_evidence'):
+            out=evidence_output(req['payload'])
+        elif req['task'] in ('review_comparison_evidence','repair_evidence_review'):
+            out=evidence_report(req['record'])
+        elif req['task'] in ('review_comparison', 'repair_comparison_review'):
             decision = self.decisions[min(self.reviews, len(self.decisions)-1)]
             self.reviews += 1
             out = {'decision':decision, 'summary':'Fixture audit.', 'issues':[]}
             if decision == 'revise':
                 out['issues'] = [{'category':'consistency', 'field_path':'/pairs/0/rationale',
-                    'explanation':'Scope is unclear.', 'required_change':'Clarify scope.', 'source_spans':[]}]
+                    'explanation':'Scope is unclear.', 'required_change':'Clarify scope.', 'passage_ids':[]}]
         else:
-            out = output(req['payload'])
+            pairs=output(req['payload'])['comparison']['pairs']
+            for p in pairs:
+                p.pop('hypothesis_tested');p.pop('hypothesis_claim_ids')
+            out={'pairs':[p for p in pairs if p['target_id'] in req['eligible_target_ids']],
+                'evidence_requests':[],'abstention_reason':None}
             if req['task'] == 'revise_comparison':
-                out['comparison']['pairs'][0]['rationale'] = 'Corrected explicit comparison scope.'
+                out['pairs'][0]['rationale'] = 'Corrected explicit comparison scope.'
         if self.mutate:
             self.mutate(out, req)
         return ChatResult(json.dumps(out), 'stop', 'stub')
@@ -75,12 +102,12 @@ def test_full_evidence_batch_and_reviewed_round_trip(ready):
     result = NoveltyComparisonResult.model_validate_json(result.model_dump_json())
     c = result.candidates[0]; p = c.papers[0]
     assert p.status == 'complete' and len(p.comparison.pairs) == 3
-    assert len(chat.calls) == 2  # one paper, every target together
+    assert len(chat.calls) == 4  # evidence/examination then interpretation/review, targets together
     assert len(p.context_pages) == 2
     assert p.comparison == p.reviews[-1].draft
     payload = chat.calls[0][0]['payload']
-    assert payload['prior_paper'] and len(payload['prior_pages']) == 2
-    assert payload['source_context']['candidate']
+    assert payload['paper_navigation'] and len(payload['prior_passages']) == 2
+    assert 'source_context' not in payload and 'candidate_views' not in payload
     assert result.search_ref['sha256'] == digest(ready[2].model_dump())
     assert result.literature_novelty == 'not_assessed'
 
@@ -115,25 +142,27 @@ def test_mismatched_handoff_stops_before_calls(ready, change):
     assert not chat.calls
 
 
-@pytest.mark.parametrize('bad', ['quote','other_paper','pointer','target','dimension','level'])
+@pytest.mark.parametrize('bad', ['passage','other_paper','claim','target','dimension','candidate_override'])
 def test_invalid_generated_evidence_cannot_pass_review(ready, bad):
     def mutate(out, req):
+        if bad in ('passage','other_paper'):
+            if req['task'] in ('extract_comparison_evidence','repair_comparison_evidence'):
+                out['record']['claims'][0]['passage_ids']=['invented' if bad=='passage' else 'OTHER#p1']
+            return
         if req['task'] not in ('compare_prior_work','repair_comparison'): return
-        p = out['comparison']['pairs'][0]; d = p['dimensions'][0]
-        if bad == 'quote': d['source_spans'][0]['quote'] = 'Invented text'
-        elif bad == 'other_paper': d['source_spans'][0] = {'page_id':req['payload']['source_context']['pages'][0]['page_id'], 'quote':'other paper'}
-        elif bad == 'pointer': d['candidate_paths'] = ['/made_up']
-        elif bad == 'target': p['target_id'] = 'invented'
-        elif bad == 'dimension': p['dimensions'][1]['dimension'] = 'problem'
-        else: p['level'] = 'hypothesis' if p['level'] == 'direction' else 'direction'
-    result, chat = run(ready, Chat(mutate))
+        p=out['pairs'][0];d=p['dimensions'][0]
+        if bad=='claim':d['claim_ids']=['made-up']
+        elif bad=='target':p['target_id']='invented'
+        elif bad=='dimension':p['dimensions'][1]['dimension']='problem'
+        else:d['candidate_statement']='Altered candidate'
+    result,chat=run(ready,Chat(mutate))
     assert result.candidates[0].papers[0].comparison is None
-    assert [r['task'] for r, _ in chat.calls] == ['compare_prior_work','repair_comparison']
+    assert len(chat.calls)==(2 if bad in ('passage','other_paper') else 4)
 
 
 def test_format_repair_and_fresh_independent_revision(ready):
     def mutate(out, req):
-        if req['task'] == 'compare_prior_work': out['comparison']['pairs'][0]['dimensions'][0]['candidate_paths'] = ['/invalid']
+        if req['task'] == 'compare_prior_work': out['pairs'][0]['dimensions'][0]['claim_ids'] = ['invalid']
     result, chat = run(ready, Chat(mutate, ['revise','pass']))
     p = result.candidates[0].papers[0]
     assert p.status == 'complete' and len(p.reviews) == 2
@@ -148,30 +177,30 @@ def test_format_repair_and_fresh_independent_revision(ready):
 def test_unresolved_review_withholds(ready, decision):
     result, _ = run(ready, Chat(decisions=[decision]))
     p = result.candidates[0].papers[0]
-    assert p.comparison is None and p.status == 'unresolved'
+    assert (p.comparison is None and p.status=='unresolved') if decision=='abstain' else (p.status=='partial' and len(p.comparison.pairs)==2)
 
 
 def test_invalid_judge_quote_is_not_published(ready):
     def mutate(out, req):
-        if req['task'] == 'review_comparison':
-            out['issues'][0].update(category='grounding', source_spans=[{'page_id':'outside-paper#p1','quote':'fabricated'}])
+        if req['task'] in ('review_comparison', 'repair_comparison_review'):
+            out['issues'][0].update(category='grounding', passage_ids=['fabricated'])
     result, _ = run(ready, Chat(mutate, ['revise']))
     p = result.candidates[0].papers[0]
     assert p.reviews[0].error and p.reviews[0].report is None and p.comparison is None
 
 
-@pytest.mark.parametrize('limit', [0,1,2])
+@pytest.mark.parametrize('limit', [0,1,2,3,4])
 def test_attempt_allowance(ready, limit):
     result, chat = run(ready, max_calls=limit)
     assert result.calls['total'] == len(chat.calls) == limit
-    assert (result.candidates[0].papers[0].status == 'complete') == (limit == 2)
+    assert (result.candidates[0].papers[0].status == 'complete') == (limit == 4)
 
 
 def test_input_budget_and_provider_failure(ready):
     result, chat = run(ready, max_input_tokens=1)
     assert not chat.calls and result.candidates[0].papers[0].diagnostic
     result, chat = run(ready, Chat(fail='compare_prior_work'))
-    assert len(chat.calls) == 1 and result.candidates[0].papers[0].comparison is None
+    assert len(chat.calls) == 3 and result.candidates[0].papers[0].comparison is None
 
 
 @pytest.mark.parametrize('tamper', ['draft','review','coverage','level'])
@@ -182,8 +211,7 @@ def test_persisted_contract_cannot_bypass_review_or_coverage(ready, tamper):
     elif tamper == 'review': p['reviews'] = []
     elif tamper == 'coverage': c['papers'] = []
     else:
-        p['comparison']['pairs'][0]['level'] = 'hypothesis'
-        p['reviews'][-1]['draft'] = p['comparison']
+        p['targets'][0]['level'] = 'hypothesis'
     with pytest.raises(ValidationError): NoveltyComparisonResult.model_validate(data)
 
 
@@ -203,9 +231,9 @@ def add_prior(ready):
 def test_parallel_paper_work_and_explicit_subset_coverage(ready):
     ready = add_prior(ready)
     result, chat = run(ready, concurrency=2)
-    assert chat.peak == 2 and len(chat.calls) == 4
+    assert chat.peak == 2 and len(chat.calls) == 8
     result, chat = run(ready, selected=['outside-paper'])
-    assert len(chat.calls) == 2
+    assert len(chat.calls) == 4
     assert [p.status for p in result.candidates[0].papers] == ['complete','skipped']
     assert result.run['selected_papers'] == ['outside-paper']
 
@@ -225,19 +253,19 @@ def test_missing_referenced_page_recorded_not_fabricated(ready):
 
 @pytest.mark.parametrize('classification', ['SAME','VERY_CLOSE','PARTIAL_OVERLAP','ADJACENT','DIFFERENT',None])
 def test_overlap_contract_and_same_requires_tested_matching_hypothesis(classification):
-    pair = output({'targets':[{'target_id':'H1','level':'hypothesis'}], 'prior_pages':[{'page_id':'P#p1','text':'Original evidence'}]})['comparison']['pairs'][0]
+    pair = output({'targets':[{'target_id':'H1','level':'hypothesis'}], 'prior_passages':[{'passage_id':'P#p1:original','text':'Original evidence'}]})['comparison']['pairs'][0]
     pair['classification'] = classification
     if classification == 'SAME':
         with pytest.raises(ValidationError): PairComparison.model_validate(pair)
-        pair['hypothesis_tested'] = 'tested'; pair['hypothesis_evidence'] = pair['dimensions'][0]['source_spans']
+        pair['hypothesis_tested'] = 'tested'; pair['hypothesis_claim_ids'] = ['c1']
         for d in pair['dimensions']: d['relation'] = 'SAME'
     assert PairComparison.model_validate(pair).classification == classification
 
 
 def test_metadata_is_not_candidate_provenance(ready):
     def mutate(out, req):
-        if req['task'] != 'review_comparison':
-            out['comparison']['pairs'][0]['dimensions'][0]['candidate_paths'] = ['/queries/0']
+        if req['task'] in ('compare_prior_work','repair_comparison'):
+            out['pairs'][0]['dimensions'][0]['candidate_paths'] = ['/queries/0']
     result, _ = run(ready, Chat(mutate))
     assert result.candidates[0].papers[0].comparison is None
 
@@ -258,7 +286,7 @@ def test_separate_reviewer_client_and_model(ready):
     result = asyncio.run(NoveltyComparator(PaperStore(root), draft, review_chat=review,
         model='generator', review_model='critic').run(generation, search))
     assert result.candidates[0].papers[0].status == 'complete'
-    assert len(draft.calls) == len(review.calls) == 1
+    assert len(draft.calls) == len(review.calls) == 2
     assert draft.calls[0][1]['model'] == 'generator'
     assert review.calls[0][1]['model'] == 'critic'
 
@@ -288,10 +316,10 @@ def test_no_repeat_instance_or_unknown_selection(ready):
 
 
 def test_missing_quotes_and_unknowns_cannot_be_same():
-    pair = output({'targets':[{'target_id':'H1','level':'hypothesis'}], 'prior_pages':[{'page_id':'P#p1','text':'Evidence'}]})['comparison']['pairs'][0]
-    pair['dimensions'][0]['source_spans'] = []
+    pair = output({'targets':[{'target_id':'H1','level':'hypothesis'}], 'prior_passages':[{'passage_id':'P#p1:original','text':'Evidence'}]})['comparison']['pairs'][0]
+    pair['dimensions'][0]['claim_ids'] = []
     with pytest.raises(ValidationError): PairComparison.model_validate(pair)
-    for d in pair['dimensions']: d.update(relation='UNKNOWN',source_spans=[])
+    for d in pair['dimensions']: d.update(relation='UNKNOWN',claim_ids=[])
     pair['classification'] = 'DIFFERENT'
     with pytest.raises(ValidationError): PairComparison.model_validate(pair)
     pair['classification'] = None
@@ -303,4 +331,50 @@ def test_one_paper_failure_does_not_suppress_other_results(ready):
     (ready[0]/'outside-paper'/'paper.json').unlink()
     result, chat = run(ready)
     assert [p.status for p in result.candidates[0].papers] == ['failed','complete']
-    assert len(chat.calls) == 2
+    assert len(chat.calls) == 4
+
+
+def test_passage_repair_identifies_bad_ids(ready):
+    def mutate(out, req):
+        if req['task'] == 'extract_comparison_evidence':
+            out['record']['claims'][0]['passage_ids'] = ['bad-first','bad-second']
+        if req['task'] == 'repair_comparison_evidence':
+            assert 'bad-first' in req['validation_errors'] and 'bad-second' in req['validation_errors']
+            assert 'c1' in req['validation_errors']
+    result, _ = run(ready, Chat(mutate))
+    assert result.candidates[0].papers[0].status == 'complete'
+
+
+def test_one_review_format_repair_preserves_invalid_output_and_exact_draft(ready):
+    def mutate(out, req):
+        if req['task'] == 'review_comparison':
+            out.update(decision='revise', issues=[{'category':'grounding','field_path':'/pairs/0/rationale',
+                'explanation':'Bad ID fixture.', 'required_change':'Correct the claim.',
+                'passage_ids':['not-a-real-passage']}])
+        if req['task'] == 'repair_comparison_review':
+            assert '/issues/0/passage_ids' in req['validation_errors']
+            assert 'not-a-real-passage' in req['validation_errors']
+            assert req['invalid_review']['decision'] == 'revise'
+            out.update(decision='pass',issues=[],summary='Invalid original issue withdrawn after checking source.')
+    result, _ = run(ready, Chat(mutate))
+    p = result.candidates[0].papers[0]
+    assert p.status == 'complete' and result.calls['repair_comparison_review'] == 1
+    assert p.comparison == p.reviews[-1].draft
+    assert len(p.reviews[-1].format_repairs) == 1
+    assert p.reviews[-1].format_repairs[0].invalid_output['issues'][0]['passage_ids'] == ['not-a-real-passage']
+
+
+def test_review_repair_uses_reviewer_client_and_obeys_attempt_budget(ready):
+    root,generation,search = ready
+    draft,review = Chat(),Chat()
+    async def bad_review(**kw):
+        await review(**kw)
+        return ChatResult('{invalid json','stop','critic')
+    runner=NoveltyComparator(PaperStore(root),draft,review_chat=bad_review,review_model='critic',settings=Settings(max_calls=3))
+    result=asyncio.run(runner.run(generation,search))
+    assert result.calls['total'] == 3
+    assert len(draft.calls) == 1 and len(review.calls) == 2
+    assert all(kw['model']=='critic' for _,kw in review.calls)
+    p=result.candidates[0].papers[0]
+    assert p.comparison is None and p.evidence_reviews[-1].error
+    assert len(p.evidence_reviews[-1].format_repairs)==1
