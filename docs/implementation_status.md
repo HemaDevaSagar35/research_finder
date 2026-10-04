@@ -385,3 +385,32 @@ fallible. Novelty was not implemented or certified.
 The single [Direction Generator document](direction_generator.md) records changed
 files, current behavior, compatibility, budgets, reproduction commands and both
 live runs, preserving earlier implementation history.
+
+
+### 2026-10-04 — Novelty signatures and full-corpus retrieval
+
+New `novelty/` module implements architecture sections 9–11: load and hash-check
+source `paper.json` and original reviewed pages, decompose every reviewed direction
+and hypothesis into provenance-bearing signatures, independently review fidelity,
+search the full configured index and rerank retrieved PaperCards. A bounded
+signature revision is allowed; unreviewed signatures never search. Result contract
+is `novelty_search_v1`, with exact candidate/review/query lineage and explicit
+partial/failed retrieval. Novelty comparison and verdicts remain unimplemented.
+
+Existing direction, landscape, reasoner, miner and search modules are reused without
+edits. Default allowances are 500,000 input/output tokens with bounded asynchronous
+calls. Documentation is consolidated in the single
+[Novelty Search module document](novelty_search.md), including the initial live
+contract failure, correction and validation results.
+
+
+Novelty-stage validation completed with **276 tests plus 13 subtests passing**
+(37 new module tests). Local index check: 7,225 papers, 983,126 records. Twelve
+explicitly authorized DeepSeek attempts validated signature correction/review,
+five full-corpus hybrid searches and representative reranking. A JSON-mode prompt
+bug affecting four reranks was fixed and verified on one previously failing target;
+three hypothesis reranks were not repeated within the approved call bound. An
+unestablished causal premise remains inside a proposed-mechanism facet rather than
+being fully split into an unknown; it is not a source-fact claim. Full live coverage,
+failed runs, fixes and limits are recorded in [Novelty Search](novelty_search.md).
+No candidate-versus-prior-work novelty verdicts have been implemented yet.

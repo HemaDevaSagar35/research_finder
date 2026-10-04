@@ -47,3 +47,5 @@ The previously separate integration notes, miner validation/fix reports and
 cross-module implementation log have been consolidated into these module
 files. Source reports are retained as dated history within their owning module;
 links now point to those sections. Future updates go into the same module file.
+
+- [Novelty Search](novelty_search.md) — evidence-backed direction/hypothesis signatures, independent fidelity review, full-corpus retrieval and semantic reranking; novelty comparison remains downstream.
