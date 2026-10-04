@@ -1351,3 +1351,44 @@ Implementation and regression validation are complete; live semantic acceptance 
 **mixed**, not fully passed. No literature-wide novelty result is produced. Changes
 remain uncommitted. Future aggregation must not treat the withheld MOMENTKV targets
 or the manually rejected CriticalKV replay as validated novelty evidence.
+
+### 2026-10-04 — Meaning of the remaining issues for sections 13–15
+
+The implementation and preceding validation documentation were committed in
+`bbd4ad0`; references above to uncommitted changes describe the pre-commit state.
+The live calls did execute. Their mixed results concern evidence completeness and
+review consistency, not inability to access the API or run the pipeline.
+
+These observed failures do not establish that every eventual novelty judgment will
+be wrong or that the hypotheses are scientifically weak. For the specific remaining
+citation defects, inspection has not demonstrated that correcting them changes the
+scientific-overlap conclusion. This is not proof that they are harmless in every case:
+missing a material experimental condition or relevant prior result can change that
+conclusion and produce a false novelty judgment.
+
+Keep three assessments separate:
+
+- **Evidence accuracy:** whether a statement about prior work is supported, properly
+  qualified and correctly referenced (section 12).
+- **Novelty:** whether prior work already pursued the direction or investigated the
+  scientific relationship, assessed across retrieved comparisons (sections 13–14).
+- **Scientific quality:** whether the gap and mechanism are meaningful and the
+  hypotheses are testable and falsifiable (section 15). Novelty alone does not make
+  a hypothesis valuable; the research critic is not a substitute for source grounding.
+
+The remaining issues do not require halting implementation of sections 13–14.
+Proceed with supported comparisons while retaining unresolved, skipped and manually
+rejected evidence explicitly. If an unresolved comparison could change a novelty
+judgment, that judgment must remain provisional/unresolved until the evidence is
+revisited. Withholding, missing citations, failed review or lack of a retrieved match
+must never count as positive evidence of novelty. Do not silently drop such papers
+from an aggregate and then claim no relevant prior work exists.
+
+Downstream output should distinguish supported novelty within the searched corpus,
+overlap found, and novelty unresolved, alongside the architecture's richer overlap
+and refinement outcomes. These are planned uncertainty-handling requirements, not
+implemented novelty verdicts or a guarantee of literature-wide novelty. Neither a
+different model/dataset alone nor a target number of output hypotheses should cause
+an unresolved candidate to be promoted to novel. Section-12 reliability work can
+continue alongside aggregation implementation; it remains open rather than being
+reclassified as fully validated.
