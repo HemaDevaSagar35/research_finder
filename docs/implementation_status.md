@@ -247,3 +247,29 @@ was a new module introduced at `847b910`. Separate integration/validation/fix
 reports were merged into their module documents, preserving historical results
 and adding explicit before/after changes. No pipeline behavior changed in this
 consolidation.
+
+
+### 2026-10-03 — Direction Generator initial implementation
+
+The new `directions/` module implements architecture sections 7–8 and component
+contracts 10–12. This supersedes the earlier build-order entry listing direction,
+hypothesis and experiment generation as unimplemented. It consumes the exact
+landscape/reasoning/accepted-opportunity artifacts and original papers, generates
+coupled directions/hypotheses/experiments concurrently across opportunities, and
+validates evidence lineage and experiment links. Novelty, refinement, scientific
+critique, ranking and online service wiring remain downstream work.
+[Direction Generator](direction_generator.md) contains the single module document,
+implementation history, usage and validation results.
+
+
+### 2026-10-04 — Direction Generator validation completed
+
+The new module passes 40 focused tests; the complete suite passes 199 tests plus
+13 subtests. An initial 11/12 live result exposed ambiguity between contextual
+upstream IDs and opportunity-selected citations. The prompt/context projection
+was corrected without relaxing validation. The fresh rerun produced 12 directions,
+48 hypotheses and 47 experiments from all 12 accepted opportunities across the
+three saved real-paper sets, using 13 calls with peak concurrency four. All 51
+evidence and 58 page references passed a saved-output artifact audit. Full
+history, preserved initial failure, reproduction and boundaries are in the
+[single Direction Generator document](direction_generator.md).

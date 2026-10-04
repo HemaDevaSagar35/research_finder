@@ -39,6 +39,10 @@ architecture and the project status/index remain separate cross-module documents
 - [Shared LLM client](llm_client.md) — existing provider client and the new
   configurable output cap.
 
+- [Direction Generator](direction_generator.md) — new architecture sections 7–8
+  module; coupled directions, hypotheses and cheapest-first experiment proposals,
+  reference validation, implementation history and tests.
+
 The previously separate integration notes, miner validation/fix reports and
 cross-module implementation log have been consolidated into these module
 files. Source reports are retained as dated history within their owning module;

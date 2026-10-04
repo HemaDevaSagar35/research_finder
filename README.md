@@ -265,3 +265,10 @@ Requires [uv](https://docs.astral.sh/uv/):
 ```bash
 uv sync
 ```
+
+## Direction generation
+
+`directions/` develops accepted opportunities into directions, testable hypotheses,
+and cheapest-first experiment proposals. It preserves evidence and input lineage;
+novelty and scientific critique remain downstream. Use `uv run python -m directions.generator --help`; see [module documentation](docs/direction_generator.md)
+for the full CLI, implementation and validation history.
