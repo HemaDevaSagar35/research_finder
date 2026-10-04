@@ -5,6 +5,7 @@ import json
 import httpx
 import openai
 import pytest
+from pydantic import ValidationError
 
 from directions.generator import DirectionGenerator, Settings
 from directions.schemas import GenerationResult
@@ -48,14 +49,12 @@ def response(payload):
         'mechanism': 'More concentrated routing may increase expert reuse.',
         'assumptions': ['Entropy reduction persists with caching enabled.'],
         'falsification_criterion': 'No hit-rate gain under controlled paired trials.', 'evidence_ids': eids}
-    experiment = {'experiment_id': 'E1', 'stage': 'initial', 'hypothesis_ids': ['H1', 'H2'], 'depends_on': [],
-        'objective': 'Test whether the proposed interaction changes cache hit rate.',
-        'setup': 'Replay fixed routing traces before attempting an integrated implementation.',
-        'intervention': 'Compare compressed versus uncompressed traces.', 'baselines': ['Same cache without compression.'],
-        'metrics': ['Hit rate', 'Replay latency'], 'controls': ['Identical cache capacity and trace length.'],
-        'resource_requirements': 'One CPU trace-replay process; availability unknown.',
-        'cost_rationale': 'Trace replay avoids initial integration and GPU-serving costs.',
-        'informative_outcomes': 'A gain motivates integration; no gain challenges the proposed locality mechanism.'}
+    experiment = {'experiment_id': 'E1', 'stage': 'initial', 'hypothesis_ids': ['H1', 'H2'],
+        'objective': 'Test whether compression improves cache locality and net latency.',
+        'comparison': 'Compare expert caching with and without compression on the supplied workload.',
+        'observations': ['Routing entropy', 'Cache hit rate', 'Latency'],
+        'why_this_test': 'A direct comparison can establish whether the interaction merits deeper investigation.',
+        'informative_outcomes': 'A joint locality and latency gain supports the idea; unchanged locality or worse latency weakens it.'}
     return {'direction': {'title': 'Compression-aware expert caching',
         'research_direction': 'Study whether routing changes can guide cache policy.',
         'rationale': [{'statement': 'Separate reports connect compression, entropy and caching.',
@@ -64,8 +63,8 @@ def response(payload):
         'scope': op['candidate']['scope'], 'assumptions': ['Both components can be combined.'],
         'hypotheses': [hypothesis, {**hypothesis, 'hypothesis_id': 'H2', 'expected_effect': 'Lower replay latency.'}],
         'experiments': [experiment, {**experiment, 'experiment_id': 'E2', 'stage': 'followup',
-            'depends_on': ['E1'], 'setup': 'Integrated serving benchmark.',
-            'cost_rationale': 'Integration is costlier and depends on the initial locality result.'}],
+            'comparison': 'Compare the compression effect across changing routing regimes while caching is active.',
+            'why_this_test': 'A followup can show whether any initial benefit depends on routing conditions.'}],
         'risks': ['Compression overhead may exceed the cache benefit.'],
         'uncertainties': ['The joint effect has not been demonstrated.'],
         'what_would_falsify_it': 'No locality benefit or losses exceeding saved transfers.'}, 'abstention_reason': None}
@@ -84,6 +83,8 @@ class Chat:
         await asyncio.sleep(0.01)
         self.active -= 1
         p = json.loads(kw['messages'][1]['content'])['payload']
+        if json.loads(kw['messages'][1]['content'])['task'] == 'review_direction':
+            return ChatResult(json.dumps({'decision': 'pass', 'summary': 'Offline accepted fixture.', 'issues': []}), 'stop', 'stub')
         out = response(p)
         if self.mutate:
             self.mutate(out, p)
@@ -108,14 +109,16 @@ def test_complete_handoff_real_pages_and_many_to_many_experiments(inputs):
     assert d.evidence_validation == 'references_and_artifacts_checked'
     assert d.recommended_next_experiment_id == 'dir-000-e01'
     assert d.proposal.experiments[0].hypothesis_ids == ['dir-000-h01', 'dir-000-h02']
-    assert d.proposal.experiments[1].depends_on == ['dir-000-e01']
+    assert result.schema_version == 'directions_v3'
+    assert d.proposal.experiments[1].stage == 'followup'
+    assert d.proposal.experiments[0].observations == ['Routing entropy', 'Cache hit rate', 'Latency']
     payload = json.loads(chat.calls[0]['messages'][1]['content'])['payload']
     assert payload['landscape'] == inputs[1].model_dump()
     assert len(payload['cross_paper_sources']) == 2
     for page in payload['pages']:
         assert page['text'] == (inputs[0]/page['paper_id']/'01.md').read_text()
     assert set(d.paper_artifact_hashes) == set(inputs[1].paper_ids)
-    assert result.calls['generation'] == 1 and result.calls['total'] == 1
+    assert result.calls['generation'] == 1 and result.calls['total'] == 2 and result.calls['review'] == 1
 
 
 @pytest.mark.parametrize('target', ['landscape', 'reasoning', 'topic'])
@@ -158,7 +161,7 @@ def test_changed_or_missing_original_evidence(inputs, change, expected):
 
 
 @pytest.mark.parametrize('mutation', ['unknown_evidence', 'unknown_page', 'wrong_paper_page',
-    'hypothesis_ref', 'unknown_hypothesis', 'uncovered_hypothesis', 'duplicate_id', 'cycle', 'initial_order', 'novelty'])
+    'hypothesis_ref', 'unknown_hypothesis', 'uncovered_hypothesis', 'duplicate_id', 'legacy_protocol', 'initial_order', 'novelty'])
 def test_invalid_generated_contract_is_not_promoted(inputs, mutation):
     def change(out, payload):
         d = out['direction']
@@ -170,7 +173,9 @@ def test_invalid_generated_contract_is_not_promoted(inputs, mutation):
         elif mutation == 'uncovered_hypothesis':
             for e in d['experiments']: e['hypothesis_ids'] = ['H1']
         elif mutation == 'duplicate_id': d['hypotheses'][1]['hypothesis_id'] = 'H1'
-        elif mutation == 'cycle': d['experiments'][1]['depends_on'] = ['E2']
+        elif mutation == 'legacy_protocol':
+            d['experiments'][0].update(setup='Detailed protocol', depends_on=[], controls=['Fixed seed'],
+                resource_requirements='One GPU', cost_rationale='Estimated hours')
         elif mutation == 'initial_order': d['experiments'].reverse()
         else: d['novelty_status'] = 'novel'
     chat = Chat(change)
@@ -235,8 +240,8 @@ def test_atomic_call_budget_and_partial_result(inputs):
     multiply(inputs, 4)
     chat = Chat()
     result = run(inputs, chat, max_calls=2)
-    assert len(result.directions) == len(chat.calls) == 2
-    assert [d.reason for d in result.diagnostics] == ['call_budget', 'call_budget']
+    assert not result.directions and len(chat.calls) == 2
+    assert all(d.reason == 'call_budget' for d in result.diagnostics)
 
 
 def test_fatal_provider_rejection_stops_queued_calls(inputs):
@@ -329,3 +334,19 @@ def test_cross_paper_context_does_not_offer_unselected_citation_ids(inputs):
     assert 'unselected-record' not in json.dumps(p['cross_paper_sources'])
     assert set(p['citable_evidence_ids']) == set(mining.opportunities[0].candidate.evidence_ids)
     assert all(set(s['content']['selected_evidence_ids']) <= set(p['citable_evidence_ids']) for s in p['cross_paper_sources'])
+
+
+def test_v1_saved_result_is_not_silently_read_as_v2(inputs):
+    saved = run(inputs).model_dump()
+    saved['schema_version'] = 'directions_v1'
+    with pytest.raises(ValidationError, match='schema_version'):
+        GenerationResult.model_validate(saved)
+
+
+@pytest.mark.parametrize('field', ['comparison', 'observations', 'informative_outcomes'])
+def test_suggested_test_cannot_omit_its_substance(inputs, field):
+    def change(out, payload):
+        out['direction']['experiments'][0].pop(field)
+    result = run(inputs, Chat(change), repair_rounds=0)
+    assert not result.directions
+    assert result.diagnostics[0].reason == 'invalid_generation'

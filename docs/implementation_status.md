@@ -273,3 +273,115 @@ three saved real-paper sets, using 13 calls with peak concurrency four. All 51
 evidence and 58 page references passed a saved-output artifact audit. Full
 history, preserved initial failure, reproduction and boundaries are in the
 [single Direction Generator document](direction_generator.md).
+
+
+### 2026-10-04 — Direction Generator preservation checks and open draft issues
+
+Follow-up validation adds eight offline checks (complete suite: 207 tests plus
+13 subtests) and four synthetic live controls, each repeated twice. A baseline
+exposed overstated measurement history and an invalid experiment/hypothesis link;
+the existing generator's instructions were tightened. A fresh eight-call run
+preserves tension sides, conditions, selected gaps and untested effects, but two
+experiment-draft inconsistencies remain. This supersedes any reading of the
+previous validation entry as a blanket scientific or experimental-quality pass.
+Exact changes, baseline/fresh-run results and remaining failures are appended to
+the single [Direction Generator document](direction_generator.md).
+
+
+### 2026-10-04 — Direction Generator experiment-consistency follow-up
+
+The existing generator now defines consistent experimental arms and metric
+applicability, distinguishes seed blocks/repetitions, and requires each linked
+experiment to include the hypothesis's comparison. Two fresh live runs used
+17 calls. In the final eight-output sample, the two original entropy/cache-metric
+mistakes did not recur and all outputs passed structural/source-preservation
+checks, but the expanded manual consistency rubric still failed in four outputs.
+The final offline suite remains 207 tests plus 13 subtests passed. This supersedes
+the prior status of the two targeted mistakes for the tested sample, while broader
+experimental coherence remains open. Full details and preserved failure reports
+are in [Direction Generator](direction_generator.md).
+
+
+### 2026-10-04 — Direction Generator scope correction (`directions_v2`)
+
+The generator now produces tangible research directions, testable hypotheses and
+concise suggested tests, matching the user's clarified scope and architecture
+sections 7–8/16. Mandatory experimental setup, controls, resource estimates and
+dependency graphs have been removed; the earlier protocol-validation expansion
+is superseded. The first useful test, hypothesis links, evidence lineage and
+unreviewed-candidate status remain. The new contract explicitly rejects v1 output.
+
+Validation: 211 tests plus 13 subtests passed; eight synthetic live outputs passed
+contract/source/scope checks, with remaining hypothesis/test refinement notes
+recorded separately. All 12 real-paper input handoffs passed an offline audit.
+Supplementary real-paper live calls were blocked by automatic approval review
+for lack of explicit payload-export authorization and did not execute.
+The single [Direction Generator document](direction_generator.md) records the
+exact module changes, compatibility, scope correction and full validation history.
+
+
+### 2026-10-04 — Direction Generator v2 real-paper live check completed
+
+This supersedes the pending real-paper export status in the previous entry: after
+explicit user authorization, all 12 saved opportunities produced v2 directions
+through DeepSeek (43 hypotheses, 41 suggested tests, 12 calls, peak concurrency four).
+All persisted-contract and upstream handoff checks passed without repairs or errors.
+Manual review of all 12 outputs confirmed the requested tangible-direction and
+suggested-test scope, while recording unresolved hypothesis/test alignment,
+falsification, provenance and measurement-interpretation issues. These are draft
+refinement notes, not a scientific-quality pass. Original outputs remain preserved.
+
+No production implementation changed in this follow-up. The last full offline suite
+remains 211 tests plus 13 subtests passed. Exact counts, module scope, validation
+artifacts and content-review limits are appended to the single
+[Direction Generator document](direction_generator.md). Novelty assessment remains
+the next unimplemented architecture stage, followed by refinement and critique.
+
+
+### 2026-10-04 — Generator correction tested; basic prose errors remain open
+
+`directions/generator.py` now preserves the cross-paper condition `hypothesis`
+flag instead of flattening conditions to text. The final prompt version is
+`direction_v2_explicit_comparisons`; attribution, constructed comparisons for
+unknown baselines, outcome referents and hypothesis success criteria are clarified.
+Field descriptions in `directions/schemas.py` agree with these instructions;
+the v2 output shape remains unchanged. New regression and live-harness preflight
+checks bring the full offline suite to 217 tests plus 13 subtests passed.
+
+Two bounded live runs made 16 API attempts and generated 15 outputs. All persisted
+contract/reference checks passed. **Content correctness is not closed:** manual
+review of the final five candidates still found basic errors in two (a source
+misstatement and contradictory outcome classification, including an at-least-two
+prediction called inconclusive when only one model improves). These are not all
+later-stage refinement issues. No novelty implementation was started, and the
+previous recommendation to advance is superseded. The single
+[Direction Generator document](direction_generator.md) preserves the complete
+diagnosis, changed modules, reproduction commands, both runs and precise remaining
+failures. Original generated artifacts remain unchanged.
+
+
+### 2026-10-04 — Independent Direction Generator correctness judge implemented
+
+The existing `directions/` module now requires fresh-context correctness review,
+allows one substantive revision followed by a fresh review, and withholds drafts
+on unresolved issues, abstention, invalid review or unavailable review. New
+`directions/judge.py` handles the narrow review rubric and source-quote checks;
+`directions/generator.py` orchestrates it and `directions/schemas.py` exports the
+`directions_v3` contract with exact passing-draft audit records. Independent
+opportunities remain asynchronous under shared budgets. Reviewer model selection
+is configurable; default uses the same provider/model in a separate context.
+Detailed protocols, scientific merit and novelty remain outside this judge.
+
+Validation: **239 tests plus 13 subtests passed**. Eighteen authorized DeepSeek calls
+tested sound/error controls and saved real drafts, including two full
+review/revision/review flows. The initial judge missed residual errors after
+revision; a focused reviewer update now catches the MOMENTKV equality
+contradiction. Final follow-up met five of six expected decisions: the judge still
+passed RAG's unsupported assertion about an original prompt property. This known
+attribution miss is documented, not described as a clean correctness pass. The
+runtime gate and audit implementation are complete; semantic review remains
+fallible. Novelty was not implemented or certified.
+
+The single [Direction Generator document](direction_generator.md) records changed
+files, current behavior, compatibility, budgets, reproduction commands and both
+live runs, preserving earlier implementation history.
