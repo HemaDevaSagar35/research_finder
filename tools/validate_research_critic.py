@@ -8,7 +8,7 @@ import time
 from critic.pipeline import ResearchCritic, Settings, transport
 from critic.evidence import packet_for
 from critic.schemas import CriticResult
-from llm_client import AsyncLLMClient
+from llm_client import AsyncLLMClient, ChatResult
 from novelty.assessment_schemas import NoveltyAssessmentResult
 from reasoning.budget import estimate_tokens
 from reasoning.evidence import PaperStore
@@ -37,6 +37,14 @@ async def main(args):
         print(json.dumps(packets, indent=2))
         return True
     events = []
+    checkpoints = []
+    if args.replay_dir:
+        for request_path in sorted((Path(args.replay_dir)/'calls').glob('*.request.json')):
+            response_path = request_path.with_name(request_path.name.replace('.request.json', '.response.json'))
+            if response_path.exists():
+                response = ChatResult(**json.loads(response_path.read_text()))
+                if not response.truncated:
+                    checkpoints.append((json.loads(request_path.read_text()), response, str(response_path)))
     client = AsyncLLMClient(args.provider, concurrency=args.concurrency, max_retries=0, timeout=600)
     async def chat(**kw):
         req = json.loads(kw['messages'][1]['content'])
@@ -44,7 +52,13 @@ async def main(args):
         events.append(event)
         save(out/'calls'/f"{event['id']:03d}.request.json", kw)
         try:
-            response = await client.chat_result(**kw)
+            reused = next(((saved, path) for request, saved, path in checkpoints
+                if all(request.get(key) == kw.get(key) for key in ('messages', 'model', 'response_format'))), None)
+            if reused:
+                response, checkpoint_path = reused
+                event.update(checkpoint_replay=True, checkpoint_path=checkpoint_path)
+            else:
+                response = await client.chat_result(**kw)
             save(out/'calls'/f"{event['id']:03d}.response.json", asdict(response))
             event.update(model=response.model, finish_reason=response.finish_reason)
             return response
@@ -61,6 +75,8 @@ async def main(args):
         save(out/'result.json', result.model_dump())
         saved = CriticResult.model_validate_json((out/'result.json').read_text())
         summary = dict(handoff=saved.handoff(), calls=saved.calls, usage=saved.usage,
+            api_calls=sum(not e.get('checkpoint_replay', False) for e in events),
+            checkpoint_replays=sum(e.get('checkpoint_replay', False) for e in events),
             candidates=[dict(direction_id=c.direction_id, published=c.critique is not None,
                 targets=[dict(target_id=t.target_id, action=t.action, rationale=t.rationale,
                     learning_if_negative=t.learning_if_negative) for t in c.critique.targets] if c.critique else [],
@@ -79,6 +95,7 @@ if __name__ == '__main__':
         p.add_argument('--'+name, required=True)
     p.add_argument('--provider', default='deepseek')
     p.add_argument('--prepare-only', action='store_true')
+    p.add_argument('--replay-dir', help='Reuse successful calls with identical messages/model/format; output reservation may differ.')
     p.add_argument('--max-calls', type=int, default=40)
     p.add_argument('--concurrency', type=int, default=4)
     p.add_argument('--max-input-tokens', type=int, default=1000000)

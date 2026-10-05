@@ -661,3 +661,22 @@ merge/review/handoff tests and concurrent request-local accounting. Saved correc
 must preserve unaffected judgments; surviving test links are retained. The full live
 MOMENTKV test remains pending the exact payload authorization, not a completed or
 failed model run. See the Research Critic module document for the distinction.
+
+## 2026-10-05 — Research Critic committed and full live retry completed
+
+Committed the initial implementation as `f6c9074`, then ran the explicitly
+reauthorized full MOMENTKV payload. The first automated pass missed a genuine
+H2/E2 equality/null contradiction. Added mandatory per-test-link consistency
+checks, located internal-correctness requests, precise field inventories, linked-test
+revision routing and narrowly scoped review-pointer normalization. Existing novelty
+inputs and hypotheses remain unchanged.
+
+The final full-context independent review detects the contradiction and correctly
+routes to `direction_correctness`; **no scientific pass, rejection or ready-for-ranking
+candidate is published**. This is an actionable proposal correction, not unresolved
+novelty coverage. Final artifact:
+`/home/hema/research_runs/research_critic_kv_live_v6/result.json`.
+Source coverage is complete for this saved run (100 comparisons, 7,782 passages,
+direction plus four hypotheses). Final tests: 54 critic and 223 novelty checks pass.
+The module document records all API attempts, provider context/output failures,
+checkpoint replays, the manually rejected pass, exact changed modules and limitations.

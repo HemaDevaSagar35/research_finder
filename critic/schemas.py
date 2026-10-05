@@ -43,8 +43,18 @@ class RevisionRequest(Strict):
 class UpstreamRequest(Strict):
     stage: Literal['direction_correctness', 'novelty_comparison', 'novelty_assessment']
     target_id: Text
-    passage_ids: list[Text] = Field(min_length=1)
+    passage_ids: list[Text]
     reason: Text
+    basis: Literal['source_grounding', 'proposal_consistency'] = 'source_grounding'
+    field_paths: list[Text] = Field(default_factory=list)
+
+    @model_validator(mode='after')
+    def located(self):
+        if self.basis == 'source_grounding' and not self.passage_ids:
+            raise ValueError('source-grounding request requires source references')
+        if self.basis == 'proposal_consistency' and (self.stage != 'direction_correctness' or not self.field_paths):
+            raise ValueError('proposal consistency requires located direction-correctness request')
+        return self
 
 
 class CritiqueDraft(Strict):
@@ -66,16 +76,26 @@ class ReviewCheck(Strict):
     defects: list[Text]
 
 
+class TestLinkCheck(Strict):
+    hypothesis_id: Text
+    experiment_id: Text
+    prediction: Text
+    equality_case: Text
+    decision: Literal['consistent', 'contradiction', 'uncertain']
+    reasoning: Text
+
+
 class ReviewReport(Strict):
     decision: Literal['pass', 'revise', 'abstain']
     summary: Text
     issues: list[ReviewIssue]
     target_checks: list[ReviewCheck]
+    test_link_checks: list[TestLinkCheck] = Field(default_factory=list)
     upstream_requests: list[UpstreamRequest]
 
     @model_validator(mode='after')
     def consistent(self):
-        defects = self.issues or self.upstream_requests or any(c.defects for c in self.target_checks)
+        defects = self.issues or self.upstream_requests or any(c.defects for c in self.target_checks) or any(c.decision != 'consistent' for c in self.test_link_checks)
         if self.decision == 'pass' and defects:
             raise ValueError('passing review cannot hide defects or upstream requests')
         if self.decision == 'revise' and not defects:
@@ -139,6 +159,10 @@ class CandidateCritique(Strict):
         removed = [t.target_id for t in draft.targets if t.target_id != self.direction_id and t.action == 'DISCARD']
         kept = [t.target_id for t in draft.targets if t.target_id != self.direction_id and t.action != 'DISCARD']
         changed = {r.target_id for r in draft.revisions}
+        for r in draft.revisions:
+            if r.field_path.startswith('/experiments/'):
+                experiment = self.packet['candidate']['experiments'][int(r.field_path.split('/')[2])]
+                changed.update(experiment['hypothesis_ids'])
         if self.direction_id in changed:
             changed.update(kept)
         recheck = sorted({self.direction_id, *changed} if changed or removed else set())
@@ -163,7 +187,7 @@ class PortfolioCritique(Strict):
 
 
 class CriticResult(Strict):
-    schema_version: Literal['research_critic_v1'] = 'research_critic_v1'
+    schema_version: Literal['research_critic_v1', 'research_critic_v2'] = 'research_critic_v2'
     novelty: NoveltyAssessmentResult
     novelty_sha256: Text
     candidates: list[CandidateCritique]

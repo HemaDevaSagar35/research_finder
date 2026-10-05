@@ -3,7 +3,7 @@ import asyncio
 from datetime import datetime, timezone
 from critic import prompts
 from critic.evidence import (packet_for, upstream_route, validate_draft, validate_review,
-    portfolio_packet, validate_portfolio)
+    portfolio_packet, validate_portfolio, normalize_review_paths)
 from critic.schemas import (CritiqueDraft, ReviewReport, ReviewRecord, CandidateCritique,
     PortfolioDraft, PortfolioCritique, CriticResult)
 from novelty.assessment_evidence import model_packet, restore_response_sources, map_source_refs, source_aliases
@@ -18,6 +18,14 @@ def transport(packet):
     """Lossless grouping: repeated claims and support pages are sent once."""
     packed = model_packet(packet)
     for item in packed.get('candidates', [packed]):
+        if 'candidate' in item:
+            def paths(node, path=''):
+                if isinstance(node, dict):
+                    return [p for key, value in node.items() for p in paths(value, path + '/' + key)]
+                if isinstance(node, list):
+                    return [path] + [p for i, value in enumerate(node) for p in paths(value, path + '/' + str(i))]
+                return [path]
+            item['valid_proposal_paths'] = paths(item['candidate'])
         if 'support_context' in item:
             item['support_context']['pages'] = [dict(page_id=p['page_id'], paper_id=p['paper_id'],
                 text_location='source_passages[' + p['page_id'] + ']') for p in item['support_context']['pages']]
@@ -61,6 +69,7 @@ class ResearchCritic:
         self.io = NoveltySearcher(store, None, chat, review_chat=review_chat, provider=provider,
             model=model, review_model=review_model, settings=CallSettings(**self.settings.model_dump()))
         self.used = False
+        self.normalizations = []
 
     async def _call(self, task, system, schema, body, validate, repairs):
         aliases = source_aliases(body['packet'])
@@ -70,6 +79,9 @@ class ResearchCritic:
             try:
                 response, model = await self.io._call(task if attempt == 0 else 'repair_' + task, system, schema, request)
                 response = restore_response_sources(response, body['packet'])
+                if schema is ReviewReport and 'candidate' in body['packet']:
+                    response, changes = normalize_review_paths(response, CritiqueDraft.model_validate(body['draft']))
+                    self.normalizations.extend(dict(task=task, direction_id=body['packet']['direction_id'], **c) for c in changes)
                 validate(response)
                 return response, model
             except ModelOutputError as exc:
@@ -170,5 +182,5 @@ class ResearchCritic:
             run=dict(started=started, ended=datetime.now(timezone.utc).isoformat(), provider=self.io.provider,
                 model=self.io.model, review_model=self.io.review_model or self.io.model,
                 settings=self.settings.model_dump(), prompt_version=prompts.VERSION,
-                review_prompt_version=prompts.REVIEW_VERSION, source_transport='lossless_grouped_claims_and_pages',
+                review_prompt_version=prompts.REVIEW_VERSION, review_path_normalizations=self.normalizations, source_transport='lossless_grouped_claims_and_pages',
                 scientific_validation='model_reviewed_not_empirically_validated'))

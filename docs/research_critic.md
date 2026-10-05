@@ -190,3 +190,116 @@ process execution. The prepared live validator is ready to resume after the spec
 payload authorization. No empirical or live-model acceptance is claimed from fixture
 tests. The independent review mechanism remains fallible; source-reference validation
 checks identity, not the truth or scientific value of reasoning.
+
+### 2026-10-05 — Authorized full live run and consistency-audit correction
+
+The user explicitly authorized retrying the complete payload after the approval
+question. Implementation was committed first as `f6c9074`; the external retry was
+then allowed. Every run below used the complete saved MOMENTKV direction, all four
+hypotheses, 100 accepted comparisons, and original supporting context.
+
+- `research_critic_kv_live_v1`: author completed; reviewer request exceeded the
+  provider's 1,048,576-token context by 3,117 tokens because 32,768 output tokens
+  were reserved. No review or scientific acceptance was fabricated.
+- `research_critic_kv_live_v2`: reused only the successful identical author request
+  and reduced reserved output to 16,384. The complete-context independent reviewer
+  passed KEEP for the direction and all four hypotheses. **Manual inspection
+  rejected that pass for downstream use**, as recorded in `manual_findings.json`.
+- The concrete miss is in the saved H2 experiment: equal low-to-high changes falsify
+  its positive interaction prediction, but a later clause also calls a shared offset
+  with unchanged low-to-high changes unresolved. The critic missed this contradiction.
+  Its negative-result prose also conflated absence of a protective interaction with
+  absence of any protective main effect. The saved H3 test rationale calls the order
+  comparison a low-sigma anchor even though the accepted evidence separates the order
+  ablation from sigma measurements. These are candidate/reasoning defects, not proof
+  that the scientific questions are worthless or already studied.
+
+The implementation now emits `research_critic_v2`, while retaining v1 readability.
+`critic/schemas.py` adds a per-hypothesis/experiment `TestLinkCheck` recording the
+prediction, equality case, consistency decision and reasoning. A new v2 result
+cannot publish pass with missing, duplicate, unknown, contradictory or uncertain
+link checks. `critic/evidence.py` enforces exact link coverage and requires a located
+upstream direction-correctness request for a detected contradiction.
+
+Internal consistency requests now identify candidate `field_paths` with
+`basis=proposal_consistency`; no fabricated paper citation is required. Original
+source-grounding requests still require source references. Prompts explicitly check
+all outcome clauses, distinguish zero interaction from missing evidence, distinguish
+main effects from interactions, and avoid treating an O(sigma^2) bound as guaranteed
+monotonic error growth or borrowing the sigma setting of another experiment.
+
+`tools/validate_research_critic.py` additionally supports explicit checkpoint replay
+of successful, untruncated requests with identical messages/model/response format.
+Only output reservation may differ. Replays and actual API attempts are reported
+separately, and raw provenance is retained. This avoids regenerating an already
+completed draft when only a provider output reservation needs adjustment.
+
+Regression suite after the correction: **274 passed** (51 critic + 223 novelty).
+The full-context v3 rerun reached the 16,384 output limit in both its draft and bounded
+repair; both were rejected as truncated. A v4 rerun reserves 24,576 output tokens,
+retaining all original evidence. Its final outcome is recorded below when complete.
+
+### Final full-context outcome and recovery — 2026-10-05
+
+The final validated result is
+`/home/hema/research_runs/research_critic_kv_live_v6/result.json`, with explicit
+integrity checks in the adjacent `integrity_checks.json`. Its independent review
+flags **H2/E2's contradictory equality/null interpretation** and requests
+`direction_correctness` for `/hypotheses/1/falsification_criterion` and
+`/experiments/1/informative_outcomes`. The code-owned handoff is `resolve_upstream`.
+**No scientific action is published and this candidate is not ready for ranking.**
+This is an actual detected proposal defect, not an API permission block, missing
+novelty comparison, or a conclusion that the hypotheses lack novelty/value.
+
+The upstream assessment, generation and scientific source packet are unchanged:
+all five targets, 100 comparisons and 7,782 passages were supplied. All four
+hypothesis/experiment links were independently checked. No automatic rewrite was
+applied. The draft's other refinement suggestions remain unaccepted model judgments,
+not an authoritative instruction to redesign all four hypotheses. In particular,
+any later stratification revision should distinguish the need for a clear shared
+reference from a stronger claim that a reference based on either compared method
+must always be forbidden; that stronger claim needs justification.
+
+Follow-up implementation changes from the live runs:
+
+- `critic/pipeline.py` includes the exact valid proposal-field inventory in prompts.
+- `critic/evidence.py` allows an experiment revision to name a linked hypothesis
+  or its direction. It still rejects unrelated hypotheses and nonexistent fields.
+- `critic/schemas.py` derives recheck dependencies from the experiment's actual
+  hypothesis links, so a shared-test edit rechecks every affected hypothesis.
+- `normalize_review_paths` corrects only the exact unambiguous misplaced collection
+  `/targets/N/revisions` to `/revisions`, and only if that existing target actually
+  has revisions. It never alters review reasoning, decisions, requests or citations.
+  Other invalid paths still fail. Normalizations are recorded in run metadata.
+
+The v4 full author/repair calls completed but failed the then-overly-restrictive
+revision path contract. The v5 author completed with valid field paths; the fresh
+full-context reviewer correctly detected H2's contradiction. Its issue addressed
+`/targets/2/revisions` rather than the draft's flat `/revisions` collection. A model
+format-repair request exceeded the provider context by **41 tokens**. After the
+strict structural normalizer was tested, v6 replayed the two completed, identical
+v5 author/reviewer calls locally: **zero additional API calls**. Saved report
+comparison verifies that only this one recorded pointer changed (besides reversible
+source-alias restoration); the scientific review is exactly the original live one.
+
+| Run | API attempts | Local checkpoint replays | Outcome |
+|---|---:|---:|---|
+| v1 | 2 | 0 | Draft complete; review rejected for context reservation. |
+| v2 | 1 | 1 | Automated KEEP pass, manually rejected for missed consistency/scope defects. |
+| v3 | 2 | 0 | Draft and bounded repair truncated; neither accepted. |
+| v4 | 2 | 0 | Complete responses; revision-pointer contract failed. |
+| v5 | 3 | 0 | Full author/reviewer complete; review detects H2 contradiction; pointer repair request rejected for context reservation. |
+| v6 | 0 | 2 | Exact completed-call replay plus structural pointer normalization; valid upstream-correction handoff. |
+
+Total: **10 API attempts** (two provider context rejections; two responses truncated)
+and **three separately recorded local checkpoint replays**. All requests have ended.
+Final relevant validation: **54 critic tests pass**, alongside the **223 passing
+novelty regression tests**. The last combined run before the additional pure
+pointer-normalization test passed 276 checks; the final critic rerun passed all 54.
+The CLI deliberately returns nonzero for a withheld candidate, even when the model
+review and its upstream-correction routing completed correctly.
+
+This closes the requested full live critic execution, not scientific approval of
+this candidate. The confirmed next correction is in the saved generated proposal's
+H2/E2 outcome wording. Correctness and any affected novelty/scope checks must be
+resolved on the revised artifact before a fresh critic decision can advance it.

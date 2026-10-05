@@ -74,6 +74,8 @@ def validate_request(request, packet):
     if request.target_id not in targets(packet):
         raise ValueError('upstream request names unknown target')
     references(request.passage_ids, packet)
+    for path in request.field_paths:
+        valid_pointer(packet['candidate'], path)
 
 
 def validate_draft(draft, packet):
@@ -110,8 +112,12 @@ def validate_draft(draft, packet):
         if parts[0] == 'hypotheses':
             if len(parts) < 3 or packet['candidate']['hypotheses'][int(parts[1])]['hypothesis_id'] != r.target_id:
                 raise ValueError('hypothesis revision must name the matching hypothesis')
+        elif parts[0] == 'experiments':
+            if len(parts) < 3 or (r.target_id != packet['direction_id'] and
+                    r.target_id not in packet['candidate']['experiments'][int(parts[1])]['hypothesis_ids']):
+                raise ValueError('test revision must name its direction or a linked hypothesis')
         elif r.target_id != packet['direction_id']:
-            raise ValueError('shared scope/test revisions must name the direction')
+            raise ValueError('shared scientific field revisions must name the direction')
         revised.add(r.target_id)
     actions = {t.target_id: t.action for t in draft.targets}
     if any(actions[t] != 'REFINE' for t in revised) or any(a == 'REFINE' and t not in revised for t, a in actions.items()):
@@ -122,10 +128,37 @@ def validate_draft(draft, packet):
         validate_request(request, packet)
 
 
-def validate_review(report, draft, packet, portfolio=False):
+def normalize_review_paths(report, draft):
+    """Relocate a known flat revision collection, without changing review meaning.
+
+    The draft stores revisions at its root. A model sometimes addresses a target's
+    revisions as /targets/N/revisions. Only that exact collection path is eligible,
+    and only when that target actually has revision requests. Other paths fail.
+    """
+    report = report.model_copy(deep=True)
+    changes = []
+    for issue in report.issues:
+        parts = issue.field_path.split('/')
+        if (len(parts) == 4 and parts[1] == 'targets' and parts[2].isdigit()
+                and parts[3] == 'revisions' and int(parts[2]) < len(draft.targets)):
+            target_id = draft.targets[int(parts[2])].target_id
+            if any(r.target_id == target_id for r in draft.revisions):
+                changes.append(dict(from_path=issue.field_path, to_path='/revisions', target_id=target_id))
+                issue.field_path = '/revisions'
+    return report, changes
+
+
+def validate_review(report, draft, packet, portfolio=False, require_test_checks=True):
     expected = packet['eligible_direction_ids'] if portfolio else targets(packet)
     if sorted(c.target_id for c in report.target_checks) != sorted(expected):
         raise ValueError('review must explicitly check every target')
+    links = [] if portfolio else [(h, e['experiment_id']) for e in packet['candidate']['experiments'] for h in e['hypothesis_ids']]
+    actual = [(c.hypothesis_id, c.experiment_id) for c in report.test_link_checks]
+    if (require_test_checks or actual) and sorted(actual) != sorted(links):
+        raise ValueError('review must check every hypothesis-experiment link exactly once')
+    for check in report.test_link_checks:
+        if check.decision == 'contradiction' and not any(r.basis == 'proposal_consistency' and r.target_id in (check.hypothesis_id, packet['direction_id']) for r in report.upstream_requests):
+            raise ValueError('contradictory test interpretation requires direction-correctness reassessment')
     for issue in report.issues:
         valid_pointer(draft.model_dump(), issue.field_path)
         references(issue.passage_ids, packet)
@@ -172,7 +205,7 @@ def validate_portfolio(draft, packet):
             raise ValueError('merge cites evidence outside its constituent directions')
 
 
-def checked_history(record, packet, portfolio=False):
+def checked_history(record, packet, portfolio=False, require_test_checks=True):
     validate = validate_portfolio if portfolio else validate_draft
     final = record.assessment if portfolio else record.critique
     if len(record.reviews) > 2 or [r.round for r in record.reviews] != list(range(len(record.reviews))):
@@ -189,7 +222,7 @@ def checked_history(record, packet, portfolio=False):
             raise ValueError('wrong review draft type')
         validate(r.draft, packet)
         if r.report:
-            validate_review(r.report, r.draft, packet, portfolio)
+            validate_review(r.report, r.draft, packet, portfolio, require_test_checks)
     if final is not None:
         validate(final, packet)
         trivial = portfolio and len(packet['eligible_direction_ids']) < 2
@@ -228,8 +261,8 @@ def validate_result(result):
             raise ValueError('critic packet differs from immutable inputs')
         if (c.critique is None) != (c.blocked_at == 'critique'):
             raise ValueError('incorrect critique execution status')
-        checked_history(c, c.packet)
+        checked_history(c, c.packet, require_test_checks=result.schema_version != 'research_critic_v1')
     expected = portfolio_packet(result.candidates)
     if result.portfolio.packet != expected or result.portfolio.packet_sha256 != digest(expected):
         raise ValueError('portfolio packet differs from accepted candidate critiques')
-    checked_history(result.portfolio, expected, True)
+    checked_history(result.portfolio, expected, True, result.schema_version != 'research_critic_v1')

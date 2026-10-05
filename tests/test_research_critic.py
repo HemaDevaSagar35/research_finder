@@ -37,7 +37,10 @@ def review_for(packet, portfolio=False):
     ids = packet['eligible_direction_ids'] if portfolio else [packet['direction_id'], *[h['hypothesis_id'] for h in packet['candidate']['hypotheses']]]
     return dict(decision='pass', summary='Evidence and scientific reasoning checked.', issues=[],
         target_checks=[dict(target_id=t, reasoning='No unsupported judgment found.', defects=[]) for t in ids],
-        upstream_requests=[])
+        upstream_requests=[], test_link_checks=[] if portfolio else [dict(hypothesis_id=h,
+            experiment_id=e['experiment_id'], prediction='Fixture positive interaction.', equality_case='Zero contradicts a positive prediction.',
+            decision='consistent', reasoning='Fixture outcomes match the prediction.')
+            for e in packet['candidate']['experiments'] for h in e['hypothesis_ids']])
 
 
 class Chat:
@@ -431,3 +434,110 @@ def test_downrank_is_rankable_without_novelty_change(source):
     route = result.handoff()['candidates'][0]
     assert route['scientific_action'] == 'DOWNRANK' and route['next_stage'] == 'ranking'
     assert route['requires_novelty_recheck_target_ids'] == []
+
+
+@pytest.mark.parametrize('bad', ['missing', 'duplicate', 'unknown_hypothesis', 'hidden_contradiction'])
+def test_test_link_audit_is_mandatory(source, bad):
+    def mutate(out, req):
+        if 'review_' not in req['task']: return
+        if bad == 'missing': out['test_link_checks'] = []
+        if bad == 'duplicate': out['test_link_checks'].append(deepcopy(out['test_link_checks'][0]))
+        if bad == 'unknown_hypothesis': out['test_link_checks'][0]['hypothesis_id'] = 'unknown'
+        if bad == 'hidden_contradiction': out['test_link_checks'][0]['decision'] = 'contradiction'
+    result, _ = run(source, Chat(mutate))
+    assert result.candidates[0].critique is None
+    assert result.candidates[0].reviews[-1].error
+
+
+def test_internal_test_contradiction_routes_upstream_without_fake_source_citation(source):
+    def mutate(out, req):
+        if 'review_' not in req['task']: return
+        check = out['test_link_checks'][0]
+        check['decision'] = 'contradiction'
+        check['reasoning'] = 'The test labels the same measured zero interaction both falsifying and unresolved.'
+        out['decision'] = 'revise'
+        out['upstream_requests'] = [dict(stage='direction_correctness', target_id=check['hypothesis_id'],
+            basis='proposal_consistency', field_paths=['/hypotheses/0/expected_effect', '/experiments/0/informative_outcomes'],
+            passage_ids=[], reason=check['reasoning'])]
+    result, chat = run(source, Chat(mutate))
+    route = result.handoff()['candidates'][0]
+    assert route['next_stage'] == 'resolve_upstream' and route['scientific_action'] is None
+    assert route['upstream_requests'][0]['passage_ids'] == []
+    assert len(chat.calls) == 2
+
+
+def test_internal_request_requires_existing_candidate_fields(source):
+    def mutate(out, req):
+        if 'review_' not in req['task']: return
+        out['decision'] = 'revise'
+        out['upstream_requests'] = [dict(stage='direction_correctness', target_id=req['packet']['direction_id'],
+            basis='proposal_consistency', field_paths=['/invented'], passage_ids=[], reason='Wrong field.')]
+    result, _ = run(source, Chat(mutate))
+    assert result.candidates[0].reviews[-1].error
+
+
+def test_unknown_link_consistency_cannot_publish_pass(source):
+    def mutate(out, req):
+        if 'review_' in req['task']: out['test_link_checks'][0]['decision'] = 'uncertain'
+    result, _ = run(source, Chat(mutate))
+    assert result.candidates[0].critique is None
+
+
+def test_v1_readable_but_v2_requires_test_audit(source):
+    result, _ = run(source)
+    data = result.model_dump()
+    data['candidates'][0]['reviews'][0]['report'].pop('test_link_checks')
+    with pytest.raises(ValueError, match='every hypothesis-experiment link'):
+        CriticResult.model_validate(data)
+    data['schema_version'] = 'research_critic_v1'
+    assert CriticResult.model_validate(data).candidates[0].critique
+
+
+def test_shared_experiment_refinement_rechecks_every_linked_hypothesis(source):
+    def mutate(out, req):
+        if 'review_' in req['task']: return
+        out['targets'][1]['action'] = 'REFINE'
+        out['revisions'] = [dict(target_id=out['targets'][1]['target_id'], field_path='/experiments/0/informative_outcomes',
+            required_change='Distinguish measured equality from unavailable data.', reason='Clarify the boundary interpretation.')]
+    result, _ = run(source, Chat(mutate))
+    c = result.candidates[0]
+    assert c.critique
+    assert set(c.handoff()['requires_novelty_recheck_target_ids']) == {c.direction_id, *c.packet['candidate']['experiments'][0]['hypothesis_ids']}
+
+
+def test_experiment_revision_cannot_name_unlinked_hypothesis(source):
+    result, _ = run(source)
+    c = result.candidates[0]
+    draft = c.critique.model_dump()
+    draft['targets'][2]['action'] = 'REFINE'
+    draft['revisions'] = [dict(target_id=draft['targets'][2]['target_id'], field_path='/experiments/0/informative_outcomes',
+        required_change='Clarify.', reason='Incorrectly associated test.')]
+    packet = deepcopy(c.packet)
+    packet['candidate']['experiments'][0]['hypothesis_ids'] = [draft['targets'][1]['target_id']]
+    with pytest.raises(ValueError, match='linked hypothesis'):
+        validate_draft(CritiqueDraft.model_validate(draft), packet)
+
+
+def test_known_revision_collection_path_normalization_preserves_review(source):
+    from critic.evidence import normalize_review_paths
+    result, _ = run(source)
+    c = result.candidates[0]
+    data = c.critique.model_dump()
+    data['targets'][1]['action'] = 'REFINE'
+    data['revisions'] = [dict(target_id=data['targets'][1]['target_id'], field_path='/hypotheses/0/condition',
+        required_change='Clarify the tested condition.', reason='Needed for comparison.')]
+    draft = CritiqueDraft.model_validate(data)
+    report = ReviewReport.model_validate({**review_for(c.packet), 'decision':'revise',
+        'issues':[dict(field_path='/targets/1/revisions', explanation='Revision needs clearer scope.',
+            required_change='Clarify the requested scientific scope.', passage_ids=[])]})
+    normalized, changes = normalize_review_paths(report, draft)
+    assert normalized.issues[0].field_path == '/revisions'
+    assert changes == [dict(from_path='/targets/1/revisions', to_path='/revisions', target_id=data['targets'][1]['target_id'])]
+    restored = normalized.model_dump()
+    restored['issues'][0]['field_path'] = report.issues[0].field_path
+    assert restored == report.model_dump()
+    # Unknown target/field and a target with no revisions remain invalid.
+    for path in ('/targets/0/revisions', '/targets/999/revisions', '/targets/1/invented', '/targets/1/revisions/0'):
+        report.issues[0].field_path = path
+        unchanged, changes = normalize_review_paths(report, draft)
+        assert unchanged == report and changes == []
