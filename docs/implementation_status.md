@@ -639,3 +639,25 @@ Model review remains fallible; complete comparison coverage is not a global
 novelty or usefulness guarantee. Exact module changes, recovery history, tests,
 artifacts and limitations are appended to the single
 [Novelty Search module document](novelty_search.md). Changes remain uncommitted.
+
+## 2026-10-04 — Section 15 Research Critic implementation
+
+New `critic/` evaluates every direction/hypothesis against the eight section-15
+scientific questions, with independent review, explicit revisions and upstream
+source-reassessment requests. Original opportunity artifacts/pages supplement the
+accepted novelty evidence. Independent candidate calls run concurrently; joint
+reviewed MERGE proposals preserve constituent hypotheses and require fresh checks
+of changed scientific scope. No proposals are silently changed and no processing
+failure becomes a scientific rejection. Final ranking is still downstream.
+
+Module contracts, all added/changed files, approach and validation history are in
+[Research Critic](research_critic.md), the single module document. Initial critic
+and novelty regression checks pass (257 tests). Complete MOMENTKV input preparation
+passes; the initial external live launch is blocked by automatic approval review
+pending the specific payload authorization. This entry does not claim a live pass.
+
+Section-15 follow-up checks now total **266 passed**, including full two-candidate
+merge/review/handoff tests and concurrent request-local accounting. Saved corrections
+must preserve unaffected judgments; surviving test links are retained. The full live
+MOMENTKV test remains pending the exact payload authorization, not a completed or
+failed model run. See the Research Critic module document for the distinction.
