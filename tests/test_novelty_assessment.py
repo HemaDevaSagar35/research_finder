@@ -525,7 +525,7 @@ def test_model_packet_preserves_every_source_and_comparison(bundle):
     packed = model_packet(packet)
     assert packet == original
     reverse = {v:k for k,v in source_aliases(packet).items()}
-    sources = [p for page in packed['source_passages'].values() for p in page]
+    sources = [dict(passage_id=pid,text=text) for page in packed['source_passages'].values() for pid,text in page.items()]
     assert len(sources) == len(packet['source_passages'])
     assert [(reverse[p['passage_id']], p['text']) for p in sources] == [
         (p['passage_id'], p['text']) for p in packet['source_passages']]

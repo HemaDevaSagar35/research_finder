@@ -680,3 +680,28 @@ Source coverage is complete for this saved run (100 comparisons, 7,782 passages,
 direction plus four hypotheses). Final tests: 54 critic and 223 novelty checks pass.
 The module document records all API attempts, provider context/output failures,
 checkpoint replays, the manually rejected pass, exact changed modules and limitations.
+
+### 2026-10-05 — Critic correction/refinement loop
+
+Added `critic/refinement_loop.py`, `directions/revision.py`,
+`directions/revision_schemas.py`, `directions/test_links.py`, and
+`novelty/revalidation.py`. Existing generator correctness reviews now explicitly
+check every hypothesis/test link. Scoped revisions receive fresh original-page
+review, versioned novelty applicability checks or fresh search/comparison, fresh
+novelty synthesis, and a new critic. At most two full cycles run; unresolved
+correctness, scientific refinement, evidence reassessment and merge requests stay
+explicit. `tools/validate_refinement_loop.py` records full live calls/checkpoints.
+
+Module details and actual live results: [Direction Generator](direction_generator.md),
+[Novelty Search](novelty_search.md), and [Research Critic](research_critic.md).
+The earlier implementation entries remain as history. Final portfolio ranking
+and merge construction are still separate work.
+
+Final loop validation: **545 tests plus 13 subtests pass**, including 29 new loop
+checks. Twenty-four live calls across the complete attempts and final ownership
+audit corrected the known H2/E3 proposal defects and verified withheld-result
+behavior. The saved candidate still needs a scoped section-12 MOMENTKV/H3
+interpretation repair and synthesis qualifier corrections before a new scientific
+critic verdict. The implementation is complete; that candidate is not approved
+for ranking. See the critic module's latest validation entries for the exact
+artifacts and remaining reviewer-consistency limitation.

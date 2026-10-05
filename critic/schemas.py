@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 from directions.schemas import Strict, Text
+from directions.test_links import TestLinkCheck
 from novelty.assessment_schemas import NoveltyAssessmentResult, FormatRepair
 from opportunities.miner import digest
 
@@ -74,15 +75,6 @@ class ReviewCheck(Strict):
     target_id: Text
     reasoning: Text
     defects: list[Text]
-
-
-class TestLinkCheck(Strict):
-    hypothesis_id: Text
-    experiment_id: Text
-    prediction: Text
-    equality_case: Text
-    decision: Literal['consistent', 'contradiction', 'uncertain']
-    reasoning: Text
 
 
 class ReviewReport(Strict):
@@ -213,6 +205,10 @@ class CriticResult(Strict):
                 direction = next(d for d in self.novelty.inputs.generation.directions if d.direction_id == c.direction_id)
                 assessment = next(a for a in self.novelty.candidates if a.direction_id == c.direction_id)
                 upstream = assessment.refinement_handoff(direction)
+                if assessment.assessment is None:
+                    route['diagnostic']=assessment.diagnostic
+                    route['reassessment_requests']=[q.model_dump() for review in assessment.reviews if review.report for q in review.report.reassessment_requests]
+                    route['novelty_review_issues']=assessment.reviews[-1].report.issues if assessment.reviews and assessment.reviews[-1].report else []
                 if upstream:
                     route.update(next_stage=upstream['next_stage'], upstream_handoff=upstream)
             if c.direction_id in merged:

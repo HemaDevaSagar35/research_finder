@@ -9,7 +9,7 @@ from directions.generator import DirectionGenerator, Settings
 from directions.schemas import GenerationResult
 from llm_client import ChatResult
 from reasoning.evidence import PaperStore
-from tests.test_direction_generator import inputs, Chat, response
+from tests.test_direction_generator import inputs, Chat, response, link_checks
 
 
 def issue(**changes):
@@ -34,6 +34,7 @@ class Reviewer:
         value = self.reports[min(len(self.calls)-1, len(self.reports)-1)]
         if isinstance(value, Exception):
             raise value
+        value={**value,'test_link_checks':value.get('test_link_checks',link_checks(json.loads(kw['messages'][1]['content'])['candidate']))}
         return ChatResult(json.dumps(value), self.finish, 'independent-model')
 
 

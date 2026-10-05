@@ -177,7 +177,7 @@ def test_upstream_source_defect_blocks_publication(source):
     def mutate(out, req):
         if 'review_' in req['task']:
             out['decision'] = 'revise'
-            src = next(iter(req['packet']['source_passages'].values()))[0]['passage_id']
+            src = next(iter(next(iter(req['packet']['source_passages'].values()))))
             out['upstream_requests'] = [dict(stage='novelty_comparison', target_id=req['packet']['direction_id'],
                 passage_ids=[src], reason='Scoped result does not establish that premise.')]
     result, chat = run(source, Chat(mutate))
@@ -234,7 +234,7 @@ def test_lossless_transport(source):
     original = deepcopy(packet)
     packed = transport(packet)
     assert packet == original
-    all_text = [p['text'] for entries in packed['source_passages'].values() for p in entries]
+    all_text = [text for entries in packed['source_passages'].values() for text in entries.values()]
     assert sorted(all_text) == sorted(p['text'] for p in packet['source_passages'])
     for e in packet['evidence']:
         assert all(packed['accepted_claims_by_paper'][e['paper_id']][c['claim_id']]['text'] == c['text'] for c in e['claims'])
@@ -334,7 +334,7 @@ def test_complete_multi_candidate_merge_handoff(source):
                 combined_question='One interaction question with complementary subquestions.',
                 rationale='Complementary hypotheses within the same question.',
                 preserved_distinctions='Keep every original hypothesis and its conditions.',
-                passage_ids=[next(iter(packet['source_passages'].values()))[0]['passage_id']])]
+                passage_ids=[next(iter(next(iter(packet['source_passages'].values()))))])]
     result, chat = run(multi, Chat(mutate))
     saved = CriticResult.model_validate_json(result.model_dump_json())
     assert len(saved.candidates) == 2 and all(c.critique for c in saved.candidates)
@@ -397,10 +397,10 @@ def test_reviewer_receives_matching_aliases(source):
     def mutate(out, req):
         if req['task'] == 'research_critique':
             out['targets'][0]['findings'][0]['basis'] = 'source_fact'
-            out['targets'][0]['findings'][0]['passage_ids'] = [next(iter(req['packet']['source_passages'].values()))[0]['passage_id']]
+            out['targets'][0]['findings'][0]['passage_ids'] = [next(iter(next(iter(req['packet']['source_passages'].values()))))]
     result, chat = run(source, Chat(mutate))
     review = chat.calls[1][0]
-    ids = {p['passage_id'] for entries in review['packet']['source_passages'].values() for p in entries}
+    ids = {pid for entries in review['packet']['source_passages'].values() for pid in entries}
     assert set(review['draft']['targets'][0]['findings'][0]['passage_ids']) <= ids
     assert not result.candidates[0].critique.targets[0].findings[0].passage_ids[0].startswith('src')
 

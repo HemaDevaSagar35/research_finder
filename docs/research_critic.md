@@ -303,3 +303,171 @@ This closes the requested full live critic execution, not scientific approval of
 this candidate. The confirmed next correction is in the saved generated proposal's
 H2/E2 outcome wording. Correctness and any affected novelty/scope checks must be
 resolved on the revised artifact before a fresh critic decision can advance it.
+
+## 2026-10-05 — Bounded correction/refinement loop
+
+This implements the correction path left open in the full live result above.
+`critic/refinement_loop.py` adds `RefinementLoop.run(CriticResult)` and the
+`refinement_loop_v1` artifact. It executes the accepted section-15 REFINE action
+and located direction-correctness requests through the existing generator and
+novelty stages. It does not implement final portfolio ranking or merge construction.
+
+1. Independently confirm located correctness defects from the original pages.
+   Scientific refinements enter only from a published, independently reviewed
+   critique. Draft suggestions are not accepted instructions.
+2. Apply field-scoped edits and independently review the entire revised proposal,
+   including every hypothesis/test link and requested correction. Preserve IDs,
+   source references and the original artifact.
+3. Decide which novelty work still applies using exact scientific-field checks
+   and independent full-evidence applicability review. Otherwise run fresh
+   signature/search/comparison for the changed direction.
+4. Rerun novelty synthesis and its independent review, then run a fresh Research
+   Critic with the complete source packet. Do not transfer old final verdicts.
+5. Repeat at most twice. Return `ready` only for complete ranking/stop handoffs;
+   `needs_revision` preserves remaining work after the bound, and `blocked` records
+   an execution failure, disagreement or unresolved correctness/evidence request.
+   A bounded result does not assert that the research is sound or novel.
+
+The optional `observations` input admits explicitly recorded manual correctness
+concerns with source IDs and proposal fields. These are independently checked,
+not treated as accepted facts or used to rewrite an earlier critic's verdict.
+Requests for prior-paper evidence reassessment remain routed upstream; merge
+construction and unrelated failed-stage retries are explicitly outside this loop.
+
+`RefinementResult` retains original critic input, every sparse patch, full reviews,
+revised generations, applicability certificates, any fresh search/comparison
+artifacts and each fresh critic result. Reloading verifies these dependency links.
+Independent directions run concurrently; dependent stages run in order. Budgets
+are shared and no evidence is silently dropped to fit a provider context.
+
+`tools/validate_refinement_loop.py` runs saved complete candidates, saves raw
+requests/responses and stage checkpoints outside the repository, and supports
+replaying only successful calls with identical messages/model/format. Output-token
+reservation may differ on replay. The hybrid index loads lazily when new search
+is actually required. Example:
+
+```bash
+uv run python -m tools.validate_refinement_loop \
+  --critic /path/to/critic-result.json --out /path/to/new-run \
+  --max-input-tokens 1000000 --max-output-tokens 65536
+```
+
+Automated and live validation results are recorded below after execution.
+
+### Automated validation and first complete live attempt
+
+`uv run pytest -q` passes **544 tests plus 13 subtests**. The 28 new loop tests
+cover exact sparse edits, stable IDs, source quotations, independently passing
+revisions, skipped/duplicate test links, unaccepted refinement rejection, reviewer
+disagreement, artifact tampering, manual observations, reuse rejection, actual
+fresh signature/retrieval/comparison execution, and the two-cycle bound. The
+fresh-search test also verifies concurrent retrieval. The only suite warning is
+the existing FAISS/NumPy deprecation warning.
+
+`/home/hema/research_runs/refinement_kv_live_v1/` records the first complete live
+attempt: **14 API calls**, two truncated responses recovered through the bounded
+format-repair path, no source sampling and no checkpoint replays. H2/E2 was
+corrected and independently passed; all five targets passed the full-evidence
+applicability audit. Fresh novelty synthesis initially mixed the order-ablation
+and sigma scopes, then corrected that wording and passed independent review.
+The fresh critic identified the remaining H3 source-attribution issue, but its
+request located `/rationale/4/statement`. The next correctness preflight interpreted
+that rationale sentence as acceptable and missed E3's explicit low-sigma-anchor
+wording. The loop stopped with reviewer disagreement; it did not publish a
+scientific KEEP/REFINE decision or silently override either review.
+
+This exposed two practical issues addressed in the recovery run:
+
+- The exact E3 claim is now supplied as a recorded, source-located manual
+  observation. Manual observations require independent confirmation and do not
+  authorize wholesale application of the critic's unaccepted draft suggestions.
+- Source transport now removes repeated per-passage envelope keys while preserving
+  all original text, page grouping and reversible citations. The complete real
+  packet round-trip preserved **7,782 passages** exactly, reducing the representative
+  packet from roughly 3.82M to 3.63M characters (the older request also contained
+  revision context). The live runner reserves 65,536 response tokens. Core input
+  allowance remains 1M; evidence is never dropped to make the request fit.
+
+The outer loop now also accumulates the nested critic's request-local usage. The
+v1 raw ledger's 14 API calls is authoritative: its old outer `usage` field omitted
+three nested critic calls and one of the two truncated responses. That historical
+artifact is retained unchanged; later runs use the corrected accounting.
+
+### Recovery run: proposal corrections passed; upstream interpretation exposed
+
+`/home/hema/research_runs/refinement_kv_live_v2/` completed **nine live API calls**
+with zero truncated responses or provider-context rejections. The explicit E3
+observation let the independent preflight locate both defects. The sparse patch
+changed only E2's `informative_outcomes` and E3's `why_this_test`; all scientific
+hypothesis fields, IDs, evidence links and test links remained unchanged. A fresh
+correctness review passed, and all five targets passed the independently reviewed
+novelty-applicability check. This resolves the two known proposal defects, not
+literature-wide novelty or scientific acceptance.
+
+The complete fresh novelty synthesis/review then exposed an older **section-12
+MOMENTKV/H3 interpretation error**. The corrected synthesis explicitly leaves the
+order-ablation sigma unknown, but immutable upstream comparison dimension rationales,
+relationship explanation and `/expected_effect/0` proposal-match explanation still
+call the ablation a low-sigma operating point. The accepted individual claims c15
+and c16 retain their scopes; the faulty inference joins those separate claims.
+That sentence cannot be fixed by another synthesis or hypothesis edit.
+
+The applicability judges missed this stale upstream interpretation. Their passing
+reviews therefore do not guarantee that reused evidence is semantically flawless.
+The downstream independent review caught it, although it initially assigned the
+repair to synthesis instead of section 12. The candidate was withheld throughout.
+No scientific KEEP/REFINE result is published for the corrected candidate, and the
+old PARTIAL_OVERLAP findings are not presented as a newly accepted verdict.
+
+Follow-up changes identify the owner explicitly:
+
+- `novelty/assessment_prompts.py` now separates mutable assessment prose from
+  immutable relationship/proposal-match/comparison-rationale fields. Wrong upstream
+  interpretations require `reassessment_requests` even when individual claims are
+  accurate. The review prompt version is `novelty_assessment_review_v6_ownership`.
+- `critic/schemas.py::CriticResult.handoff` preserves upstream reassessment requests,
+  novelty-review issues and the actual upstream diagnostic.
+- `critic/refinement_loop.py` reports `upstream_evidence_reassessment_required` or
+  `novelty_assessment_review_unresolved`, rather than losing that cause behind a
+  generic missing revision route. It cannot repair prior-paper evidence by editing
+  the candidate.
+
+Repairing this saved prior-paper interpretation is separate from the implemented
+candidate-refinement loop. It needs the existing evidence/relationship review and
+comparison repair stages, followed by full novelty synthesis and scientific critique.
+The loop and its tests are implemented; this real candidate is **not ready for ranking**.
+
+### Final full-context ownership audit and remaining limits
+
+`/home/hema/research_runs/refinement_kv_ownership_v3/` records **one additional
+live API call**, independently reviewing the exact corrected v2 synthesis with
+all prior evidence and the new ownership instructions. It did not publish an
+assessment. It flagged missing explicit model/benchmark-unspecified qualifiers
+in the direction, H1 and H4 synthesis prose, while finding H2/H3's qualifier prose
+acceptable. It returned **no section-12 reassessment request**, despite the
+independently located stale upstream H3 interpretation described above. Therefore
+this audit does **not** establish that the model reliably routes every upstream
+interpretation error. The deterministic route is tested when the model supplies
+a valid request; semantic detection and ownership assignment remain imperfect.
+
+Final validation: **545 repository tests plus 13 subtests pass**; **29** of those
+tests cover the new loop. The last affected-stage run passed **165** tests before
+the full-suite check. Across v1/v2/v3 there were **24 live API calls**, no checkpoint
+replays, and two truncated responses (both v1; no truncation in v2/v3). All calls
+have ended. Both complete loop artifacts reload under the final validators.
+
+Remaining work for this saved candidate is concrete:
+
+1. Correct and independently re-audit MOMENTKV/H3's section-12 relationship and
+   comparison prose that calls the order ablation low-sigma. Preserve the accurate
+   individual source claims and unaffected evidence; do not silently modify an
+   accepted comparison artifact or its hashes.
+2. Regenerate/review the full synthesis with explicit unspecified-model/benchmark
+   qualifiers wherever the aggregate sigma measurements are restated.
+3. Run the full Research Critic again on that newly accepted assessment. Only an
+   independently accepted critique can authorize scientific refinement or ranking.
+
+The new candidate-refinement implementation is complete and exercised live. The
+saved candidate's scientific/novelty acceptance is **still withheld**. Neither the
+raw PARTIAL_OVERLAP drafts nor a passing applicability certificate override that
+remaining evidence and synthesis work.

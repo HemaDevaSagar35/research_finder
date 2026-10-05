@@ -86,9 +86,9 @@ def model_packet(packet):
     for p in packet['source_passages']:
         # Synthetic controls may supply only passage_id/text.
         page = p.get('page_id', p['passage_id'].split(':')[0])
-        pages.setdefault(page, []).append({'passage_id': aliases[p['passage_id']], 'text': p['text']})
+        pages.setdefault(page, {})[aliases[p['passage_id']]] = p['text']
     packed['source_passages'] = pages
-    packed['source_reference_format'] = ('Complete source passages grouped by original page ID. '
+    packed['source_reference_format'] = ('Complete source passages grouped by original page ID; each page maps srcN to its exact passage text. '
         'srcN labels are exact local source identifiers: cite them unchanged in passage_ids. '
         'Code maps them back to immutable original passage IDs; do not reconstruct hashes.')
     return packed

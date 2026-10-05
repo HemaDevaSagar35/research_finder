@@ -189,6 +189,12 @@ class GenerationResult(Strict):
                     or review.report is None or review.report.decision != 'pass'
                     or review.proposal != d.proposal):
                 raise ValueError('direction must match its exact independently passed proposal')
+            if self.run.get('correctness_contract') == 'test_links_v1' or d.direction_id in self.run.get('revision_direction_ids', []):
+                from directions.test_links import LinkedCorrectnessResponse, validate_links
+                linked = LinkedCorrectnessResponse.model_validate({**self.run.get('test_link_reviews', {}), **self.run.get('revision_test_link_reviews', {})}.get(review.review_id, {}))
+                validate_links(linked.test_link_checks, d.proposal)
+                if linked.basic() != review.report:
+                    raise ValueError('saved link audit differs from accepted correctness review')
             if any(r.opportunity_id == d.opportunity_id and r.round > review.round for r in self.reviews):
                 raise ValueError('direction cannot bypass its latest review')
         return self

@@ -1899,3 +1899,53 @@ accounted separately. All calls have finished. **223 novelty tests pass**. Final
 machine-readable ledger: `/home/hema/research_runs/novelty_targeted_repair_summary.json`.
 Final handoff: `/home/hema/research_runs/novelty_kv_complete_assessment_v5/result.json`.
 Implementation and documentation changes remain uncommitted.
+
+### 2026-10-05 — Novelty applicability after a reviewed direction revision
+
+This extends the sections 9–14 implementation above. New
+`novelty/revalidation.py` preserves explicit provenance across candidate versions.
+Old final novelty verdicts are never copied to a changed candidate.
+
+Only changes to rationale `statement` prose or experiment `why_this_test` and
+`informative_outcomes` are eligible for reviewed reuse; rationale evidence/page
+references remain fixed. Corrected source attribution must not leave stale
+signature premises or comparisons. All other scientific fields must remain exactly equal. Even eligible
+changes require an author assessment and a fresh independent applicability review
+covering the direction and every hypothesis, with the full prior evidence and
+original/new proposals. An unchanged hypothesis string alone is insufficient;
+changed interpretation can change scope. Any changed scientific field, uncertainty,
+disagreement or failed review requires fresh novelty search and comparison.
+
+A reuse certificate records exact parent/new generation, search, comparison and
+candidate hashes, per-target decisions and their independent review. Rebinding
+retains exact signatures, retrieval records and accepted comparisons. It updates
+candidate/version references only after validating the certificate, then reruns
+joint novelty synthesis and its review. Selective refresh runs signature creation,
+review, hybrid retrieval and comparison for affected directions while preserving
+unaffected directions. New retrieved artifacts and their lineage are stored too.
+Outstanding upstream evidence invalidations cannot be discarded by this path.
+
+`novelty/pipeline.py` now routes applicability and candidate revision reviews to the
+independent reviewer. The loop shares one call allowance/concurrency limit across
+stages; internal stages borrow the client without closing it. Corpus-wide novelty
+remains bounded by retrieved coverage, as before. Live validation results for this
+cross-module loop are recorded in [Research Critic](research_critic.md).
+
+The full refinement validation also changed the wire representation in
+`novelty/assessment_evidence.py::model_packet`: each original page now maps its
+reversible `srcN` keys directly to exact passage text, instead of repeating the
+`passage_id` and `text` field names for every passage. All text, page grouping and
+source aliases are preserved. This frees response headroom for source-complete
+calls; it does not summarize or truncate the papers. Assessment and critic run
+metadata identify the new transport version. Saved scientific packets retain
+their original structure and hashes.
+
+The full live refinement case revealed an ownership ambiguity in review feedback:
+accurate c15/c16 claims were joined incorrectly in an accepted H3 relationship and
+comparison rationale. `novelty/assessment_prompts.py` now explicitly routes wrong
+upstream interpretations to section 12 even when individual claims are accurate,
+and reserves synthesis edits for fields actually owned by the assessment. The
+latest live audit still missed this upstream error while finding other synthesis
+qualifier omissions; this is a remaining semantic-review limitation, not a claim
+that prompt changes guarantee detection. Exact results are in the critic module
+history. No flawed prior comparison was silently relabeled as corrected.

@@ -104,5 +104,5 @@ class NoveltyAssessor:
             run=dict(started=started, ended=datetime.now(timezone.utc).isoformat(), provider=self.io.provider,
                 model=self.io.model, review_model=self.io.review_model or self.io.model,
                 settings=self.settings.model_dump(), assessment_prompt=prompts.VERSION,
-                review_prompt=prompts.REVIEW_VERSION, source_transport='page_grouped_source_aliases_v1', token_counter=TOKEN_COUNTER,
+                review_prompt=prompts.REVIEW_VERSION, source_transport='page_grouped_source_map_v2', token_counter=TOKEN_COUNTER,
                 stopped_for_provider_error=self.io.fatal, scope='saved_retrieval_and_available_extracted_evidence'))

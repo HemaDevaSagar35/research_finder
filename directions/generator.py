@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 from directions.schemas import (Diagnostic, Direction, GenerationResponse, GenerationResult,
                                 CorrectnessResponse, ReviewRecord)
 from directions import judge
+from directions.test_links import LinkedCorrectnessResponse
 from extraction.research_extract import _parse_json
 from landscape.schemas import Landscape, limitation_origin
 from llm_client import AsyncLLMClient, errors, usage
@@ -158,6 +159,7 @@ class DirectionGenerator:
         self.client = None
         self.fatal = None
         self.used = False
+        self.link_reviews = {}
 
     async def _resource(self, kind, *args):
         async with self.locks.setdefault((kind, *args), asyncio.Lock()):
@@ -366,9 +368,10 @@ class DirectionGenerator:
             try:
                 if result.truncated:
                     raise ValueError('review response truncated')
-                candidate_report = CorrectnessResponse.model_validate(_parse_json(result.text))
+                candidate_report = LinkedCorrectnessResponse.model_validate(_parse_json(result.text))
                 judge.validate_report(candidate_report, proposal, payload)
-                report = candidate_report
+                self.link_reviews[review_id] = candidate_report.model_dump()
+                report = candidate_report.basic()
             except (ValueError, TypeError, ValidationError) as exc:
                 raise GenerationFailure('invalid_review', str(exc)[:1600]) from exc
             return report, review_id
@@ -455,7 +458,8 @@ class DirectionGenerator:
             run={'started': started, 'ended': datetime.now(timezone.utc).isoformat(), 'prompt_version': PROMPT_VERSION,
                  'settings': self.settings.model_dump(), 'provider': self.provider, 'model': self.model,
                  'review_model': self.review_model or self.model, 'review_prompt_version': judge.PROMPT_VERSION,
-                 'token_counter': TOKEN_COUNTER, 'stopped_for_provider_error': self.fatal})
+                 'token_counter': TOKEN_COUNTER, 'stopped_for_provider_error': self.fatal,
+                 'correctness_contract': 'test_links_v1', 'test_link_reviews': self.link_reviews})
 
 
 def main():

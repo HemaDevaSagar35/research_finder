@@ -146,7 +146,10 @@ class NoveltySearcher:
                     self.chat = self.client.chat_result
                 review = task in ('review_signature', 'review_comparison', 'repair_comparison_review', 'review_comparison_evidence', 'repair_evidence_review', 'review_novelty_assessment', 'repair_review_novelty_assessment',
                     'review_research_critique', 'repair_review_research_critique',
-                    'review_critic_portfolio', 'repair_review_critic_portfolio')
+                    'review_critic_portfolio', 'repair_review_critic_portfolio',
+                    'review_revision_input', 'repair_review_revision_input',
+                    'review_direction_revision', 'repair_review_direction_revision',
+                    'review_novelty_reuse', 'repair_review_novelty_reuse')
                 call = (self.review_chat or self.chat) if review else self.chat
                 model = (self.review_model or self.model) if review else self.model
                 result = await call(messages=messages, model=model,

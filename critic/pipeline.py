@@ -182,5 +182,5 @@ class ResearchCritic:
             run=dict(started=started, ended=datetime.now(timezone.utc).isoformat(), provider=self.io.provider,
                 model=self.io.model, review_model=self.io.review_model or self.io.model,
                 settings=self.settings.model_dump(), prompt_version=prompts.VERSION,
-                review_prompt_version=prompts.REVIEW_VERSION, review_path_normalizations=self.normalizations, source_transport='lossless_grouped_claims_and_pages',
+                review_prompt_version=prompts.REVIEW_VERSION, review_path_normalizations=self.normalizations, source_transport='lossless_grouped_claims_and_page_maps_v2',
                 scientific_validation='model_reviewed_not_empirically_validated'))

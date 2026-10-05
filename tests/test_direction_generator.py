@@ -70,6 +70,12 @@ def response(payload):
         'what_would_falsify_it': 'No locality benefit or losses exceeding saved transfers.'}, 'abstention_reason': None}
 
 
+def link_checks(proposal):
+    return [dict(hypothesis_id=h,experiment_id=e['experiment_id'],prediction='Fixture prediction.',
+        equality_case='A measured null contradicts a positive prediction.',decision='consistent',reasoning='Fixture consistency audit.')
+        for e in proposal['experiments'] for h in e['hypothesis_ids']]
+
+
 class Chat:
     def __init__(self, mutate=None, finish='stop'):
         self.mutate, self.finish = mutate, finish
@@ -84,7 +90,7 @@ class Chat:
         self.active -= 1
         p = json.loads(kw['messages'][1]['content'])['payload']
         if json.loads(kw['messages'][1]['content'])['task'] == 'review_direction':
-            return ChatResult(json.dumps({'decision': 'pass', 'summary': 'Offline accepted fixture.', 'issues': []}), 'stop', 'stub')
+            return ChatResult(json.dumps({'decision': 'pass', 'summary': 'Offline accepted fixture.', 'issues': [], 'test_link_checks':link_checks(json.loads(kw['messages'][1]['content'])['candidate'])}), 'stop', 'stub')
         out = response(p)
         if self.mutate:
             self.mutate(out, p)

@@ -1034,3 +1034,34 @@ automatic correctness is not established. No further revisions were made, no
 reviewer was repeatedly sampled until a preferred verdict appeared, and no
 literature-wide novelty claim was introduced. These targeted, post-inspection
 cases are not an estimate of accuracy on unseen research directions.
+
+## 2026-10-05 — Explicit test-link audits and scoped revision support
+
+This entry changes the correctness implementation above; it does not change the
+scope of the generated directions into detailed experimental protocols.
+
+- `directions/test_links.py` now defines the shared explicit audit for every
+  hypothesis/experiment link: prediction, equality/null case, consistency decision,
+  and reasoning. `directions/judge.py` asks for these checks, and
+  `directions/generator.py` retains the full audit. A passing review cannot contain
+  contradictory or uncertain links, omitted links, or duplicate links.
+- `directions/schemas.py` validates that newly generated/revised directions match
+  their exact passing audits. Existing `directions_v3` snapshots remain readable
+  without changing their hashes or claiming they had this newer explicit audit.
+- New `directions/revision.py` and `directions/revision_schemas.py` implement sparse
+  edits to an existing direction. Inputs are the exact original direction,
+  source-backed correctness requests, and only independently accepted scientific
+  refinement requests. An independent original-page preflight confirms correctness
+  concerns. Unaccepted critic suggestions cannot authorize scientific changes.
+- Edits contain exact JSON Pointers, old/new values and issue IDs. Every accepted
+  issue must be addressed, no other field may change, and hypothesis/experiment IDs,
+  evidence references and links remain fixed. Source/page hashes are revalidated.
+- Each revised proposal receives a fresh complete correctness review, including
+  an explicit resolution of every requested correction and every test link.
+  At most two patch attempts occur within a revision. An abstention, disagreement,
+  source failure or unresolved issue withholds publication; passing requires the
+  exact reviewed proposal. The original proposal and review history are preserved.
+
+`critic/refinement_loop.py` orchestrates these revisions with novelty revalidation;
+see [Research Critic](research_critic.md). It does not select a desired novelty
+percentage or alter hypotheses merely to obtain a favorable verdict.
