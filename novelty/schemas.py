@@ -17,8 +17,8 @@ class Facet(Strict):
 
     @model_validator(mode='after')
     def provenance(self):
-        if self.basis == 'source_fact' and (not self.evidence_ids or not self.source_spans):
-            raise ValueError('source facts need evidence IDs and original-page quotations')
+        if self.basis == 'source_fact' and not self.source_spans:
+            raise ValueError('source facts need original-page quotations')
         if self.basis == 'candidate_proposal' and not self.proposal_paths:
             raise ValueError('proposals need candidate field pointers')
         if not (self.proposal_paths or self.evidence_ids or self.source_spans):

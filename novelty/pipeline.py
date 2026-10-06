@@ -216,7 +216,7 @@ class NoveltySearcher:
         refs = [ReviewSource(paper_id=p.paper_id, page=p.page, key_or_path=p.key_or_path, sha256=p.sha256) for p in pages]
         return payload, refs
 
-    async def _signature(self, direction, payload, reviews):
+    async def _signature(self, direction, payload, reviews, previous=None):
         async def create(task, body):
             # One format/reference repair per creation or substantive revision.
             # Provider failures, abstentions and input/call budgets are not repaired.
@@ -243,7 +243,11 @@ class NoveltySearcher:
                     'repair_instruction': 'Correct schema, candidate pointers, evidence references and quotations. Preserve all targets, predictions and uncertainty. Quotes must be contiguous verbatim original-page text, not paraphrases. Return a complete signature or abstain.'}
             raise AssertionError('unreachable')
 
-        response = await create('create_signature', {'payload': payload})
+        if previous is None:
+            response = await create('create_signature', {'payload': payload})
+        else:
+            response = await create('revise_signature', {'payload': payload,
+                'signature': previous.signature.model_dump(), 'corrections': previous.report.model_dump()})
         for round in range(2):
             if response.signature is None:
                 raise ValueError('signature_abstained: ' + response.abstention_reason)
@@ -301,7 +305,7 @@ class NoveltySearcher:
             return TargetRetrieval(target_id=target.target_id, status='failed', retrieval=retrieval,
                 ranked=[], paper_artifact_hashes=hashes, unavailable_papers=unavailable, diagnostic=errors.describe(exc))
 
-    async def run(self, generation: GenerationResult, *, extra_pages=None):
+    async def run(self, generation: GenerationResult, *, extra_pages=None, signature_recovery=None):
         if self.used:
             raise ValueError('create a new novelty searcher per run')
         self.used = True
@@ -309,6 +313,17 @@ class NoveltySearcher:
         ids = [d.direction_id for d in generation.directions]
         if len(set(ids)) != len(ids):
             raise ValueError('duplicate direction IDs')
+        recoveries = {}
+        if signature_recovery is not None:
+            signature_recovery = NoveltySearchResult.model_validate(signature_recovery.model_dump())
+            if signature_recovery.directions_ref.get('sha256') != digest(generation.model_dump()):
+                raise ValueError('signature recovery generation changed')
+            recoveries = {c.direction_id: c for c in signature_recovery.candidates}
+            if set(recoveries) != set(ids):
+                raise ValueError('signature recovery candidate scope changed')
+            for c in recoveries.values():
+                if c.signature is not None or not c.reviews or c.reviews[-1].report is None or c.reviews[-1].report.decision != 'revise':
+                    raise ValueError('signature recovery requires a withheld signature with revision feedback')
         extras = extra_pages or {}
         known = {pid for d in generation.directions for pid in d.paper_artifact_hashes}
         if not set(extras) <= known or any(type(n) is not int or n < 1 for ns in extras.values() for n in ns):
@@ -320,7 +335,11 @@ class NoveltySearcher:
             reviews, refs = [], []
             try:
                 payload, refs = await self._context(direction, extras)
-                signature = await self._signature(direction, payload, reviews)
+                previous = recoveries.get(direction.direction_id)
+                if previous is not None and (previous.context_pages != refs or previous.candidate_sha256 != digest(direction.model_dump())):
+                    raise ValueError('signature recovery candidate or source context changed')
+                signature = await self._signature(direction, payload, reviews,
+                    previous.reviews[-1] if previous else None)
                 searches = await asyncio.gather(*(self._search(t) for t in signature.targets))
                 return CandidateSearch(direction_id=direction.direction_id, candidate_sha256=digest(direction.model_dump()),
                     context_pages=refs, signature=signature, reviews=reviews, searches=searches, diagnostic=None)
@@ -343,4 +362,5 @@ class NoveltySearcher:
                  'rank_prompt': prompts.RANK_VERSION, 'settings': self.settings.model_dump(),
                  'corpus_id': self.corpus_id, 'corpus_scope': 'full_configured_index',
                  'retrieval_mode': self.retrieval_mode,
-                 'token_counter': TOKEN_COUNTER, 'stopped_for_provider_error': self.fatal})
+                 'token_counter': TOKEN_COUNTER, 'stopped_for_provider_error': self.fatal,
+                 'signature_recovery_parent_sha256': digest(signature_recovery.model_dump()) if signature_recovery else None})

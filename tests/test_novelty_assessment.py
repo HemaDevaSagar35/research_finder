@@ -563,3 +563,115 @@ def test_unknown_source_alias_cannot_pass_review(bundle):
     result,_ = run(bundle,Chat(mutate))
     assert result.candidates[0].assessment is None
     assert result.candidates[0].reviews[-1].error
+
+
+def test_reopen_published_synthesis_with_observation_gets_fresh_independent_review(bundle):
+    parent,_=run(bundle)
+    did=parent.candidates[0].direction_id
+    chat=Chat()
+    result=asyncio.run(NoveltyAssessor(chat).run(bundle.generation,bundle.search,bundle.comparisons,
+        previous=parent,observations={did:['Keep the unspecified measurement scope explicit.']}))
+    assert result.inputs==parent.inputs
+    assert result.candidates[0].assessment!=parent.candidates[0].assessment
+    assert [r['task'] for r,_ in chat.calls]==['revise_novelty_assessment','review_novelty_assessment']
+    assert 'review_observations' in chat.calls[0][0]
+    assert 'review_observations' not in chat.calls[1][0]
+    assert result.run['reassessment_parent_sha256']==digest(parent.model_dump())
+    assert NoveltyAssessmentResult.model_validate_json(result.model_dump_json())==result
+
+
+def test_reopen_synthesis_cannot_publish_rejected_revision(bundle):
+    parent,_=run(bundle);did=parent.candidates[0].direction_id
+    chat=Chat(decisions=['revise'])
+    result=asyncio.run(NoveltyAssessor(chat).run(bundle.generation,bundle.search,bundle.comparisons,
+        previous=parent,observations={did:['Check source scope.']}))
+    assert result.candidates[0].assessment is None
+    assert parent.candidates[0].assessment is not None
+
+
+@pytest.mark.parametrize('change',['inputs','unknown','empty','missing_parent'])
+def test_invalid_synthesis_reopening_rejected_before_calls(bundle,change):
+    parent,_=run(bundle);did=parent.candidates[0].direction_id
+    observations={did:['Check scope.']};comparison=bundle.comparisons.model_copy(deep=True)
+    if change=='inputs':comparison.run['reopening_test']='changed'
+    elif change=='unknown':observations={'unknown':['Check scope.']}
+    elif change=='empty':observations={did:[]}
+    else:parent=None
+    chat=Chat()
+    with pytest.raises(ValueError):asyncio.run(NoveltyAssessor(chat).run(bundle.generation,bundle.search,comparison,
+        previous=parent,observations=observations))
+    assert not chat.calls
+
+
+def test_source_scope_guidance_requires_fresh_independent_review(bundle):
+    did=bundle.generation.directions[0].direction_id;chat=Chat(decisions=['abstain'])
+    result=asyncio.run(NoveltyAssessor(chat).run(bundle.generation,bundle.search,bundle.comparisons,
+        guidance={did:['Check unspecified measurement conditions against the original source.']}))
+    assert result.candidates[0].assessment is None
+    assert 'review_observations' in chat.calls[0][0]
+    assert 'review_observations' not in chat.calls[1][0]
+
+
+def test_citation_error_reports_every_invalid_tuple_with_allowed_claim_ids(bundle):
+    packet=packet_for(bundle);draft=AssessmentDraft.model_validate(proposal(packet))
+    sibling=next(e for e in packet['evidence'] if e['target_id']==draft.targets[1].target_id)
+    sibling['claims'].append({**sibling['claims'][0],'claim_id':'sibling_only'})
+    draft.targets[0].evidence[0].claim_ids.append('sibling_only')
+    draft.targets[1].evidence[0].paper_id='unknown-paper'
+    with pytest.raises(ValueError,match='assessment cites unreviewed') as exc:
+        validate_draft(draft,packet)
+    errors=json.loads(str(exc.value).split(': ',1)[1])
+    assert [e['field_path'] for e in errors]==['/targets/0/evidence/0','/targets/1/evidence/0']
+    assert errors[0]['invalid_claim_ids']==['sibling_only']
+    assert errors[0]['allowed_claim_ids']==['c1']
+    assert errors[1]['allowed_claim_ids']==[]
+    assert errors[1]['error']=='unavailable paper/target evidence'
+
+
+def test_precise_citation_repair_still_needs_fresh_independent_review(bundle):
+    def mutate(out,req):
+        if req['task']=='assess_novelty':
+            out['targets'][0]['evidence'][0]['claim_ids'].append('bad-0')
+            out['targets'][1]['evidence'][0]['claim_ids'].append('bad-1')
+        if req['task']=='repair_assess_novelty':
+            errors=json.loads(req['validation_errors'].split(': ',1)[1])
+            assert [x['invalid_claim_ids'] for x in errors]==[['bad-0'],['bad-1']]
+    result,chat=run(bundle,Chat(mutate))
+    assert result.candidates[0].assessment
+    assert [q['task'] for q,_ in chat.calls]==['assess_novelty','repair_assess_novelty','review_novelty_assessment']
+    review=chat.calls[-1][0]
+    assert 'invalid_output' not in review and 'validation_errors' not in review
+
+
+@pytest.mark.parametrize('decision',['pass','revise'])
+def test_resume_withheld_synthesis_uses_exact_draft_and_review_feedback(bundle,decision):
+    parent,_=run(bundle,Chat(decisions=['revise']));candidate=parent.candidates[0]
+    assert candidate.assessment is None
+    chat=Chat(decisions=[decision])
+    result=asyncio.run(NoveltyAssessor(chat).run(bundle.generation,bundle.search,bundle.comparisons,
+        previous=parent,observations={candidate.direction_id:['Verify the saved scope corrections.']}))
+    request=chat.calls[0][0]
+    assert request['previous_assessment']==candidate.reviews[-1].draft.model_dump()
+    assert request['corrections']==candidate.reviews[-1].report.model_dump()
+    assert (result.candidates[0].assessment is not None)==(decision=='pass')
+    assert parent.candidates[0].assessment is None
+    review=chat.calls[1][0]
+    assert 'corrections' not in review and 'previous_assessment' not in review
+    assert NoveltyAssessmentResult.model_validate_json(result.model_dump_json())==result
+
+
+@pytest.mark.parametrize('blocker',['upstream','abstain','error'])
+def test_withheld_synthesis_recovery_cannot_bypass_upstream_or_missing_review(bundle,blocker):
+    def mutate(out,req):
+        if 'review_novelty_assessment' not in req['task'] or blocker!='upstream':return
+        e=req['packet']['evidence'][0]
+        out.update(decision='revise',issues=[],reassessment_requests=[dict(paper_id=e['paper_id'],
+            target_ids=[e['target_id']],claim_ids=['c1'],passage_ids=[e['claims'][0]['passage_ids'][0]],reason='Original claim needs source review.')])
+    parent,_=run(bundle,Chat(mutate,decisions=['abstain'] if blocker=='abstain' else ['pass'],
+        fail='review_novelty_assessment' if blocker=='error' else None))
+    assert parent.candidates[0].assessment is None
+    chat=Chat()
+    with pytest.raises(ValueError,match='synthesis reopening requires'):
+        asyncio.run(NoveltyAssessor(chat).run(bundle.generation,bundle.search,bundle.comparisons,
+            previous=parent,observations={parent.candidates[0].direction_id:['Correct synthesis prose.']}))
+    assert not chat.calls

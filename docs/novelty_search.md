@@ -1949,3 +1949,172 @@ latest live audit still missed this upstream error while finding other synthesis
 qualifier omissions; this is a remaining semantic-review limitation, not a claim
 that prompt changes guarantee detection. Exact results are in the critic module
 history. No flawed prior comparison was silently relabeled as corrected.
+
+### 2026-10-05 — Scoped reassessment of an accepted interpretation
+
+This extends section 12 when a later review or source inspection identifies a
+wrong relationship or comparison interpretation in an otherwise accepted paper.
+New `novelty/reassessment.py` records an `InterpretationConcern` with direction,
+paper, affected targets, original passage IDs and the specific reasoning defect.
+`InterpretationReassessor` reloads the exact original sources and uses the existing
+sparse evidence and comparison patch schemas. It freshly audits the entire paper's
+claims and target relationships, then independently reviews its comparison.
+`novelty/comparison.py::_reviewed` now accepts reviewed seed evidence and a prior
+comparison with corrections; ordinary comparison behavior is unchanged.
+
+The merge retains every unselected paper and unaffected target exactly. It rejects
+changed source hashes/pages, changed claim text, changes to unrelated relationships
+or comparisons, an incomplete fresh review, and a no-op interpretation repair.
+A fresh scope audit may identify additional supporting citations: those known
+original-page IDs and their associated table context may be attached, followed by
+another independent audit. No model may rewrite a claim through that exception.
+The parent, fresh comparison and merged complete result are saved together with
+hashes; reloading the artifact recomputes and verifies the merge. This is a scoped
+interpretation repair, not a replacement for general claim/evidence correction.
+
+New `tools/validate_reassessment.py` drives that repair, complete sections 13–14
+assessment, section-15 critique and any accepted candidate-refinement loop. It
+saves raw calls, source/version lineage, failed comparison checkpoints, all stage
+artifacts and the final handoff. Exact successful requests can be replayed locally;
+changed requests require fresh calls. The complete live result is recorded in
+[Research Critic](research_critic.md), along with the earlier attempts.
+
+The full follow-up exposed a second recovery need: a passing synthesis review
+still missed explicit unspecified-model/benchmark qualifiers and an unsupported
+link from budget-indexed margins to low sigma. `novelty/assessment.py::run` now
+supports reopening an exact prior assessment with recorded, direction-scoped
+observations. Input artifacts must be identical, unknown/empty observation scopes
+are rejected before calls, unaffected directions are retained, and the author
+must verify concerns against the complete source packet. Every revised synthesis
+receives a fresh independent review without the author's correction history.
+Rejected revisions remain unpublished. Run metadata records the parent assessment
+hash and observations; the validation runner preserves the original artifacts.
+This adds a recovery path for a missed semantic defect, not a guarantee that a
+model judge will detect every such defect on its first pass.
+
+
+The full scientific-revision run exposed another failure mode: re-extracting all
+papers can leave a small subset incomplete because of malformed output, missing
+fields, wrong-paper citations, or unresolved source scope. The same module now
+provides `IncompleteComparisonRecovery` and `ComparisonRecoveryResult`. Recovery
+selects only incomplete papers. It reuses their saved evidence, freshly audits it,
+applies the existing bounded evidence repairs, and independently reviews the new
+comparisons. Papers with no valid saved evidence are re-extracted with the recorded
+failure supplied as feedback. Citation checks and publication requirements remain
+in force; malformed or unreviewed output is not promoted.
+
+`merge_recovery` retains completed papers exactly and checks candidate/source
+identity before replacing an incomplete paper. Parent and fresh attempts are both
+preserved. A failed retry without a substantive review does not erase earlier
+accepted targets; a fresh substantive objection can withdraw their acceptance
+and remains visible downstream. A newer negative review must never be hidden by
+an older positive one. Reloading the recovery artifact verifies its merge.
+
+The validation runner can perform incomplete-paper recovery and the scoped H3
+interpretation correction concurrently, checkpointing each independently even
+if the other fails. `--resume-recovery` and `--resume-repair` reuse those validated
+checkpoints. `--concurrency` controls the bounded call pool. The assessor accepts
+recorded source-scope guidance for a new synthesis as well as observations when
+reopening a prior synthesis; guidance is author feedback, never an acceptance
+certificate. Every resulting assessment still needs a fresh independent review.
+
+
+Final recovery refinements: when the re-audited evidence is exactly the evidence
+behind the last comparison draft, `IncompleteComparisonRecovery` now patches the
+reviewer's located comparison fields instead of regenerating that interpretation.
+Both previous comparison reports remain available as feedback. Existing source
+claims still receive a fresh audit, and the repaired comparison still receives
+its own review. `--recover-only` continues remaining incomplete papers without
+reopening an already corrected interpretation.
+
+`novelty/comparison_records.py::ScopeCheck` additionally accepts `outcome` as a
+scope-aspect label alongside `result`. A live review was repeatedly rejected only
+for using that ordinary label. This changes the allowed category vocabulary, not
+its scientific decision, assertion, evidence references or support requirements.
+Regression coverage verifies that an `outcome` check with a wrong-paper citation
+is still rejected. The final full-run history and coverage counts are recorded in
+[Research Critic](research_critic.md).
+
+
+### 2026-10-05 — Direct original-page signature provenance and recovery
+
+A further live scientific revision exposed a contract mismatch in signature
+creation: `novelty/schemas.py::Facet` required both an original-page quote and an
+extracted evidence ID for every source fact. Some relevant facts were present in
+the supplied pages but had no matching opportunity extraction. The model attached
+nearby, semantically unrelated extraction IDs; independent signature review
+correctly rejected those attributions.
+
+The contract now requires original-page quotations for `source_fact` and permits
+an empty `evidence_ids` list when no matching extracted record exists. Existing
+`novelty/pipeline.py::validate_signature` still verifies that pages are supplied,
+quotes are verbatim, any evidence IDs are known, and their paper ownership agrees
+with the quoted pages. Independent semantic review still checks entailment and
+any supplied evidence attribution. Existing `novelty/prompts.py` explicitly tells
+both author and reviewer this distinction (signature v4, review v3). Direct-page
+provenance does not make a model assertion verified merely because it has a quote.
+
+`NoveltySearcher.run(..., signature_recovery=...)` can resume a withheld signature
+with its last reviewed draft and actual revision feedback. Generation hash,
+candidate hash, source context and candidate scope must match. Accepted signatures
+and abstentions cannot use this route. Each recovery retains the ordinary bounded
+revision/review rounds, and no retrieval occurs until a fresh review passes. Run
+metadata stores the parent search hash; original artifacts remain separate.
+
+`tools/validate_reassessment.py --resume-search` resumes this path and then executes
+the complete configured retrieval, per-paper comparison, joint novelty synthesis
+and critic. `--skip-refinement` is used when finishing the final already-authorized
+scientific correction cycle: it stops at the reviewed critic rather than silently
+starting a third scientific revision. It does not reduce the paper shortlist or
+skip any evidence/comparison/synthesis/critic checks. New regression cases in
+`tests/test_novelty_search.py` verify direct-page support, rejected invented quotes,
+unknown pages/evidence, source changes, exact recovery feedback, and that a fresh
+rejection still prevents retrieval. Live results are in the Research Critic doc.
+
+
+Incomplete recovery also accepts optional located `InterpretationConcern` inputs.
+They must identify an incomplete paper, its actual target IDs and existing original
+passage IDs; invalid/unknown/complete scopes are rejected before calls. The concerns
+are included as source observations to verify in the fresh evidence workflow, not
+as instructions to assign a novelty label or accept a record. This addresses a
+real recurrence: regenerating MOMENTKV evidence after a scientific candidate change
+again joined aggregate sigma observations to an ablation without a reported sigma.
+The validation runner's `--recovery-concerns` enables these observations only for
+matching incomplete papers. Existing completed results are preserved. Regression
+tests demonstrate that a new review rejection still withholds the result even when
+source guidance is present.
+
+
+Recovery now attaches the preceding scope audit's already-identified, known source
+citations before its first fresh audit, with unchanged claim text and the parent
+history retained. This avoids spending the initial new review rediscovering the
+same missing reference; it does not accept the claim or bypass re-review. Exact
+serialization guidance also identifies the permitted response-root fields and
+rejects empty claim references rather than inventing evidence for unknown facets.
+
+
+### 2026-10-05 — Actionable joint-synthesis citation diagnostics
+
+A complete 100-comparison run exposed synthesis citations that pooled a paper's
+claim IDs across targets. `novelty/assessment_evidence.py::validate_draft` already
+rejected that mismatch, but its generic error did not identify the offending
+references, so a live repair repeated the error. It now reports every bad
+`/targets/N/evidence/M` reference together, including the paper/target pair,
+invalid claim IDs and that pair's permitted IDs. Unavailable paper/target evidence
+remains rejected. `novelty/assessment_prompts.py` makes this ownership explicit:
+sibling-target citations retain their true target ID, and substantive findings
+still require accepted same-target evidence (assessment v6, review v7).
+No evidence is promoted or silently substituted. New assessment tests cover
+cross-target reference mismatches, multiple errors in one response and the fresh
+independent review required after correction.
+
+
+Exact-input synthesis reopening now also supports a withheld draft whose last
+independent review requests only synthesis-owned revisions. It resumes that exact
+draft and supplies the actual review report alongside located observations. It
+still requires unchanged inputs, fresh independent review, and preserves the
+unpublished parent. Any unresolved source-reassessment request in the prior review
+history, abstention or missing/error review blocks this path before calls. This
+avoids regenerating a mostly corrected assessment from scratch after the bounded
+rounds end; it does not promote a rejected draft. Tests cover both fresh acceptance
+and rejection, review-history isolation, and upstream/abstention/error gates.

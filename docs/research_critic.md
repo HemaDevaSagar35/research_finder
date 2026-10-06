@@ -471,3 +471,301 @@ The new candidate-refinement implementation is complete and exercised live. The
 saved candidate's scientific/novelty acceptance is **still withheld**. Neither the
 raw PARTIAL_OVERLAP drafts nor a passing applicability certificate override that
 remaining evidence and synthesis work.
+
+### 2026-10-05 — Repair at the owning section-12 stage
+
+The preceding unresolved H3 interpretation was reopened using new
+`novelty/reassessment.py`, rather than changing the hypothesis to accommodate it.
+The concern names MOMENTKV (`436775470aa1`), H3, and the original c15/c16 source
+passages. Full source/evidence audits and a separate comparison review passed.
+The repaired relationship and comparison say the order-ablation spread is
+**unspecified**; the separate aggregate sigma analysis neither identifies its
+model/benchmark nor establishes the ablation's sigma. The `PARTIAL_OVERLAP` label
+remains unchanged. The correction changes its justification, not the outcome to
+make the candidate pass.
+
+Integrity verification of `momentkv_reassessment_v2/reassessment.json` retained
+**all 100 target/paper comparisons across 54 papers**. Every other paper is exact;
+within MOMENTKV only H3's relationship and pair changed. All 21 original claim
+texts are exact and all 11 available pages are preserved. Fresh audits supplied
+four additional known-page citations (c10, c11, c20, c21); these were attached and
+independently re-reviewed. `integrity_check.json` records the exact changes.
+
+The first attempt, `momentkv_reassessment_v1`, made four API calls and stopped
+because the original scoped repair could not attach supporting citations newly
+identified by the audit. It published no repair. The implementation now allows
+only audit-justified citation additions with unchanged claim text and requires a
+fresh review. The recovery replays exact successful patch/audit responses from
+that attempt; later changed requests are fresh API calls. Raw logs and artifacts
+are under `/home/hema/research_runs/`. Complete synthesis/critic outcomes follow.
+
+The recovery's first synthesis and its independent reviewer both completed, but
+manual inspection rejected the model's pass: all five targets omitted the
+explicit unspecified model/benchmark qualifier when restating c15, and H1's
+meaningful-difference prose linked budget-indexed margins to low sigma without
+source support. The v2 run was stopped while its separate candidate-correction
+review was in flight; its raw critique/correction drafts are historical evidence,
+not the current accepted result. `manual_validation.json` records that disposition.
+
+`momentkv_reassessment_v3` resumes the accepted section-12 repair and reopens only
+the synthesis with the recorded observations. Its full revised synthesis and fresh
+independent review passed. All five targets now explicitly carry the unknown
+model/benchmark; the performance margins, order ablation and aggregate sigma
+measurements stay separate. All five outcomes remain `PARTIAL_OVERLAP`, all four
+hypotheses are retained, and every target has complete recorded comparison coverage.
+The fresh Research Critic uses this corrected assessment. This confirms the
+located wording repairs; it does not establish perfect semantic-judge recall.
+
+
+### 2026-10-05 — Full scientific revision and recovery of the new shortlist
+
+The accepted v3 critique located an H1 intervention inconsistency: comparing full
+MOMENTKV with a renormalization-only baseline while requiring the same selection
+method. The scoped correction now gives each arm its own selection protocol at
+matched cache budget and context length. Independent correctness review passed.
+Because this changes the intervention, the refinement loop required fresh
+signatures, retrieval, per-paper comparisons and synthesis. It did not reuse the
+old candidate's novelty verdict as acceptance of the revised candidate.
+
+`momentkv_reassessment_v4` completed that full search: **100 target/paper pairs
+across 50 distinct papers**, including every shortlisted paper for the direction
+and four hypotheses. It made 311 fresh DeepSeek attempts and reused 15 exact
+successful request/response checkpoints. Initially 82 pairs were accepted; 18
+remained withheld across 11 papers (39 complete, 6 unresolved, 3 failed and 2
+partial). Failures involved malformed responses, missing fields, wrong-paper
+citations and unresolved interpretation/scope. There were no provider/network
+errors or truncated responses in v4. Its synthesis was withheld for missing source
+qualifiers, so its critic did not publish a scientific verdict.
+
+The full regeneration also reintroduced the specific MOMENTKV/H3 mistake: joining
+aggregate sigma measurements to the order ablation's unspecified spread. Manual
+inspection caught this despite the general evidence audit. The scoped repair in
+`momentkv_reassessment_v5` passed independent evidence and comparison reviews:
+order-ablation spread remains unspecified, and the theoretical O(sigma²) term is
+not presented as an observed monotonic performance effect. Generic model-review
+recall is still imperfect; this live result must not be described as automatic
+reliable detection of every scope error.
+
+New `novelty/reassessment.py::IncompleteComparisonRecovery` continued the 11
+incomplete papers concurrently with that H3 repair, retaining completed papers
+exactly. V5 used 61 fresh calls and reached **98/100 accepted pairs, 48/50 complete
+papers**. Its synthesis passed review but deferred the candidate for the remaining
+H1 and H4 comparisons. V6 used 12 fresh calls and reached **99/100 accepted pairs,
+49/50 complete papers**. One H4 audit had used the legitimate scope label `outcome`;
+`novelty/comparison_records.py::ScopeCheck` now accepts that label without changing
+citation or scientific-support requirements.
+
+The last IceCache/H1 comparison in v6 remained withheld because successive audits
+identified additional supporting citations. All claim decisions were supported
+and the corrected target relationship was adequate, but the bounded repair rounds
+ended with one citation still to attach and re-audit. Its earlier false claim that
+IceCache lacks renormalization-only baselines was corrected: SnapKV and
+StreamingLLM are included. Absence of a sigma-stratified comparison is scoped to
+the reviewed material. Neither a citation-only blocker nor a passing synthesis
+was used to bypass the final comparison review. V7 resumes only this paper before
+rerunning the complete synthesis and critic; its final result is recorded below.
+
+Call-accounting correction to the earlier v1 paragraph: its saved `calls.json`
+contains **5 completed fresh calls**, not four. V2 contains 12 fresh attempts
+(11 responses and one interrupted signature request) plus 2 local replays. V3
+contains 29 fresh attempts (25 responses and 4 interrupted evidence requests).
+Interrupted requests are attempts, not successful validations. Counts here refer
+to the logged DeepSeek callback; embedding API requests are separate.
+
+Current code validation: **565 tests plus 13 subtests pass**, with one existing
+NumPy warning (`reassessment_final_regression_v3.log`). The new tests cover scoped
+repair integrity, citation attachment, recovery lineage, fresh-review objections,
+sparse comparison repairs, outcome-label validation, and source-guided assessment
+reopening. All artifacts above are under `/home/hema/research_runs/`; source data
+and credentials are not added to the repository.
+
+
+V7 recovery completed **100/100 comparisons across 50/50 complete papers**. The
+49 previously complete papers remained exact. IceCache c10 was clarified to
+separate H2O's related-work description from the evaluated StreamingLLM/SnapKV
+baselines; fresh evidence and comparison reviews passed. The complete synthesis
+also passed: direction plus all four hypotheses are `PARTIAL_OVERLAP`, retained,
+with all target coverage complete. The measured sigma values remain separate from
+order-ablation and budget-indexed performance observations.
+
+The first complete v7 Research Critic and its independent reviewer then published
+an actionable scientific result: direction/H1/H3/H4 `REFINE`, H2 `KEEP`. They
+accepted all four hypothesis/test links, including their equality cases. The
+requested refinement assigns sigma strata using a pre-specified fixed reference
+rule before comparing arms, and reports per-arm accuracy and sigma as well as the
+margin. This avoids letting each evaluated method define its own comparison
+groups. It is a scientific design clarification, not evidence that the predictions
+are false or the candidate lacks novelty. The final allowed scientific refinement
+cycle applies these requests, receives fresh correctness review, and revalidates
+novelty because the conditions/test design changed. Its final disposition follows.
+
+
+The v7 correction passed independent correctness review, but the subsequent
+signature review withheld its new search for incorrect extracted-record
+attributions and incomplete quotes. V7 ended after **17 fresh calls**, with its
+initial accepted assessment/critique retained but the revised candidate's novelty
+unresolved. Its `summary.json` reports `needs_revision`; the initial
+`assessment_published: true` field must not be mistaken for acceptance of the final
+revised candidate. There was no final section-15 KEEP for that revised candidate.
+
+This exposed and fixed the direct-page provenance contract described in
+[Novelty Search](novelty_search.md): original-page-supported facts need not invent
+an extracted evidence ID. The v8 run resumes the saved signature and its actual
+review feedback, preserving the scientifically corrected candidate. Its signature
+revision and fresh independent review passed. Complete hybrid retrieval for the
+direction and all four hypotheses then proceeded. V8 finishes the last scientific
+cycle at the reviewed critic; it does not automatically start a third candidate
+revision. This boundary does not limit the full novelty test.
+
+After the signature fix, **575 repository tests plus 13 subtests passed**, with
+one existing NumPy warning, in `reassessment_final_regression_v4.log`.
+
+
+V8 completed the full revised-candidate shortlist: **100 target/paper pairs across
+53 papers**, with 323 fresh DeepSeek calls. It saved 39 complete papers and 61
+accepted pairs; 11 papers failed format/reference validation and 3 remained
+unresolved. Failures included extra JSON data, misplaced/extra fields, empty claim
+references in proposal matches and wrong-paper passage IDs. No provider/network
+errors or truncations were reported. Its synthesis also failed reference
+validation by citing unaccepted evidence; no assessment or scientific verdict was
+published for that revised candidate. Raw results are retained in
+`momentkv_reassessment_v8/`.
+
+V9 recovers only those 14 incomplete papers and preserves the 39 completed papers.
+A located MOMENTKV source concern is provided to the recovery evidence stage:
+aggregate sigma observations, approximation-order ablation and budget-indexed
+performance results must remain separate unless the original pages establish a
+link. This is checked against the actual passages and is not authority to force a
+novelty label. The first recovered draft now explicitly states that no measured
+sigma is linked to the order ablation; it still requires independent evidence and
+comparison reviews. Final coverage, synthesis and critique are recorded below.
+
+Final code regression after source-concern recovery support: **581 tests plus 13
+subtests pass**, with the same existing NumPy warning
+(`reassessment_final_regression_v5.log`).
+
+
+V9 finished with **89/100 accepted pairs and 48/53 complete papers**, after 102
+fresh calls. Four MOMENTKV target comparisons passed with the source qualifiers
+preserved; H1 still needed a newly identified supporting citation. The five
+remaining papers comprised two malformed responses, two records with citation
+attachments still required, and WILDCAT's comparison review falsely claiming that
+wc-17 cited page 8: both its actual record and comparison draft already cited the
+correct page-7 ID. That is a documented reviewer false positive, not a source
+change. The synthesis again attempted to cite unaccepted evidence and was withheld
+by deterministic validation. V9 therefore published no final revised-candidate
+novelty or scientific verdict.
+
+V10 continues only those five papers. Known prior-audit citations are attached
+before a fresh audit, and the verified page-ID misreading is provided as located
+feedback to check rather than authority to accept. The preceding 48 complete
+papers remain unchanged. Every recovered target must still pass source and
+comparison review before full synthesis and scientific critique.
+
+
+V10 used **31 fresh calls** and reached **99/100 accepted comparisons, 52/53 complete
+papers**. All MOMENTKV targets are accepted, including H1, with the source-scope
+corrections preserved. The previously complete 48 papers are exact. The only
+remaining paper, `0b15beb52116` for H4, passed its final claim/relationship audit but
+still needed two source citations attached. Earlier audits corrected its overly
+broad statement about residual scoring outperforming attention scoring across all
+datasets/metrics; the record now distinguishes the actual per-dataset/per-metric
+results. The reviewed synthesis was published with incomplete H4 coverage and
+correctly routed to `resolve_coverage`, with no scientific verdict. V11 resumes
+only that record, attaches the known citations before fresh audit, and reruns
+complete synthesis and the Research Critic.
+
+The final regression suite after the citation-attachment recovery improvement is
+**582 tests plus 13 subtests passed**, with one existing NumPy warning
+(`reassessment_final_regression_v6.log`). `git diff --check` also passes.
+
+
+V11 used **12 fresh calls** and completed **100/100 comparisons across all 53
+papers**, with the prior 52 complete papers exact and artifact lineage validated.
+The final paper also needed a dataset-specific correction: its 100-frame
+matching/surpassing statement applies to 7-Scenes, not NRGBD. The corrected source
+record and comparison passed independent review. No skipped or withheld
+comparisons remain in `momentkv_reassessment_v11/recovery.json`.
+
+Its synthesis still withheld publication: it cited c17 under the direction-level
+MOMENTKV evidence even though that claim was available under H1. The initial draft
+also pooled three direction-specific IDs into H1; its first repair fixed those
+but missed c17. The validator's generic error has been replaced by exact per-entry
+reference diagnostics; the evidence gate itself is unchanged. V12 reuses the
+validated complete comparison checkpoint and reruns only synthesis and critique.
+Automatic approval initially rejected that retry as possibly broader data sharing.
+A local equality/hash check proved its scientific packet and observations identical
+to v11's already transmitted DeepSeek request; the same command was then approved.
+No additional papers, source pages or provider were introduced by that retry.
+
+
+V12's new synthesis passed citation validation on its first response. Its first
+independent review requested two synthesis-owned citation corrections: separate
+the order and component ablation references, and cite/remove an adjacent-work
+metric. Those changes were applied, but the second review identified unsupported
+averaging detail ("over heads and layers") and an overbroad head/layer attribution
+to adjacent ReST-KV evidence. The partial-overlap findings and retain-all action
+were considered defensible, but the synthesis remained unpublished. V13 resumes
+that exact reviewed draft and its correction report using the same complete
+comparison input, rather than regenerating source evidence or copying a pass.
+
+
+### 2026-10-06 — Final full-run result for the second scientific correction
+
+V13 finished with **7 fresh DeepSeek calls**, no replayed responses, no provider
+errors or truncation. It reused the validated v11 comparison checkpoint without
+rerunning retrieval or discarding any comparisons: **100/100 accepted target/paper
+comparisons across 53/53 complete papers**. The full sections-13/14 synthesis passed
+independent review after its remaining H1 model/benchmark/budget qualifiers were
+restored. The direction and H1–H4 all receive `PARTIAL_OVERLAP`; all four hypotheses
+are retained. This is a positive, scoped novelty outcome for the retrieved corpus,
+not a claim of worldwide novelty or empirical scientific validation.
+
+The section-15 critic ran, including structural repair and independent review.
+Its draft recommended KEEP for the direction and H1–H3, and REFINE for H4, but the
+independent review did **not** accept the complete critique. Consequently these
+are draft recommendations, not published scientific actions. The final handoff
+is `resolve_upstream`, with `scientific_action: null` and a `direction_correctness`
+request for H4/E4. The runner completed successfully; the candidate is not yet an
+approved section-16 output. `portfolio_complete: true` in this single-candidate
+handoff does not override that blocked candidate route.
+
+The remaining proposal issue is concrete: H4 defines fixed reference-sigma groups
+while both naming attention-only selection as a possible reference and describing
+the reference as independent of the compared scoring rules. E4 then treats low
+attention-only sigma inside the high-reference-sigma group as an unresolved
+contrast. This needs an unambiguous reference definition and matching outcome
+clauses. Separately, smaller *relative* sigma reduction alone does not establish
+a weakening suppression mechanism: baseline sigma and absolute reduction are
+needed to distinguish that interpretation from a denominator effect. These are
+high-level hypothesis/measurement consistency issues, not a demand for a detailed
+experimental setup.
+
+The review itself also needs scrutiny. Its blanket statement that an independent
+high-reference-sigma group cannot contain low attention-only sigma is not valid
+when the reference is a genuinely different fixed rule; those two measurements
+can differ. The original ambiguity is real, but that particular reviewer argument
+must not be treated as a proven contradiction. The critique also overstated the
+prior's reporting as only budget averages, overlooking across-layer values. Its
+H3 contribution sentence again called the prior ablation a low-spread operating
+point, although the accepted evidence explicitly leaves that ablation's sigma
+unreported; the independent reviewer did not flag that sentence. Publication was
+withheld for the issues it did identify. This run therefore demonstrates both
+working conservative routing and remaining semantic reviewer false positives and
+misses; it does not establish that two model judgments guarantee correctness.
+
+Two scientific candidate corrections have already been exercised. V13 completes
+the final corrected candidate's full comparison/synthesis/critic checks using
+`--skip-refinement`; it does not silently start a third scientific correction or
+reduce the shortlist. Further candidate work should first resolve H4's reference
+and effect interpretation, then re-run correctness and any affected novelty checks
+before a fresh critic. The accepted section-12 and section-13/14 artifacts remain
+available and must not be confused with an approved scientific verdict.
+
+Final artifacts under `/home/hema/research_runs/momentkv_reassessment_v13/`:
+`recovery.json` (validated lineage and complete comparisons), `assessment.json`
+(accepted synthesis), `critic.json` (withheld critique and actual review),
+`summary.json` (final routing), and `calls/` (all seven request/response records).
+All three typed result artifacts reload successfully. Final regression:
+**589 tests plus 13 subtests passed**, with one existing faiss/NumPy deprecation
+warning (`/home/hema/research_runs/reassessment_final_regression_v8.log`).

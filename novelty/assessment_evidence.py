@@ -1,4 +1,6 @@
 """Deterministic provenance and coverage gates for cross-paper synthesis."""
+import json
+
 from novelty.assessment_schemas import TargetCoverage, CoverageRow
 from novelty.pipeline import pointer
 
@@ -108,6 +110,19 @@ def validate_draft(draft, packet):
     if sorted(t.target_id for t in draft.targets) != sorted(ledger):
         raise ValueError('assessment must cover every original target exactly once')
     available = evidence_map(packet)
+    invalid_refs = []
+    for ti, target in enumerate(draft.targets):
+        for ri, ref in enumerate(target.evidence):
+            row = available.get((ref.paper_id, ref.target_id))
+            allowed = {c['claim_id'] for c in row['claims']} if row else set()
+            missing = set(ref.claim_ids) - allowed
+            if row is None or missing:
+                invalid_refs.append(dict(field_path=f'/targets/{ti}/evidence/{ri}',
+                    paper_id=ref.paper_id, target_id=ref.target_id,
+                    error='unavailable paper/target evidence' if row is None else 'claim IDs not accepted for this paper/target',
+                    invalid_claim_ids=sorted(missing), allowed_claim_ids=sorted(allowed)))
+    if invalid_refs:
+        raise ValueError('assessment cites unreviewed, invalidated or unknown evidence: '+json.dumps(invalid_refs))
     for target in draft.targets:
         rows = []
         for ref in target.evidence:

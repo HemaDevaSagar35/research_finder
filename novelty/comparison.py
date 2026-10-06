@@ -59,10 +59,10 @@ class NoveltyComparator:
             model=model, review_model=review_model, settings=SearchSettings(**self.settings.model_dump(), max_queries=20))
         self.used = False
 
-    async def _reviewed(self, payload, targets, passages, reviews, evidence_history, requests):
+    async def _reviewed(self, payload, targets, passages, reviews, evidence_history, requests, *, seed=None, prior_draft=None, initial_corrections=None):
         builder=EvidenceBuilder(self.io,prompts)
-        evidence=await builder.initial(payload,targets,passages,evidence_history)
-        previous=corrections=None
+        evidence=seed if seed is not None else await builder.initial(payload,targets,passages,evidence_history)
+        previous,corrections=prior_draft,initial_corrections
         for round in range(2):
             ids,claims=eligible(evidence)
             if not ids:return None

@@ -705,3 +705,71 @@ interpretation repair and synthesis qualifier corrections before a new scientifi
 critic verdict. The implementation is complete; that candidate is not approved
 for ranking. See the critic module's latest validation entries for the exact
 artifacts and remaining reviewer-consistency limitation.
+
+
+## 2026-10-05 — Scoped reassessment and complete comparison recovery
+
+The preceding pending H3 interpretation and synthesis work now have implemented
+recovery paths. New `novelty/reassessment.py` provides source-preserving scoped
+interpretation reopening and incomplete-paper recovery, with validated parent,
+fresh-attempt and merged artifacts. Existing `novelty/comparison.py` accepts a
+reviewed evidence seed and sparse comparison corrections; existing
+`novelty/assessment.py` supports exact-input synthesis reopening and source-scope
+guidance, always followed by fresh independent review.
+`novelty/comparison_records.py` accepts `outcome` as a scope-aspect label without
+relaxing support/citation validation. New `tools/validate_reassessment.py` runs
+recovery, full assessment, critique and authorized refinement with checkpoints.
+
+The live critic's H1 intervention correction required fresh scientific novelty
+checks. That complete new shortlist contains **100 target/paper pairs across 50
+papers**. Its initial 18 withheld pairs were recovered through saved evidence,
+located source corrections and fresh reviews. `momentkv_reassessment_v7` now has
+**100/100 accepted pairs and 50/50 complete papers**, with the 49 completed papers
+from v6 preserved exactly. Full sections-13/14 synthesis passed independent review:
+the direction and all four hypotheses are `PARTIAL_OVERLAP`; all four hypotheses
+are retained and all five targets have complete recorded coverage.
+
+This supersedes the earlier comparison/synthesis blockers for this saved case.
+It does not establish literature-wide novelty, scientific truth or universal
+semantic-review reliability. The full Research Critic result follows in the
+module's final live-validation entry. Implementation, attempts and exact artifacts
+are documented in [Novelty Search](novelty_search.md) and
+[Research Critic](research_critic.md); no separate per-attempt module docs are added.
+Regression result: **565 tests plus 13 subtests passed**, one existing NumPy warning.
+
+
+## 2026-10-06 — Full revised-candidate validation completed; H4 remains unresolved
+
+This supersedes the earlier 100-pair/50-paper entry for the previous candidate.
+After the second scientific correction, the latest candidate's full shortlist has
+**100 accepted comparisons across all 53 papers**, with no skipped or withheld
+comparisons. Sections 13–14 passed independent review: the direction and all four
+hypotheses are `PARTIAL_OVERLAP`, retaining all four. This is an actual published
+novelty assessment against the retrieved corpus, not worldwide novelty assurance.
+
+Existing `novelty/schemas.py`, `novelty/prompts.py`, and `novelty/pipeline.py` now
+support verified direct-page signature provenance and exact-input recovery of a
+withheld signature. New `novelty/reassessment.py` preserves complete comparisons
+while recovering incomplete source/comparison records with located concerns and
+fresh reviews. Existing `novelty/assessment.py`, `novelty/assessment_evidence.py`,
+and `novelty/assessment_prompts.py` add exact-draft synthesis recovery and actionable
+paper/target citation diagnostics without weakening evidence or publication gates.
+New `tools/validate_reassessment.py` saves resumable full-run artifacts. Detailed
+approach and tests remain in the existing module docs.
+
+Section 15 also ran fully, but its scientific verdict is **withheld**. Its draft
+recommended KEEP for the direction/H1–H3 and REFINE for H4; these are unpublished
+recommendations. The final route is `resolve_upstream` for H4/E4's reference-group
+and effect-interpretation ambiguity, with `scientific_action: null`. The reviewer
+also made an overbroad reference-group inference and missed a renewed low-spread
+ablation assertion; both limitations are recorded in the Research Critic doc.
+Thus the comparison/synthesis recovery implementation and full live run are
+complete, while this candidate still needs H4 clarification and fresh scientific
+review before section 16. The final bounded scientific cycle was completed; no
+third candidate revision was silently started.
+
+Artifacts: `/home/hema/research_runs/momentkv_reassessment_v13/`. Final typed
+comparison, assessment, and critic results reload successfully. Regression:
+**589 tests plus 13 subtests passed**, one existing faiss/NumPy warning. See
+[Novelty Search](novelty_search.md) for module changes and
+[Research Critic](research_critic.md) for complete live results and remaining issues.

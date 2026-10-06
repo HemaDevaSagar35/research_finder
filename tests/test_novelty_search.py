@@ -325,3 +325,60 @@ def test_no_signature_repair_on_provider_failure_or_abstention(prepared):
             out.update(signature=None, abstention_reason='Insufficient candidate content.')
     result, _, backend = run(prepared, Chat(abstain))
     assert result.calls['total'] == 1 and not backend.calls
+
+
+@pytest.mark.parametrize('defect', [None, 'quote', 'page', 'evidence', 'missing_quote'])
+def test_direct_page_source_facts_keep_quote_and_reference_validation(prepared, defect):
+    def mutate(out, req):
+        if req['task'] not in ('create_signature', 'repair_signature'): return
+        page = req['payload']['pages'][0]
+        f = dict(text='A directly quoted source fact.', basis='source_fact', proposal_paths=[],
+            evidence_ids=[], source_spans=[dict(page_id=page['page_id'], quote=page['text'])])
+        if defect == 'quote': f['source_spans'][0]['quote'] = 'Invented unsupported quotation.'
+        if defect == 'page': f['source_spans'][0]['page_id'] = 'unknown#p1'
+        if defect == 'evidence': f['evidence_ids'] = ['unrelated-invented-id']
+        if defect == 'missing_quote': f['source_spans'] = []
+        out['signature']['targets'][0]['problem'][0] = f
+    result, chat, backend = run(prepared, Chat(mutate))
+    assert bool(result.candidates[0].signature) == (defect is None)
+    assert bool(backend.calls) == (defect is None)
+    if defect is None:
+        assert any(req['task'] == 'review_signature' for req, _ in chat.calls)
+
+
+def test_signature_recovery_revises_saved_draft_then_reviews_before_search(prepared):
+    from opportunities.miner import digest
+    parent, _, _ = run(prepared, Chat(decisions=['revise']))
+    chat, backend = Chat(), Backend()
+    async def execute():
+        async with MultiQueryRetriever(backend) as retriever:
+            return await NoveltySearcher(PaperStore(prepared[0]), retriever, chat).run(
+                prepared[1], signature_recovery=parent)
+    result = asyncio.run(execute())
+    first = chat.calls[0][0]
+    assert first['task'] == 'revise_signature'
+    assert first['signature'] == parent.candidates[0].reviews[-1].signature.model_dump()
+    assert first['corrections'] == parent.candidates[0].reviews[-1].report.model_dump()
+    assert chat.calls[1][0]['task'] == 'review_signature'
+    assert result.candidates[0].signature and backend.calls
+    assert result.run['signature_recovery_parent_sha256'] == digest(parent.model_dump())
+    assert NoveltySearchResult.model_validate_json(result.model_dump_json()) == result
+
+
+@pytest.mark.parametrize('defect', ['generation', 'context', 'accepted', 'review_rejected'])
+def test_signature_recovery_cannot_bypass_input_or_review_gates(prepared, defect):
+    parent, _, _ = run(prepared, Chat(decisions=['pass'] if defect == 'accepted' else ['revise']))
+    if defect == 'generation': parent.directions_ref['sha256'] = 'changed'
+    if defect == 'context': parent.candidates[0].context_pages[0].sha256 = 'changed'
+    chat, backend = Chat(decisions=['revise'] if defect == 'review_rejected' else ['pass']), Backend()
+    async def execute():
+        async with MultiQueryRetriever(backend) as retriever:
+            return await NoveltySearcher(PaperStore(prepared[0]), retriever, chat).run(
+                prepared[1], signature_recovery=parent)
+    if defect in ('generation', 'accepted'):
+        with pytest.raises(ValueError): asyncio.run(execute())
+    else:
+        result = asyncio.run(execute())
+        assert result.candidates[0].signature is None
+    assert not backend.calls
+    if defect != 'review_rejected': assert not chat.calls

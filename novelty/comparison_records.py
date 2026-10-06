@@ -89,7 +89,7 @@ class EvidenceResponse(Strict):
 
 
 class ScopeCheck(Strict):
-    aspect: Literal['result', 'model', 'comparator', 'dataset', 'regime', 'measurement', 'assumption', 'other']
+    aspect: Literal['result', 'outcome', 'model', 'comparator', 'dataset', 'regime', 'measurement', 'assumption', 'other']
     assertion: Text = Field(description='The specific assertion/condition being checked, not a generic checklist item.')
     decision: Literal['supported', 'missing_citation', 'overstated', 'unresolved']
     passage_ids: list[Text] = Field(description='Exact evidence for this assertion, or passages exposing the defect.')
