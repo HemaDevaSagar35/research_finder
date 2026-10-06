@@ -15,7 +15,8 @@ block is what takes effect ({P} is OPENAI, GEMINI, DEEPSEEK, or DEEPINFRA):
 
     {P}_API_KEY       api key (required)
     {P}_MODEL         default model
-    {P}_MAX_TOKENS    default max output tokens (chat and respond)
+    {P}_MAX_TOKENS    default output allowance (chat and respond)
+    {P}_OUTPUT_TOKEN_LIMIT optional provider hard output cap, applied to requests
     {P}_TEMPERATURE   default sampling temperature
     {P}_BASE_URL      override the API endpoint
 
@@ -91,12 +92,16 @@ def _provider_config(name: str) -> dict:
     prefix = name.upper()
     max_tokens = os.environ.get(f"{prefix}_MAX_TOKENS")
     temperature = os.environ.get(f"{prefix}_TEMPERATURE")
+    output_limit = os.environ.get(f"{prefix}_OUTPUT_TOKEN_LIMIT")
+    if output_limit is not None and int(output_limit) < 1:
+        raise ValueError(f"{prefix}_OUTPUT_TOKEN_LIMIT must be positive")
     return {
         "env_key": f"{prefix}_API_KEY",
         "base_url": os.environ.get(f"{prefix}_BASE_URL") or defaults["base_url"],
         "default_model": os.environ.get(f"{prefix}_MODEL")
                          or defaults["default_model"],
         "max_tokens": int(max_tokens) if max_tokens else None,
+        "output_token_limit": int(output_limit) if output_limit is not None else None,
         "temperature": float(temperature) if temperature else None,
     }
 
@@ -149,6 +154,13 @@ def _resolve(provider: str | None, api_key: str | None) -> tuple[str, dict, str]
     return provider, config, api_key
 
 
+def _cap_output(params: dict, key: str, config: dict) -> None:
+    """Application allowances cannot exceed a configured provider output maximum."""
+    limit = config.get("output_token_limit")
+    if limit is not None and params.get(key) is not None:
+        params[key] = min(params[key], limit)
+
+
 def _chat_params(prompt, messages, model, config, system,
                  temperature, max_tokens, kwargs) -> dict:
     if (prompt is None) == (messages is None):
@@ -170,6 +182,7 @@ def _chat_params(prompt, messages, model, config, system,
     if max_tokens is not None:
         params["max_tokens"] = max_tokens
     params.update(kwargs)
+    _cap_output(params, "max_tokens", config)
     return params
 
 
@@ -184,6 +197,7 @@ def _response_params(input, model, config, instructions,
     if max_output_tokens is not None:
         params["max_output_tokens"] = max_output_tokens
     params.update(kwargs)
+    _cap_output(params, "max_output_tokens", config)
     return params
 
 

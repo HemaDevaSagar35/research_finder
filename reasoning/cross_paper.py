@@ -50,13 +50,14 @@ from llm_client import ChatResult
 from llm_client import errors as llm_errors
 from llm_client import usage
 from reasoning import schemas as S
+from landscape.schemas import LimitationSource, limitation_origin
 from reasoning.budget import TOKEN_COUNTER, AttemptBudget, estimate_tokens
 from reasoning.evidence import (BundleBudget, EvidenceCandidate, LoadedPaper, PaperStore,
                                 bundle as make_bundle, candidates as make_candidates)
 
 load_dotenv()
 
-PROMPT_VERSION = "cross_paper_prompt_v1"
+PROMPT_VERSION = "cross_paper_prompt_v2_attribution"
 ChatFn = Callable[..., Awaitable[ChatResult]]
 
 
@@ -69,12 +70,13 @@ class Budgets:
     max_calls: int = 300
     max_threads: int = 100
     max_papers_per_thread: int = 12
-    max_bundle_chars: int = 12_000
-    max_draft_input_tokens: int = 24_000
-    max_draft_output_tokens: int = 6_000
+    max_bundle_chars: int = field(default_factory=lambda: int(os.getenv("REASON_MAX_BUNDLE_CHARS", "2000000")))
+    max_draft_input_tokens: int = field(default_factory=lambda: int(os.getenv("REASON_MAX_DRAFT_INPUT_TOKENS", "500000")))
+    max_draft_output_tokens: int = field(default_factory=lambda: int(os.getenv("REASON_MAX_DRAFT_OUTPUT_TOKENS", "500000")))
     max_review_pages: int = 16
-    max_review_input_tokens: int = 40_000
-    max_review_output_tokens: int = 3_000
+    max_review_input_tokens: int = field(default_factory=lambda: int(os.getenv("REASON_MAX_REVIEW_INPUT_TOKENS", "500000")))
+    max_review_output_tokens: int = field(default_factory=lambda: int(
+        os.environ.get("REASON_MAX_REVIEW_OUTPUT_TOKENS", "500000")))
     repair_rounds: int = 1
 
     def as_dict(self) -> dict[str, int]:
@@ -98,6 +100,7 @@ class Thread:
     status: str = "scheduled"       # completed | insufficient | failed | budget_skipped
                                     # | insufficient_for_adjudication
     detail: str = ""
+    limitation_sources: list[LimitationSource] = field(default_factory=list)
 
 
 def _ordered(supporting: list[str], group_sets: list[set[str]], cap: int
@@ -144,7 +147,70 @@ def allocate_sides(side_a: list[str], side_b: list[str], cap: int
     return chosen, members
 
 
-def schedule_threads(land: S.Landscape, budgets: Budgets) -> list[Thread]:
+def schedule_threads(land: S.Landscape | S.LegacyLandscape, budgets: Budgets) -> list[Thread]:
+    """Consume the builder's shared contract; keep old fixtures compatible."""
+    if not isinstance(land, S.Landscape):
+        return _schedule_legacy_threads(land, budgets)
+    groups = {g.concept_id: g for g in land.groups}
+    cap = budgets.max_papers_per_thread
+    threads = []
+
+    def relationship_statement(r):
+        return f"{groups[r.source].label} {r.relation} {groups[r.target].label}"
+
+    def related(r):
+        return [set(groups[gid].paper_ids) for gid in (r.source, r.target)]
+
+    def append(kind, refs, statement, papers, group_ids, omitted=None, sides=None):
+        threads.append(Thread(
+            thread_id=f"t{len(threads) + 1:03d}", kind=kind, refines=refs,
+            statement=statement, papers=papers, group_ids=group_ids,
+            omitted_supporting=omitted or [], sides=sides))
+
+    for r in land.relationships:
+        chosen, omitted = _ordered(r.supporting_papers, related(r), cap)
+        append("relationship", [r.item_id], relationship_statement(r),
+               chosen, [r.source, r.target], omitted)
+    for name, kind in (("aggregated_findings", "aggregated_finding"),
+                       ("recurring_limitations", "recurring_limitation"),
+                       ("common_assumptions", "common_assumption")):
+        for item in getattr(land, name):
+            chosen, omitted = _ordered(item.supporting_papers, [], cap)
+            append(kind, [item.item_id], item.statement, chosen, [], omitted)
+            threads[-1].limitation_sources = [s for s in item.limitation_sources
+                                               if s.paper_id in chosen]
+    for u in land.underexplored_regimes:
+        chosen, omitted = _ordered(groups[u.concept_id].paper_ids, [], cap)
+        statement = (f"Within the selected landscape corpus, {u.label} has "
+                     f"{u.mention_count} paper mentions and maximum relationship "
+                     f"support of {u.max_relation_support} papers. Examine the "
+                     "available evidence and its limits; these counts do not "
+                     "establish a gap in the wider literature.")
+        append("underexplored_regime", [u.item_id], statement, chosen,
+               [u.concept_id], omitted)
+    for c in land.contradictions:
+        side_lists, omitted = [], []
+        for side in (c.a, c.b):
+            selected, dropped = _ordered(side.supporting_papers, related(side), cap)
+            side_lists.append(selected)
+            omitted += dropped
+        chosen, members = allocate_sides(*side_lists, cap)
+        sides = [{"assertion": relationship_statement(r),
+                  "paper_ids": [p for p in chosen if key in members[p]]}
+                 for key, r in (("a", c.a), ("b", c.b))]
+        append("contradiction", [c.item_id, c.a.item_id, c.b.item_id],
+               f"Potential contradiction — A: {sides[0]['assertion']} | "
+               f"B: {sides[1]['assertion']}", chosen,
+               sorted({c.a.source, c.a.target, c.b.source, c.b.target}), omitted, sides)
+        if not all(side["paper_ids"] for side in sides) or len(chosen) < 2:
+            threads[-1].status = "insufficient_for_adjudication"
+            threads[-1].detail = "a side has no papers within the cap"
+    for t in threads[budgets.max_threads:]:
+        t.status, t.detail = "budget_skipped", "beyond --max-threads"
+    return threads
+
+
+def _schedule_legacy_threads(land: S.LegacyLandscape, budgets: Budgets) -> list[Thread]:
     groups = {g.group_id: set(g.paper_ids) for g in land.groups}
     concept = {g.group_id: g.concept for g in land.groups}
     cap = budgets.max_papers_per_thread
@@ -217,6 +283,14 @@ Rules (violations make your answer unusable):
    comparability_notes and prefer outcome "comparability_issue" over a causal story.
 7. Returning zero findings with outcome "insufficient_evidence" is a valid, good answer.
 8. Non-selection is not agreement: a paper with no relevant record says nothing.
+9. Evidence origin and landscape limitation_sources preserve extraction attribution.
+   author_stated is the extractor's classification, not verified author testimony.
+   model_inferred is an interpretation, never an explicit author admission. An
+   untested setting inferred from reported experiments is not an author-stated gap.
+   Preserve distinctions per paper, including mixed-origin aggregates. Qualify
+   any inference and scope it to available evidence. Missing attribution is unknown.
+   limitation_sources are context, not additional citable evidence IDs; cite only
+   supplied evidence records, and leave page-level support to the review.
 Output ONLY one JSON object matching the schema in the user message."""
 
 REVIEW_SYSTEM = """You are auditing candidate conclusions against the ORIGINAL paper pages.
@@ -226,6 +300,10 @@ For EVERY candidate return exactly one decision:
   insufficient  the supplied pages do not contain enough to judge
 You may cite page_ids you were given (only those). Do not rewrite candidates; if a narrower statement
 would be supportable, say so in notes and still decide on the candidate as written.
+Extraction origin labels are not proof: model_inferred statements are interpretations,
+not explicit author admissions. Even author_stated labels must be verified against
+these pages. Reject claimed author attribution the original pages do not establish;
+an inference may be acceptable only if clearly presented as such and supported.
 Output ONLY one JSON object: {"decisions": [{"candidate_id", "decision", "notes", "page_ids"}]}."""
 
 
@@ -238,6 +316,7 @@ def draft_messages(thread: Thread, bnd: S.EvidenceBundle, titles: dict[str, str]
         "task": "draft", "thread_id": thread.thread_id, "kind": thread.kind,
         "statement": thread.statement,
         "sides": thread.sides,
+        "limitation_sources": [s.model_dump() for s in thread.limitation_sources],
         "thread_papers": [{"paper_id": p, "title": titles.get(p, "")} for p in thread.papers],
         "evidence": [i.model_dump(exclude={"value_path", "provenance_path", "source_locations"})
                      for i in bnd.items],
@@ -335,8 +414,8 @@ class CrossPaperReasoner:
             raise
 
     # ------------------------------------------------------------ run
-    async def run(self, land: S.Landscape) -> S.CrossPaperReasoning:
-        S.validate_landscape(land)
+    async def run(self, land: S.Landscape | S.LegacyLandscape) -> S.CrossPaperReasoning:
+        land = S.validate_landscape(land)
         started = time.strftime("%Y-%m-%dT%H:%M:%S")
         usage_before = {k: vars(v) for k, v in usage.snapshot().items()}
         threads = schedule_threads(land, self.budgets)
@@ -496,6 +575,7 @@ class CrossPaperReasoner:
         it = bnd_by_id[eid]
         return S.Evidence(
             evidence_id=eid, paper_id=it.paper_id, value_path=it.value_path,
+            origin=limitation_origin(it.value_path),
             provenance_path=it.provenance_path, source_locations=it.source_locations,
             source_value=it.source_value, summary=f"{it.label} — {it.source_value}",
             stance=stance, artifact_sha256=loaded[it.paper_id].sha256 or "")
@@ -561,7 +641,7 @@ class CrossPaperReasoner:
                 "conditions": [{"text": cnd.text, "evidence_ids": cnd.evidence_ids,
                                 "hypothesis": not cnd.evidence_ids} for cnd in df.conditions],
                 "evidence": [{"evidence_id": e.evidence_id, "paper_id": e.paper_id,
-                              "stance": e.stance, "summary": e.summary} for e in evs],
+                              "stance": e.stance, "summary": e.summary, "origin": e.origin} for e in evs],
             }
             out.append(_Candidate(c, kind, t, payload, evs, self._pages_of(evs), comparability))
 
@@ -603,7 +683,7 @@ class CrossPaperReasoner:
                 "statement": dt.statement,
                 "sides": [{"assertion": s.assertion,
                            "evidence": [{"evidence_id": e.evidence_id, "paper_id": e.paper_id,
-                                         "summary": e.summary} for e in ev]}
+                                         "summary": e.summary, "origin": e.origin} for e in ev]}
                           for s, ev in zip(dt.sides, sides_ev)],
                 "candidate_explanations": [{"text": x.text, "evidence_ids": x.evidence_ids,
                                             "hypothesis": not x.evidence_ids}
@@ -798,7 +878,7 @@ class CrossPaperReasoner:
             reason=reason, detail=detail)
 
     # ------------------------------------------------------------ output
-    def _assemble(self, land: S.Landscape, threads: list[Thread], results: list[_ThreadResult],
+    def _assemble(self, land: S.Landscape | S.LegacyLandscape, threads: list[Thread], results: list[_ThreadResult],
                   started: str, usage_before: dict) -> S.CrossPaperReasoning:
         findings, observations, tensions, diags = [], [], [], []
         counters: Counter = Counter()
