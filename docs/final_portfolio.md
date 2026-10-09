@@ -121,3 +121,32 @@ No new provider calls or scientific correction cycles were run for this stage.
 
 Final regression: **607 tests plus 13 subtests passed**, with one existing
 faiss/NumPy deprecation warning. `git diff --check` and the CLI help check pass.
+
+
+### Additional section 16–17 checks — 2026-10-09
+
+The focused suite now passes **25 tests**. Seven new cases cover mixed
+selected/reserve/discarded/pending outcomes, selection caps of 1/3/10 with stable
+ranking, successful and rejected refinement cycles, preservation of the final
+revised experiments, Markdown claim/citation/falsification content, unchanged
+source inputs, and colliding CLI output paths.
+
+A seven-candidate synthetic scenario returns exactly 3 selected, 2 reserves,
+1 discarded and 1 pending. Its status remains `partial` even though the requested
+minimum is met, because a scientific revision is outstanding. These cloned
+fixture candidates test routing and rendering, not scientific diversity or quality.
+
+Three saved real runs were replayed: `research_critic_kv_live_v6`,
+`refinement_kv_live_v2`, and `momentkv_reassessment_v13`. Each validated, exported,
+and round-tripped successfully, preserving zero selected, one pending, and
+`resolve_upstream`. No accepted real portfolio was available in these three
+inputs; accepted output is exercised with synthetic fixtures and fake-model
+refinement cycles. No fresh model calls were made.
+
+Artifacts and replay timings are saved under
+`/home/hema/research_runs/portfolio_validation_20261009/`, including
+`replay_summary.json`, three real-run JSON/Markdown pairs, and
+`synthetic_portfolio.json` / `synthetic_portfolio.md`. No production-code defects
+were found by these additional checks. The first test invocation failed during
+temporary-directory setup because its parent did not exist; creating the parent
+and rerunning yielded 25 passing tests. `git diff --check` passes.
