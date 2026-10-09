@@ -4,6 +4,20 @@ Living document: what exists, what's in progress, what's next. The *why*
 behind decisions lives in `offline_ingestion_design.md`; this page is the
 *what*. Update this file whenever a component is added or materially changed.
 
+## 2026-10-09 — Final outputs implemented
+
+Architecture sections 16–17 now live in `portfolio/`: typed final candidate
+reports, deterministic ranking over reviewed signals, 3–5 direction selection,
+reserve/discard/pending accounting, and JSON/Markdown CLI exports. Only candidates
+with the final `ranking` handoff can be selected. Existing source artifacts and
+novelty scope are preserved and revalidated on load.
+
+The latest real candidate remains blocked on H4/E4 correctness; an offline replay
+correctly returns zero selected and one pending candidate. This implementation
+does not resolve that scientific issue or deploy the online service. Details and
+validation: [Final portfolio](final_portfolio.md). The status notes below retain
+their historical dates; later module documentation supersedes them.
+
 Last updated: 2026-10-03 (Opportunity Miner implemented and smoke-tested; older offline status below has not been revalidated against the
 running backfill or deployed services).
 

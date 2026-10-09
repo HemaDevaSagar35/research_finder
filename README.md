@@ -272,3 +272,17 @@ uv sync
 and cheapest-first experiment proposals. It preserves evidence and input lineage;
 novelty and scientific critique remain downstream. Use `uv run python -m directions.generator --help`; see [module documentation](docs/direction_generator.md)
 for the full CLI, implementation and validation history.
+
+## Final research portfolio
+
+`portfolio/` implements architecture sections 16–17. It renders reviewed candidate
+reports and selects up to five ranked directions, preserving evidence, novelty,
+experiments and pending work. It accepts saved critic or refinement results and
+makes no additional model calls.
+
+```bash
+uv run python -m portfolio --critic critic.json --out portfolio.json --markdown portfolio.md
+```
+
+See [final portfolio documentation](docs/final_portfolio.md) for the selection
+policy, CLI options, publication gates and validation.

@@ -49,3 +49,6 @@ files. Source reports are retained as dated history within their owning module;
 links now point to those sections. Future updates go into the same module file.
 
 - [Novelty Search](novelty_search.md) — evidence-backed direction/hypothesis signatures, independent fidelity review, full-corpus retrieval and semantic reranking; novelty comparison remains downstream.
+
+- [Research Critic](research_critic.md) — independent scientific critique, refinement, and revalidation handoffs.
+- [Final portfolio](final_portfolio.md) — architecture sections 16–17: source-preserving candidate reports, explicit ranking and portfolio selection.
