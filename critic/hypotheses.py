@@ -6,8 +6,11 @@ from opportunities.miner import digest
 
 
 def eligibility(candidate, direction, hid):
+    independent = next((h for h in candidate.hypothesis_assessments or [] if h.coverage[0].target_id == hid), None)
     if candidate.assessment is None:
-        return candidate.diagnostic or 'No independently accepted novelty assessment.'
+        if independent is None or independent.assessment is None:
+            return (independent.diagnostic if independent else candidate.diagnostic) or 'No independently accepted novelty assessment.'
+        candidate = independent
     outcome = next(o for o in candidate.outcomes() if o['target_id'] == hid)
     if not outcome['coverage_complete'] or outcome['novelty_status'] == 'unresolved':
         coverage = next(c for c in candidate.coverage if c.target_id == hid)
@@ -45,7 +48,7 @@ async def review_hypotheses(novelty, store, *, existing=None, critic_factory=Res
                     if support is None:
                         raw, _ = await critic.io._context(direction, {})
                         support = {k:raw[k] for k in ('paper_artifacts','pages')}
-                    packet = packet_for(novelty, direction, support)
+                    packet = packet_for(novelty, direction, support, hypothesis_id=hid)
                     packet['review_target_ids'] = [hid]
                     packet['review_scope'] = ('Review only the named hypothesis. The full original direction is context; '
                         'do not approve the direction or other hypotheses. Unrelated unresolved targets are not vetoes, '

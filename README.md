@@ -305,3 +305,28 @@ calls using the configured corpus and models. Final reports are written as
 Resume an interrupted run with `uv run python -m research --resume --out RUN_DIR`.
 See [query pipeline documentation](docs/query_pipeline.md) for budgets, settings,
 checkpoint behavior and validation limits.
+
+### Assessment coverage and saved-run recovery
+
+The research pipeline defaults to `assessment.comparison_coverage_threshold: 0.8`
+and `assessment.individual_assessments: true`. Each hypothesis receives a separate
+novelty assessment and independent review before direction synthesis. The saved
+assessment includes these reviews alongside the direction assessment.
+
+The coverage gate counts accepted comparisons with no missing referenced pages
+against the full recorded shortlist. Thus 16/20 meets the gate, while 15/20 does
+not. Retrieval failures remain blocking. Missing comparisons retain their status
+and reason; they never count as evidence of novelty. An accepted comparison may
+show that a hypothesis is already studied. The coverage `complete` flag means the
+configured gate passed, not that every shortlisted paper was successfully judged.
+Older saved assessments retain their original 100% interpretation and hashes.
+
+To reuse a recovery run's saved comparisons and restart at assessment:
+
+```bash
+uv run python -m research.recover --from-run /path/to/recovery-run \
+  --out /path/to/new-run --start-at assessment
+```
+
+This validates saved checkpoint hashes and lineage and does not run comparison
+recovery. Scientific edits or later refinement may still require new comparisons.

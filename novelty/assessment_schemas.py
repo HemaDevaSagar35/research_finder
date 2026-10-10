@@ -25,6 +25,8 @@ class Invalidations(Strict):
 
 
 class AssessmentInputs(Strict):
+    comparison_coverage_threshold: float | None = Field(default=None, gt=0, le=1, exclude_if=lambda v: v is None)
+    individual_assessments: bool | None = Field(default=None, exclude_if=lambda v: v is None)
     generation: GenerationResult
     search: NoveltySearchResult
     comparisons: NoveltyComparisonResult
@@ -190,9 +192,13 @@ class CandidateAssessment(Strict):
     format_repairs: list[FormatRepair]
     diagnostic: str | None
 
+    hypothesis_assessments: list[CandidateAssessment] | None = Field(default=None, exclude_if=lambda v: v is None)
+
     def outcomes(self):
         """Code-owned interpretation; unreviewed drafts can never publish findings."""
-        accepted = {t.target_id: t for t in self.assessment.targets} if self.assessment else {}
+        accepted = {t.target_id: t for h in self.hypothesis_assessments or [] if h.assessment for t in h.assessment.targets}
+        if self.assessment:
+            accepted.update({t.target_id: t for t in self.assessment.targets})
         return [dict(target_id=c.target_id, level=c.level, coverage_complete=c.complete,
             finding=accepted[c.target_id].finding if c.target_id in accepted else 'UNRESOLVED',
             novelty_status=('overlap_found' if accepted[c.target_id].finding == 'ALREADY_STUDIED'
@@ -237,7 +243,7 @@ class NoveltyAssessmentResult(Strict):
 
     @model_validator(mode='after')
     def reviewed_handoff(self):
-        from novelty.assessment_evidence import build_packet, validate_draft, validate_report
+        from novelty.assessment_evidence import build_packet, hypothesis_packet, validate_draft, validate_report
         if self.inputs_sha256 != digest(self.inputs.model_dump()):
             raise ValueError('assessment input hash mismatch')
         if sorted(c.direction_id for c in self.candidates) != sorted(d.direction_id for d in self.inputs.generation.directions):
@@ -246,6 +252,26 @@ class NoveltyAssessmentResult(Strict):
             packet = build_packet(self.inputs, c.direction_id)
             if c.candidate_sha256 != packet['candidate_sha256'] or [v.model_dump() for v in c.coverage] != packet['coverage']:
                 raise ValueError('coverage or candidate differs from immutable inputs')
+            if self.inputs.individual_assessments:
+                expected = {h.hypothesis_id for d in self.inputs.generation.directions if d.direction_id == c.direction_id for h in d.proposal.hypotheses}
+                children = c.hypothesis_assessments or []
+                if len(children) != len(expected) or any(len(x.coverage) != 1 for x in children) or {x.coverage[0].target_id for x in children} != expected:
+                    raise ValueError('individual assessment must preserve every hypothesis')
+                for child in children:
+                    scoped = hypothesis_packet(packet, child.coverage[0].target_id)
+                    if child.direction_id != c.direction_id or child.hypothesis_assessments is not None or child.candidate_sha256 != c.candidate_sha256 or [v.model_dump() for v in child.coverage] != scoped['coverage']:
+                        raise ValueError('hypothesis coverage differs from immutable inputs')
+                    if len(child.reviews) > 2 or [r.round for r in child.reviews] != list(range(len(child.reviews))):
+                        raise ValueError('invalid hypothesis review history')
+                    for r in child.reviews:
+                        validate_draft(r.draft, scoped)
+                        if r.report: validate_report(r.report, scoped)
+                    if child.assessment is not None:
+                        if not child.reviews or not child.reviews[-1].report or child.reviews[-1].report.decision != 'pass' or child.reviews[-1].draft != child.assessment or any(r.report and r.report.reassessment_requests for r in child.reviews):
+                            raise ValueError('hypothesis assessment requires independent acceptance')
+                        validate_draft(child.assessment, scoped)
+                    elif not child.diagnostic:
+                        raise ValueError('withheld hypothesis requires a diagnostic')
             if len(c.reviews) > 2 or [r.round for r in c.reviews] != list(range(len(c.reviews))):
                 raise ValueError('invalid assessment review history')
             for r in c.reviews:
@@ -253,6 +279,8 @@ class NoveltyAssessmentResult(Strict):
                 if r.report:
                     validate_report(r.report, packet)
             if c.assessment is not None:
+                if any(r.report and r.report.reassessment_requests for h in c.hypothesis_assessments or [] for r in h.reviews):
+                    raise ValueError('hypothesis source reassessment must be resolved before publication')
                 if not c.reviews or c.reviews[-1].report is None or c.reviews[-1].report.decision != 'pass' or c.reviews[-1].draft != c.assessment:
                     raise ValueError('assessment must equal the latest independently passing draft')
                 if any(r.report and r.report.reassessment_requests for r in c.reviews):

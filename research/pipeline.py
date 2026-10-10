@@ -24,7 +24,7 @@ from novelty.pipeline import NoveltySearcher, Settings as SearchSettings
 from novelty.schemas import NoveltySearchResult
 from novelty.comparison import NoveltyComparator, Settings as ReviewSettings
 from novelty.comparison_schemas import NoveltyComparisonResult
-from novelty.assessment import NoveltyAssessor
+from novelty.assessment import NoveltyAssessor, AssessmentSettings
 from novelty.assessment_schemas import NoveltyAssessmentResult
 from critic.pipeline import ResearchCritic
 from critic.schemas import CriticResult
@@ -58,7 +58,7 @@ class PipelineConfig(Strict):
     directions: DirectionSettings = Field(default_factory=DirectionSettings)
     novelty_search: SearchSettings = Field(default_factory=SearchSettings)
     comparison: ReviewSettings = Field(default_factory=ReviewSettings)
-    assessment: ReviewSettings = Field(default_factory=ReviewSettings)
+    assessment: AssessmentSettings = Field(default_factory=AssessmentSettings)
     critic: ReviewSettings = Field(default_factory=ReviewSettings)
     refinement: ReviewSettings = Field(default_factory=ReviewSettings)
     max_refinement_cycles: int = Field(default=2, ge=0, le=2)

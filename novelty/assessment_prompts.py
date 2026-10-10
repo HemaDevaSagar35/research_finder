@@ -28,10 +28,10 @@ Do not imply that an unqualified measurement is established on every model.
 Source passages are available for checking these entries; if they reveal an
 unsupported claim, request section-12 reassessment, never invent a repaired fact.
 Do not promote missing, withheld, skipped, failed or invalidated work to novelty.
-LOW_PRIOR_OVERLAP requires complete coverage in the code-owned ledger and a
+LOW_PRIOR_OVERLAP requires sufficient coverage under the configured threshold in the code-owned ledger and a
 meaningful remaining scientific distinction. It means only low overlap within
 this retrieval and available evidence, never literature-wide novelty.
-If coverage is incomplete you can report supported overlap or components, but
+The ledger complete flag means the configured coverage gate passed; individual missing rows remain explicit caveats and never count as evidence. A threshold is not a novelty percentage. If the coverage gate fails you can report supported overlap or components, but
 remaining novelty stays unresolved. ALREADY_STUDIED needs direct same-target
 evidence; hypothesis evidence must be empirical or theoretical, not inference.
 

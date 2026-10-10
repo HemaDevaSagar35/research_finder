@@ -18,11 +18,17 @@ def upstream_route(novelty, direction):
     return None
 
 
-def packet_for(novelty, direction, support):
+def packet_for(novelty, direction, support, *, hypothesis_id=None):
     """Support is loaded and hash-checked through the existing source-store adapter."""
     packet = build_packet(novelty.inputs, direction.direction_id)
     c = next(c for c in novelty.candidates if c.direction_id == direction.direction_id)
-    packet['novelty_assessment'] = c.assessment.model_dump()
+    accepted = c.assessment
+    if accepted is None and hypothesis_id is not None:
+        child = next((h for h in c.hypothesis_assessments or [] if h.coverage[0].target_id == hypothesis_id), None)
+        accepted = child.assessment if child else None
+    if accepted is None:
+        raise ValueError('No independently accepted novelty assessment for review scope')
+    packet['novelty_assessment'] = accepted.model_dump()
     packet['novelty_outcomes'] = c.outcomes()
     packet['opportunity'] = direction.opportunity.model_dump()
     packet['support_context'] = support

@@ -47,10 +47,19 @@ def build_packet(inputs, direction_id):
         if not rows: blockers.append('No shortlisted prior work was compared.')
         if c.diagnostic: blockers.append(c.diagnostic)
         if search.diagnostic: blockers.append(search.diagnostic)
-        blockers.extend(f'{r.paper_id}: {r.status}' for r in rows if r.status != 'reviewed')
-        blockers.extend(f'{r.paper_id}: missing referenced pages {r.missing_referenced_pages}' for r in rows if r.missing_referenced_pages)
+        threshold = inputs.comparison_coverage_threshold or 1.0
+        accepted = sum(r.status == 'reviewed' and not r.missing_referenced_pages for r in rows)
+        if threshold == 1.0 or not rows or accepted / len(rows) < threshold:
+            blockers.extend(f'{r.paper_id}: {r.status}' for r in rows if r.status != 'reviewed')
+        if threshold == 1.0 or not rows or accepted / len(rows) < threshold:
+            blockers.extend(f'{r.paper_id}: missing referenced pages {r.missing_referenced_pages}' for r in rows if r.missing_referenced_pages)
         coverage.append(TargetCoverage(target_id=tid, level=level, retrieval_status=retrieval,
             papers=rows, blockers=blockers, complete=not blockers).model_dump())
+    if inputs.individual_assessments:
+        # Preserve full pages containing accepted claims, including surrounding context.
+        cited = {pid for e in evidence for claim in e['claims'] for pid in claim['passage_ids']}
+        pages = {p.get('page_id') for pid, p in passages.items() if pid in cited}
+        passages = {pid:p for pid,p in passages.items() if pid in cited or (p.get('page_id') is not None and p.get('page_id') in pages)}
     return dict(direction_id=direction_id, candidate_sha256=c.candidate_sha256,
         candidate=direction.proposal.model_dump(), signature=c.signature.model_dump() if c.signature else None,
         coverage=coverage, evidence=evidence, source_passages=list(passages.values()),
@@ -170,7 +179,7 @@ def validate_draft(draft, packet):
     assessments = {t.target_id: t for t in draft.targets}
     if any(assessments[h].finding != 'ALREADY_STUDIED' for h in removed):
         raise ValueError('novelty-based removal requires positive already-studied evidence for each removed hypothesis')
-    if r.action == 'retain' and any(not ledger[h]['complete'] or assessments[h].finding == 'UNRESOLVED' for h in retained | {packet['direction_id']}):
+    if r.action == 'retain' and any(not ledger[h]['complete'] or assessments[h].finding == 'UNRESOLVED' for h in retained | ({packet['direction_id']} & set(ledger))):
         raise ValueError('unresolved retained scope must defer, narrow or propose a reframe')
     paths = set()
     scientific = {'research_direction', 'proposed_mechanism', 'scope', 'assumptions', 'what_would_falsify_it'}
@@ -204,3 +213,19 @@ def validate_report(report, packet):
             raise ValueError('unknown reassessment claim or passage')
         if any(not p.startswith(request.paper_id + '#') for p in request.passage_ids):
             raise ValueError('reassessment source belongs to another paper')
+
+
+def hypothesis_packet(packet, target_id):
+    """Keep one original hypothesis and all its accepted comparison evidence."""
+    from copy import deepcopy
+    scoped = deepcopy(packet)
+    scoped['coverage'] = [c for c in packet['coverage'] if c['target_id'] == target_id]
+    if len(scoped['coverage']) != 1 or scoped['coverage'][0]['level'] != 'hypothesis':
+        raise ValueError('unknown hypothesis target')
+    scoped['candidate']['hypotheses'] = [h for h in scoped['candidate']['hypotheses'] if h['hypothesis_id'] == target_id]
+    scoped['evidence'] = [e for e in packet['evidence'] if e['target_id'] == target_id]
+    cited = {pid for e in scoped['evidence'] for c in e['claims'] for pid in c['passage_ids']}
+    pages = {p.get('page_id') for p in packet['source_passages'] if p['passage_id'] in cited}
+    scoped['source_passages'] = [p for p in packet['source_passages'] if p['passage_id'] in cited or (p.get('page_id') is not None and p.get('page_id') in pages)]
+    scoped['scope'] += ' Assess only the hypothesis listed in coverage; direction context is supplied only for interpretation.'
+    return scoped

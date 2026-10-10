@@ -16,6 +16,28 @@ from portfolio.render import markdown
 
 
 def load_source(root):
+    if (root/'recovery_manifest.json').exists():
+        manifest=json.loads((root/'recovery_manifest.json').read_text())
+        config,state,parent_manifest=load_source(Path(manifest['source']))
+        if digest(parent_manifest)!=manifest['source_manifest_sha256']:
+            raise ValueError('Recovery source manifest changed')
+        def read(name, schema):
+            payload=json.loads((root/f'{name}.json').read_text())
+            if payload['result_sha256']!=digest(payload['result']):
+                raise ValueError('Invalid recovery checkpoint: '+name)
+            return schema.model_validate(payload['result'])
+        for i in range(manifest['rounds']):
+            name=f'comparison_recovery_{i+1}'
+            if not (root/f'{name}.json').exists(): break
+            state['novelty_search']=read(f'novelty_search_recovery_{i+1}',STAGES['novelty_search'])
+            state['comparison']=read(name,STAGES['comparison'])
+        # Validate the pairing even when no assessment checkpoint was saved.
+        from novelty.assessment_schemas import AssessmentInputs
+        AssessmentInputs(generation=state['directions'],search=state['novelty_search'],comparisons=state['comparison'])
+        for stage in ('assessment','critic','refinement','portfolio'):
+            state.pop(stage,None)
+        if (root/'assessment.json').exists(): state['assessment']=read('assessment',STAGES['assessment'])
+        return PipelineConfig.model_validate(manifest['config']),state,manifest
     manifest=json.loads((root/'manifest.json').read_text())
     parent=digest(manifest)
     state={}
@@ -32,13 +54,15 @@ def load_source(root):
     return PipelineConfig.model_validate(manifest['config']),state,manifest
 
 
-async def recover(source,out,rounds=2):
+async def recover(source,out,rounds=2, *, start_at="comparison"):
+    if start_at not in ("comparison", "assessment"): raise ValueError("unknown recovery start stage")
+    if start_at == "assessment": rounds=0
     config,state,manifest=load_source(source)
     out.mkdir(parents=True,exist_ok=False)
     progress=StageProgress()
     with run_lock(out):
         atomic_json(out/'recovery_manifest.json',dict(source=str(source.resolve()),
-            source_manifest_sha256=digest(manifest),config=config.model_dump(mode='json'),rounds=rounds,
+            source_manifest_sha256=digest(manifest),config=config.model_dump(mode='json'),rounds=rounds,start_at=start_at,
             started=datetime.now(timezone.utc).isoformat()))
         runner=StageRunner(config)
         common=dict(provider=config.provider,model=config.model,review_model=config.review_model)
@@ -91,10 +115,11 @@ def main():
     p.add_argument('--from-run',type=Path,required=True)
     p.add_argument('--out',type=Path)
     p.add_argument('--rounds',type=int,choices=(1,2),default=2)
+    p.add_argument('--start-at',choices=('comparison','assessment'),default='comparison')
     args=p.parse_args()
     config,_,_=load_source(args.from_run)
     out=args.out or automatic_output(config.query+' recovery')
     print('Recovery output directory:',out,flush=True)
-    print(json.dumps(asyncio.run(recover(args.from_run,out,args.rounds)),indent=2),flush=True)
+    print(json.dumps(asyncio.run(recover(args.from_run,out,args.rounds,start_at=args.start_at)),indent=2),flush=True)
 
 if __name__=='__main__': main()

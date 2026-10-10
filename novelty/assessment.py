@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from llm_client.progress import gather as progress_gather
 import asyncio
+from pydantic import Field
 from datetime import datetime, timezone
 
 from llm_client import errors, usage
@@ -10,20 +11,25 @@ from novelty import assessment_prompts as prompts
 from novelty.assessment_schemas import (AssessmentInputs, Invalidations, AssessmentDraft,
     AssessmentReport, AssessmentReview, CandidateAssessment, FormatRepair,
     NoveltyAssessmentResult)
-from novelty.assessment_evidence import build_packet, model_packet, restore_response_sources, validate_draft, validate_report
+from novelty.assessment_evidence import build_packet, hypothesis_packet, model_packet, restore_response_sources, validate_draft, validate_report
 from novelty.comparison import Settings
 from novelty.pipeline import ModelOutputError, NoveltySearcher, Settings as CallSettings
 from opportunities.miner import digest
 from reasoning.budget import TOKEN_COUNTER
 
 
+class AssessmentSettings(Settings):
+    comparison_coverage_threshold: float = Field(default=0.8, gt=0, le=1)
+    individual_assessments: bool = True
+
+
 class NoveltyAssessor:
-    """One run per instance. Joint targets within a direction; concurrent directions."""
+    """One run per instance. Optional independent hypotheses precede joint synthesis."""
     def __init__(self, chat=None, *, review_chat=None, provider=None, model=None,
                  review_model=None, settings=None):
         self.settings = settings or Settings()
         self.io = NoveltySearcher(None, None, chat, review_chat=review_chat, provider=provider,
-            model=model, review_model=review_model, settings=CallSettings(**self.settings.model_dump()))
+            model=model, review_model=review_model, settings=CallSettings(**self.settings.model_dump(exclude={"comparison_coverage_threshold", "individual_assessments"})))
         self.used = False
 
     async def _validated_call(self, task, system, schema, body, validator, repairs):
@@ -48,12 +54,15 @@ class NoveltyAssessor:
                 raise ValueError('invalid_' + task + '_after_repair: ' + detail)
             request = {**transport, 'invalid_output': raw, 'validation_errors': detail}
 
-    async def _candidate(self, packet, previous=None, observations=None, previous_review=None):
+    async def _candidate(self, packet, previous=None, observations=None, previous_review=None, hypothesis_results=None):
         reviews, repairs, assessment, diagnostic = [], [], None, None
         try:
             if not packet['evidence']:
                 raise ValueError('No accepted prior-work evidence; all original targets remain unresolved.')
             body = {'packet': packet}
+            if hypothesis_results is not None:
+                body['reviewed_hypotheses'] = [dict(target_id=h.coverage[0].target_id, assessment=h.assessment.model_dump() if h.assessment else None, diagnostic=h.diagnostic) for h in hypothesis_results]
+                body['synthesis_instruction'] = 'Synthesize the direction using these independently reviewed hypothesis results and original evidence. Preserve gaps, dependencies, and counterevidence; never equate comparison coverage with novelty.'
             if previous is not None:
                 body.update(previous_assessment=previous.model_dump(), review_observations=observations,
                     correction_policy='Verify the reported concerns against the original sources. Correct only assessment-owned prose; do not change the candidate or prior evidence. Preserve explicit unspecified qualifiers in both reasoning and meaningful differences. Every output receives a fresh independent review.')
@@ -97,7 +106,8 @@ class NoveltyAssessor:
         if self.used:
             raise ValueError('create a new novelty assessor per run')
         self.used = True
-        inputs = AssessmentInputs.model_validate(dict(generation=generation.model_dump(), search=search.model_dump(),
+        policy = dict(comparison_coverage_threshold=self.settings.comparison_coverage_threshold, individual_assessments=self.settings.individual_assessments) if isinstance(self.settings, AssessmentSettings) else {}
+        inputs = AssessmentInputs.model_validate(dict(**policy, generation=generation.model_dump(), search=search.model_dump(),
             comparisons=comparisons.model_dump(), invalidations=invalidations.model_dump() if invalidations else None))
         recovered = {}
         if recovery is not None:
@@ -105,7 +115,7 @@ class NoveltyAssessor:
             if recovery.inputs.generation != inputs.generation:
                 raise ValueError('assessment recovery generation changed')
             recovered = {c.direction_id:c for c in recovery.candidates
-                         if c.assessment is not None and build_packet(recovery.inputs,c.direction_id) == build_packet(inputs,c.direction_id)}
+                         if c.assessment is not None and recovery.inputs.comparison_coverage_threshold == inputs.comparison_coverage_threshold and recovery.inputs.individual_assessments == inputs.individual_assessments and build_packet(recovery.inputs,c.direction_id) == build_packet(inputs,c.direction_id)}
         prior={}
         prior_drafts={}
         prior_reports={}
@@ -137,8 +147,16 @@ class NoveltyAssessor:
                 did=packet['direction_id']
                 if did in recovered: return recovered[did]
                 if previous is not None and did not in observations: return prior[did]
-                return await self._candidate(packet,prior_drafts.get(did),
-                    observations.get(did) if observations else (guidance or {}).get(did), prior_reports.get(did))
+                hypotheses = None
+                if inputs.individual_assessments:
+                    hypotheses = await progress_gather(*(self._candidate(hypothesis_packet(packet, h['hypothesis_id'])) for h in packet['candidate']['hypotheses']), label='hypothesis_assessments')
+                result = await self._candidate(packet,prior_drafts.get(did),
+                    observations.get(did) if observations else (guidance or {}).get(did), prior_reports.get(did), hypotheses)
+                result.hypothesis_assessments = hypotheses
+                if any(r.report and r.report.reassessment_requests for h in hypotheses or [] for r in h.reviews):
+                    result.assessment = None
+                    result.diagnostic = 'Hypothesis review requires upstream evidence reassessment; direction synthesis withheld.'
+                return result
             results = await progress_gather(*(process(p) for p in packets), label="assessments")
         finally:
             if self.io.client:
