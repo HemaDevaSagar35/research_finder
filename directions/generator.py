@@ -1,6 +1,7 @@
 """Generate directions from accepted opportunities; see docs/direction_generator.md."""
 from __future__ import annotations
 
+from llm_client.progress import gather as progress_gather
 import argparse
 import asyncio
 from datetime import datetime, timezone
@@ -442,7 +443,7 @@ class DirectionGenerator:
         if not mining.opportunities:
             diagnostics.append(Diagnostic(opportunity_id='input', reason='no_opportunities', detail='no accepted opportunities to develop'))
         try:
-            await asyncio.gather(*(process(i, op) for i, op in enumerate(mining.opportunities)))
+            await progress_gather(*(process(i, op) for i, op in enumerate(mining.opportunities)), label="directions")
         finally:
             if self.client is not None:
                 await self.client.raw.close()

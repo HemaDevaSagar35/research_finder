@@ -1,5 +1,6 @@
 """Original-evidence comparison of all shortlisted target/paper pairs (section 12)."""
 from __future__ import annotations
+from llm_client.progress import gather as progress_gather
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
@@ -182,7 +183,7 @@ class NoveltyComparator:
                 context_pages=refs, missing_referenced_pages=missing, comparison=retained,
                 reviews=reviews,evidence_reviews=evidence_history,evidence_requests=requests, diagnostic=errors.describe(exc))
 
-    async def run(self, generation: GenerationResult, search: NoveltySearchResult, *, paper_ids=None):
+    async def run(self, generation: GenerationResult, search: NoveltySearchResult, *, paper_ids=None, recovery=None):
         if self.used:
             raise ValueError('create a new novelty comparator per run')
         self.used = True
@@ -208,6 +209,12 @@ class NoveltyComparator:
         known = {p.paper_id for c in search.candidates for s in c.searches for p in s.ranked}
         if paper_ids is not None and (not paper_ids or not set(paper_ids) <= known):
             raise ValueError('selected papers must be a nonempty subset of the saved shortlists')
+        saved = {}
+        if recovery is not None:
+            recovery = NoveltyComparisonResult.model_validate(recovery.model_dump())
+            if recovery.directions_ref != expected_ref:
+                raise ValueError('comparison recovery generation changed')
+            saved = {c.direction_id:c for c in recovery.candidates}
         started = datetime.now(timezone.utc).isoformat()
         before = {k: vars(v).copy() for k, v in usage.snapshot().items()}
 
@@ -250,14 +257,28 @@ class NoveltyComparator:
                 async def one(pid):
                     if paper_ids is not None and pid not in paper_ids:
                         return withheld(pid, 'skipped', 'Outside explicitly selected comparison scope; not assessed.')
-                    return await self._paper(pid, grouped[pid], hashes[pid], payload)
-                results = await asyncio.gather(*(one(pid) for pid in sorted(grouped)))
+                    old_candidate = saved.get(candidate.direction_id)
+                    old = next((p for p in old_candidate.papers if p.paper_id == pid), None) if old_candidate else None
+                    if old is not None:
+                        if old_candidate.signature != signature or old.targets != grouped[pid] or old.expected_artifact_sha256 != hashes[pid]:
+                            raise ValueError('comparison recovery inputs changed')
+                        if old.status == 'complete':
+                            return old
+                    fresh = await self._paper(pid, grouped[pid], hashes[pid], payload)
+                    # Never overwrite accepted pairs with a regression or reinterpretation.
+                    if old is not None and old.comparison is not None:
+                        accepted = {p.target_id:p for p in old.comparison.pairs}
+                        replacements = {p.target_id:p for p in fresh.comparison.pairs} if fresh.comparison else {}
+                        if any(replacements.get(k) != v for k,v in accepted.items()):
+                            return old
+                    return fresh
+                results = await progress_gather(*(one(pid) for pid in sorted(grouped)), label="prior_paper_comparisons")
                 diagnostic = None
             return CandidateComparison(direction_id=direction.direction_id, candidate_sha256=candidate.candidate_sha256,
                 signature=signature, shortlist=shortlist, retrieval_status={s.target_id:s.status for s in candidate.searches},
                 papers=results, diagnostic=diagnostic)
         try:
-            results = await asyncio.gather(*(process(c) for c in search.candidates))
+            results = await progress_gather(*(process(c) for c in search.candidates), label="directions")
         finally:
             if self.io.client:
                 await self.io.client.raw.close()
@@ -271,6 +292,7 @@ class NoveltyComparator:
                 'settings':self.settings.model_dump(), 'comparison_prompt':prompts.VERSION,
                 'review_prompt':prompts.REVIEW_VERSION, 'evidence_prompt':prompts.EVIDENCE_VERSION, 'token_counter':TOKEN_COUNTER,
                 'selected_papers':sorted(paper_ids) if paper_ids is not None else None,
+                'recovery_parent_sha256': digest(recovery.model_dump()) if recovery is not None else None,
                 'stopped_for_provider_error':self.io.fatal,
                 'repair_policy':{'evidence_corrections_per_phase':3,'comparison_corrections':1,'repeated_record_stop':True},
                 'scope':'pairwise_overlap_on_available_extracted_evidence'})

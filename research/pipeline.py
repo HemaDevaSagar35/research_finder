@@ -1,5 +1,6 @@
 """Query-to-portfolio orchestration with validated, resumable stage checkpoints."""
 import asyncio
+from llm_client.progress import stage_progress
 from contextlib import contextmanager
 import fcntl
 import hashlib
@@ -98,6 +99,7 @@ def environment_identity():
     # model/provider settings still apply when an explicit override is absent.
     names = {k for k in os.environ if k.endswith(('_MODEL', '_PROVIDER'))}
     names.update(('PROVIDER', 'S3_ARTIFACTS_URL', 'OPENSEARCH_HOST', 'OPENSEARCH_INDEX'))
+    names.update(k for k in os.environ if k.endswith('_CONTEXT_TOKEN_LIMIT'))
     return digest({k: os.environ.get(k) for k in sorted(names)})
 
 
@@ -179,7 +181,11 @@ class StageRunner:
             return await NoveltyAssessor(settings=c.assessment, **common).run(
                 state['directions'], state['novelty_search'], state['comparison'])
         if name == 'critic':
-            return await ResearchCritic(self.store, settings=c.critic, **common).run(state['assessment'])
+            result = await ResearchCritic(self.store, settings=c.critic, **common).run(state['assessment'])
+            from critic.hypotheses import review_hypotheses
+            self.hypothesis_reviews = await review_hypotheses(state['assessment'], self.store,
+                existing=result, critic_factory=ResearchCritic, settings=c.critic, **common)
+            return result
         if name == 'refinement':
             return await RefinementLoop(self.store, settings=c.refinement, retriever=self.get_retriever(),
                 max_cycles=c.max_refinement_cycles, search_settings=c.novelty_search, **common).run(state['critic'])
@@ -257,13 +263,16 @@ async def run_pipeline(config, out, *, resume=False, runner_factory=StageRunner,
                     progress(stage, 'reused' if reused else 'running')
                 if not reused:
                     try:
-                        result = await runner.execute(stage, state)
+                        async with stage_progress(stage, progress):
+                            result = await runner.execute(stage, state)
                         result = STAGES[stage].model_validate(result.model_dump())
                         data = result.model_dump(mode='json')
                         payload = dict(stage=stage, parent_sha256=parent, result_sha256=digest(data), result=data)
                         atomic_json(out/f'{stage}.json', payload)
                         parent = digest(payload)
                         state[stage] = result
+                        if stage == 'critic' and hasattr(runner, 'hypothesis_reviews'):
+                            atomic_json(out/'hypothesis_reviews.json', runner.hypothesis_reviews)
                     except BaseException:
                         if progress:
                             progress(stage, 'failed')
@@ -282,7 +291,11 @@ async def run_pipeline(config, out, *, resume=False, runner_factory=StageRunner,
                 result = state['portfolio']
                 atomic_json(out/'final_portfolio.json', result.model_dump(mode='json'))
                 temp = out/'final_portfolio.md.tmp'
-                temp.write_text(markdown(result))
+                report = markdown(result)
+                if (out/'hypothesis_reviews.json').exists():
+                    from critic.hypotheses import markdown as hypothesis_markdown
+                    report += '\n' + hypothesis_markdown(json.loads((out/'hypothesis_reviews.json').read_text()))
+                temp.write_text(report)
                 temp.replace(out/'final_portfolio.md')
                 summary = dict(status=result.status, stopped_at='portfolio', counts=result.counts,
                     selection_shortfall=result.selection_shortfall, portfolio='final_portfolio.json',

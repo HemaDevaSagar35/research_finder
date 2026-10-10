@@ -1,6 +1,7 @@
 """Reviewed signatures and full-index retrieval; see docs/novelty_search.md."""
 from __future__ import annotations
 
+from llm_client.progress import gather as progress_gather
 import asyncio
 from datetime import datetime, timezone
 import json
@@ -305,7 +306,7 @@ class NoveltySearcher:
             return TargetRetrieval(target_id=target.target_id, status='failed', retrieval=retrieval,
                 ranked=[], paper_artifact_hashes=hashes, unavailable_papers=unavailable, diagnostic=errors.describe(exc))
 
-    async def run(self, generation: GenerationResult, *, extra_pages=None, signature_recovery=None):
+    async def run(self, generation: GenerationResult, *, extra_pages=None, signature_recovery=None, recovery=None):
         if self.used:
             raise ValueError('create a new novelty searcher per run')
         self.used = True
@@ -324,6 +325,14 @@ class NoveltySearcher:
             for c in recoveries.values():
                 if c.signature is not None or not c.reviews or c.reviews[-1].report is None or c.reviews[-1].report.decision != 'revise':
                     raise ValueError('signature recovery requires a withheld signature with revision feedback')
+        saved = {}
+        if recovery is not None:
+            recovery = NoveltySearchResult.model_validate(recovery.model_dump())
+            if recovery.directions_ref.get('sha256') != digest(generation.model_dump()):
+                raise ValueError('recovery generation changed')
+            saved = {c.direction_id:c for c in recovery.candidates}
+            if set(saved) != set(ids):
+                raise ValueError('recovery candidate scope changed')
         extras = extra_pages or {}
         known = {pid for d in generation.directions for pid in d.paper_artifact_hashes}
         if not set(extras) <= known or any(type(n) is not int or n < 1 for ns in extras.values() for n in ns):
@@ -335,12 +344,17 @@ class NoveltySearcher:
             reviews, refs = [], []
             try:
                 payload, refs = await self._context(direction, extras)
-                previous = recoveries.get(direction.direction_id)
+                previous = recoveries.get(direction.direction_id) or saved.get(direction.direction_id)
+                if previous is not None and previous.signature is not None:
+                    if previous.context_pages != refs or previous.candidate_sha256 != digest(direction.model_dump()):
+                        raise ValueError('recovery source changed')
+                    searches = [s if s.status == 'complete' else await self._search(next(t for t in previous.signature.targets if t.target_id == s.target_id)) for s in previous.searches]
+                    return previous.model_copy(update={'searches': searches})
                 if previous is not None and (previous.context_pages != refs or previous.candidate_sha256 != digest(direction.model_dump())):
                     raise ValueError('signature recovery candidate or source context changed')
                 signature = await self._signature(direction, payload, reviews,
-                    previous.reviews[-1] if previous else None)
-                searches = await asyncio.gather(*(self._search(t) for t in signature.targets))
+                    previous.reviews[-1] if previous and previous.reviews and previous.reviews[-1].report and previous.reviews[-1].report.decision == 'revise' else None)
+                searches = await progress_gather(*(self._search(t) for t in signature.targets), label="search_targets")
                 return CandidateSearch(direction_id=direction.direction_id, candidate_sha256=digest(direction.model_dump()),
                     context_pages=refs, signature=signature, reviews=reviews, searches=searches, diagnostic=None)
             except Exception as exc:
@@ -348,7 +362,7 @@ class NoveltySearcher:
                     context_pages=refs, signature=None, reviews=reviews, searches=[], diagnostic=errors.describe(exc))
 
         try:
-            results = await asyncio.gather(*(process(d) for d in generation.directions))
+            results = await progress_gather(*(process(d) for d in generation.directions), label="directions")
         finally:
             if self.client:
                 await self.client.raw.close()

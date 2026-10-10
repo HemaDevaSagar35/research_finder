@@ -30,6 +30,7 @@ token accounting. See docs/cross_paper_reasoner.md.
 
 from __future__ import annotations
 
+from llm_client.progress import gather as progress_gather
 import argparse
 import asyncio
 import hashlib
@@ -439,7 +440,7 @@ class CrossPaperReasoner:
                     t.status, t.detail = "failed", f"{type(e).__name__}: {e}"
                     return _ThreadResult(t)
 
-        results = list(await asyncio.gather(*(one(t) for t in threads)))
+        results = list(await progress_gather(*(one(t) for t in threads), label="reasoning_threads"))
         return self._assemble(land, threads, results, started, usage_before)
 
     # ------------------------------------------------------------ per thread

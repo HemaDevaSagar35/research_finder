@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+from llm_client.progress import gather as progress_gather
 import argparse
 import asyncio
 import hashlib
@@ -381,11 +382,11 @@ class OpportunityMiner:
                 seen.add(key)
                 reviews.append(review(cid, candidate))
             # Reviews for a ready batch need not wait for other proposal calls.
-            await asyncio.gather(*reviews)
+            await progress_gather(*reviews, label="opportunity_reviews")
 
         try:
-            await asyncio.gather(*(process_batch(i, batch)
-                for i, batch in enumerate(batches[:self.settings.max_batches])))
+            await progress_gather(*(process_batch(i, batch)
+                for i, batch in enumerate(batches[:self.settings.max_batches])), label="proposal_batches")
         finally:
             if self.client is not None:
                 await self.client.raw.close()

@@ -19,6 +19,7 @@ statement can end up aggregated here even if it never produced a triple.
 """
 
 import asyncio
+from llm_client.progress import gather as progress_gather
 import os
 
 import numpy as np
@@ -165,9 +166,9 @@ async def aggregate_findings(cards: dict[str, PaperCard], *,
         findings, limitations, assumptions = [], [], []
         # The client's semaphore bounds concurrent provider calls. Drain all
         # summaries before closing an owned client, even when one fails.
-        summaries = await asyncio.gather(
+        summaries = await progress_gather(
             *(_summarize_cluster(c, client=client, model=model) for c in clusters),
-            return_exceptions=True)
+            label="statement_clusters", return_exceptions=True)
         for result in summaries:
             if isinstance(result, BaseException):
                 raise result

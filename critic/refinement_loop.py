@@ -1,4 +1,5 @@
 """Bounded critic → revision → novelty revalidation → fresh critic cycle."""
+from llm_client.progress import gather as progress_gather
 import asyncio
 from datetime import datetime, timezone
 from typing import Literal
@@ -201,7 +202,7 @@ class RefinementLoop:
                             selected.append((direction,requests,refinements))
                     if not selected:
                         raise ValueError('no_revision_route: pending merge, execution failure or upstream work needs its own handler')
-                    revisions=await asyncio.gather(*(revise_direction(self.io,*args) for args in selected))
+                    revisions=await progress_gather(*(revise_direction(self.io,*args) for args in selected), label="revisions")
                     cycle=Cycle(input_critic_sha256=digest(current.model_dump()),revisions=revisions,
                         certificates=[],generation=None,critic=None,diagnostic='Revision in progress.')
                     cycles.append(cycle)
@@ -213,7 +214,7 @@ class RefinementLoop:
                     generation=revised_generation(current.novelty.inputs.generation,revisions)
                     cycle.generation=generation
                     await self.save(f'cycle_{index}_generation',generation)
-                    certificates=await asyncio.gather(*(assess_reuse(self.core,current,generation,r) for r in revisions))
+                    certificates=await progress_gather(*(assess_reuse(self.core,current,generation,r) for r in revisions), label="reuse_checks")
                     cycle.certificates=certificates
                     await self.save(f'cycle_{index}_applicability',cycle)
                     if all(c.decision=='reuse' for c in certificates):

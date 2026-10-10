@@ -200,3 +200,36 @@ from the effective query and current nanosecond timestamp. The parent is
 independent of the shell's working directory. The full output path is printed
 at startup. Explicit `--out` still overrides this; `--resume` requires the
 original `--out` path. Existing directories are never overwritten by a new run.
+
+During each executing stage, the CLI emits a progress heartbeat every 15 seconds
+and a final counter snapshot. Named work groups report completed/total, active,
+queued, failed exceptions, and cancellations. Active work items include items
+waiting for their internal API calls; `llm_requests.active` separately measures
+requests actually inside the client's concurrency semaphore. LLM `returned`
+means a response arrived, not that its content passed scientific review.
+Completed work items can likewise have unresolved scientific outcomes. Totals
+are discovered dynamically and may increase as upstream items produce more
+work; no fixed percentage or ETA is implied. Reused checkpoints do not rerun
+or create live progress counters.
+
+Reliability and recovery:
+- `{PROVIDER}_CONTEXT_TOKEN_LIMIT` enables conservative input estimates plus an
+  8,192-token reserve when choosing the output allowance. Inputs are never
+  truncated. A recognized HTTP 400 context overflow permits one output-only
+  correction using the provider's exact input count; other failures propagate.
+- `uv run python -m research.recover --from-run /path/to/original/run` creates
+  a separate recovery directory. It validates the original checkpoint chain,
+  preserves generation, reuses accepted signatures/searches and complete paper
+  comparisons, and retries incomplete work for at most two rounds. An unchanged
+  accepted assessment is reused; changed evidence requires a fresh assessment.
+  Accepted pairs from partial comparisons cannot be overwritten with changed
+  interpretations. Original artifacts remain untouched.
+- `hypothesis_reviews.json` records independent scientific reviews for hypotheses
+  with accepted assessments and complete target evidence, even if another target
+  blocks their direction. Each passing hypothesis review has a fresh independent
+  audit. This does not select or approve its parent direction. Missing evidence
+  and scientific revisions still block that hypothesis. Existing whole-direction
+  reviews are reused when available.
+- Markdown includes unselected proposals, per-hypothesis outcomes, blockers,
+  motivating references, and experiments. A blocked portfolio is not an empty
+  research report.

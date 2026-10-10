@@ -112,6 +112,32 @@ def markdown(result):
     for plan in result.pending_merges:
         lines.extend(['### Pending merge', '', plan.combined_question, '', plan.rationale, '',
                       'Members: ' + ', '.join(m.direction_id for m in plan.members), '', plan.preserved_distinctions, ''])
+    critic = current_critic(result.source)
+    selected = {c.candidate_id for c in result.candidates}
+    assessments = {c.direction_id:c for c in critic.novelty.candidates}
+    critiques = {c.direction_id:c for c in critic.candidates}
+    for direction in critic.novelty.inputs.generation.directions:
+        if direction.direction_id in selected:
+            continue
+        assessment = assessments[direction.direction_id]
+        lines.extend([f'## Unselected proposal: {direction.proposal.title}', '',
+                      'Not approved for the selected direction portfolio.', '',
+                      f'**Direction blocker:** {critiques[direction.direction_id].diagnostic or "See reviewed disposition."}', ''])
+        outcomes = {o['target_id']:o for o in assessment.outcomes()}
+        for h in direction.proposal.hypotheses:
+            outcome = outcomes.get(h.hypothesis_id, {})
+            coverage = next((c for c in assessment.coverage if c.target_id == h.hypothesis_id), None)
+            lines.extend([f'### {h.hypothesis_id}', '',
+                f'**Condition:** {h.condition}', '', f'**Intervention:** {h.intervention}', '',
+                f'**Expected effect:** {h.expected_effect}', '', f'**Mechanism:** {h.mechanism}', '',
+                f'**Falsification:** {h.falsification_criterion}', '',
+                f'**Novelty finding:** {outcome.get("finding", "UNRESOLVED")}', '',
+                f'**Evidence status:** {outcome.get("novelty_status", "unresolved")}', '',
+                '**Blockers:** ' + ('; '.join(coverage.blockers) if coverage and coverage.blockers else assessment.diagnostic or 'No target coverage blocker; parent direction or scientific review may remain pending.'), '',
+                '**Motivating papers:** ' + '; '.join(label(e.paper_id) for e in direction.opportunity.evidence if e.evidence_id in h.evidence_ids), ''])
+        lines.extend(['### Proposed experiments', ''])
+        for e in direction.proposal.experiments:
+            lines.extend([f'- {e.experiment_id} ({", ".join(e.hypothesis_ids)}): {e.objective}; comparison: {e.comparison}', ''])
     lines.extend(['## Paper references', '',
         'References cover motivating evidence and prior-work comparisons, including pending candidates. '
         'A reference here does not imply that its candidate passed review.', ''])

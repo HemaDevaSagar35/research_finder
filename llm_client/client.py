@@ -50,13 +50,16 @@ Async usage (concurrency-limited):
 
 import asyncio
 import os
+import ssl
 from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI, OpenAI, DefaultHttpxClient, DefaultAsyncHttpxClient
 
 from . import usage
+from .progress import request_progress
+from .sizing import fit_context, reduce_after_context_error
 
 
 @dataclass(frozen=True)
@@ -102,6 +105,7 @@ def _provider_config(name: str) -> dict:
                          or defaults["default_model"],
         "max_tokens": int(max_tokens) if max_tokens else None,
         "output_token_limit": int(output_limit) if output_limit is not None else None,
+        "context_token_limit": int(os.environ[f"{prefix}_CONTEXT_TOKEN_LIMIT"]) if os.environ.get(f"{prefix}_CONTEXT_TOKEN_LIMIT") else None,
         "temperature": float(temperature) if temperature else None,
     }
 
@@ -183,6 +187,7 @@ def _chat_params(prompt, messages, model, config, system,
         params["max_tokens"] = max_tokens
     params.update(kwargs)
     _cap_output(params, "max_tokens", config)
+    fit_context(params, config)
     return params
 
 
@@ -198,6 +203,7 @@ def _response_params(input, model, config, instructions,
         params["max_output_tokens"] = max_output_tokens
     params.update(kwargs)
     _cap_output(params, "max_output_tokens", config)
+    fit_context(params, config, "max_output_tokens")
     return params
 
 
@@ -212,6 +218,7 @@ class LLMClient:
         self.default_model = config["default_model"]
         self.last_finish_reason: str | None = None
         self._client = OpenAI(
+            http_client=DefaultHttpxClient(verify=ssl.create_default_context()),
             api_key=api_key, base_url=config["base_url"],
             timeout=DEFAULT_TIMEOUT if timeout is None else timeout,
             max_retries=DEFAULT_MAX_RETRIES if max_retries is None else max_retries)
@@ -294,6 +301,7 @@ class AsyncLLMClient:
         # whichever finished most recently, so treat it as diagnostic only.
         self.last_finish_reason: str | None = None
         self._client = AsyncOpenAI(
+            http_client=DefaultAsyncHttpxClient(verify=ssl.create_default_context()),
             api_key=api_key, base_url=config["base_url"],
             timeout=DEFAULT_TIMEOUT if timeout is None else timeout,
             max_retries=DEFAULT_MAX_RETRIES if max_retries is None else max_retries)
@@ -323,7 +331,13 @@ class AsyncLLMClient:
         params = _chat_params(prompt, messages, model, self.config,
                               system, temperature, max_tokens, kwargs)
         async with self._semaphore:
-            response = await self._client.chat.completions.create(**params)
+            with request_progress():
+                try:
+                    response = await self._client.chat.completions.create(**params)
+                except Exception as exc:
+                    if not reduce_after_context_error(exc, params):
+                        raise
+                    response = await self._client.chat.completions.create(**params)
         usage.record(response, params["model"])
         finish = _finish_reason(response)
         self.last_finish_reason = finish

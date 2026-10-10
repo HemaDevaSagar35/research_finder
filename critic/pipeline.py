@@ -1,4 +1,5 @@
 """Async transport-independent critique with a fresh independent audit."""
+from llm_client.progress import gather as progress_gather
 import asyncio
 from datetime import datetime, timezone
 from critic import prompts
@@ -164,7 +165,7 @@ class ResearchCritic:
         novelty = NoveltyAssessmentResult.model_validate(novelty.model_dump())
         started = datetime.now(timezone.utc).isoformat()
         try:
-            results = await asyncio.gather(*(self._candidate(novelty, d) for d in novelty.inputs.generation.directions))
+            results = await progress_gather(*(self._candidate(novelty, d) for d in novelty.inputs.generation.directions), label="critiques")
             packet = portfolio_packet(results)
             if len(packet['eligible_direction_ids']) < 2:
                 assessment = PortfolioDraft(considered_direction_ids=packet['eligible_direction_ids'], merges=[],

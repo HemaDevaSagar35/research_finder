@@ -16,6 +16,7 @@ paper with nothing extractable is a valid, non-error result.
 """
 
 import asyncio
+from llm_client.progress import gather as progress_gather
 import json
 import os
 
@@ -160,10 +161,10 @@ async def extract_from_papers(cards: dict[str, PaperCard], *,
         client = AsyncLLMClient(provider or os.environ.get("LANDSCAPE_EXTRACTION_PROVIDER"), **({"concurrency": concurrency} if concurrency is not None else {}))
     try:
         paper_ids = list(cards)
-        results = await asyncio.gather(
+        results = await progress_gather(
             *(extract_from_paper(pid, cards[pid], client=client, model=model)
               for pid in paper_ids),
-            return_exceptions=True,
+            label="paper_extractions", return_exceptions=True,
         )
         return dict(zip(paper_ids, results))
     finally:

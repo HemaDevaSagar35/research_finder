@@ -60,7 +60,13 @@ def references(ids, packet):
 
 
 def targets(packet):
-    return [packet['direction_id'], *[h['hypothesis_id'] for h in packet['candidate']['hypotheses']]]
+    all_targets = [packet['direction_id'], *[h['hypothesis_id'] for h in packet['candidate']['hypotheses']]]
+    scope = packet.get('review_target_ids')
+    if scope is not None:
+        if len(scope) != 1 or scope[0] not in all_targets[1:]:
+            raise ValueError('independent review must name exactly one original hypothesis')
+        return scope
+    return all_targets
 
 
 def valid_pointer(document, path):
@@ -122,7 +128,7 @@ def validate_draft(draft, packet):
     actions = {t.target_id: t.action for t in draft.targets}
     if any(actions[t] != 'REFINE' for t in revised) or any(a == 'REFINE' and t not in revised for t, a in actions.items()):
         raise ValueError('REFINE requires explicit revisions, and revisions require REFINE')
-    if all(actions[t] == 'DISCARD' for t in expected[1:]) and actions[expected[0]] != 'DISCARD':
+    if 'review_target_ids' not in packet and all(actions[t] == 'DISCARD' for t in expected[1:]) and actions[expected[0]] != 'DISCARD':
         raise ValueError('direction cannot survive with no surviving hypotheses')
     for request in draft.upstream_requests:
         validate_request(request, packet)
@@ -152,7 +158,7 @@ def validate_review(report, draft, packet, portfolio=False, require_test_checks=
     expected = packet['eligible_direction_ids'] if portfolio else targets(packet)
     if sorted(c.target_id for c in report.target_checks) != sorted(expected):
         raise ValueError('review must explicitly check every target')
-    links = [] if portfolio else [(h, e['experiment_id']) for e in packet['candidate']['experiments'] for h in e['hypothesis_ids']]
+    links = [] if portfolio else [(h, e['experiment_id']) for e in packet['candidate']['experiments'] for h in e['hypothesis_ids'] if 'review_target_ids' not in packet or h in expected]
     actual = [(c.hypothesis_id, c.experiment_id) for c in report.test_link_checks]
     if (require_test_checks or actual) and sorted(actual) != sorted(links):
         raise ValueError('review must check every hypothesis-experiment link exactly once')

@@ -1,6 +1,7 @@
 """Reviewed joint novelty assessment; prior evidence is never silently rewritten."""
 from __future__ import annotations
 
+from llm_client.progress import gather as progress_gather
 import asyncio
 from datetime import datetime, timezone
 
@@ -92,12 +93,19 @@ class NoveltyAssessor:
             format_repairs=repairs, diagnostic=None if assessment else diagnostic)
 
     async def run(self, generation, search, comparisons, *, invalidations: Invalidations | None = None,
-                  previous: NoveltyAssessmentResult | None = None, observations: dict[str,list[str]] | None = None, guidance: dict[str,list[str]] | None = None):
+                  recovery: NoveltyAssessmentResult | None = None, previous: NoveltyAssessmentResult | None = None, observations: dict[str,list[str]] | None = None, guidance: dict[str,list[str]] | None = None):
         if self.used:
             raise ValueError('create a new novelty assessor per run')
         self.used = True
         inputs = AssessmentInputs.model_validate(dict(generation=generation.model_dump(), search=search.model_dump(),
             comparisons=comparisons.model_dump(), invalidations=invalidations.model_dump() if invalidations else None))
+        recovered = {}
+        if recovery is not None:
+            recovery = NoveltyAssessmentResult.model_validate(recovery.model_dump())
+            if recovery.inputs.generation != inputs.generation:
+                raise ValueError('assessment recovery generation changed')
+            recovered = {c.direction_id:c for c in recovery.candidates
+                         if c.assessment is not None and build_packet(recovery.inputs,c.direction_id) == build_packet(inputs,c.direction_id)}
         prior={}
         prior_drafts={}
         prior_reports={}
@@ -127,10 +135,11 @@ class NoveltyAssessor:
         try:
             async def process(packet):
                 did=packet['direction_id']
+                if did in recovered: return recovered[did]
                 if previous is not None and did not in observations: return prior[did]
                 return await self._candidate(packet,prior_drafts.get(did),
                     observations.get(did) if observations else (guidance or {}).get(did), prior_reports.get(did))
-            results = await asyncio.gather(*(process(p) for p in packets))
+            results = await progress_gather(*(process(p) for p in packets), label="assessments")
         finally:
             if self.io.client:
                 await self.io.client.raw.close()
