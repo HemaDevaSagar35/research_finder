@@ -67,7 +67,7 @@ ChatFn = Callable[..., Awaitable[ChatResult]]
 
 @dataclass
 class Budgets:
-    max_calls: int = 300
+    max_calls: int | None = None
     max_threads: int = 100
     max_papers_per_thread: int = 12
     max_bundle_chars: int = field(default_factory=lambda: int(os.getenv("REASON_MAX_BUNDLE_CHARS", "2000000")))
@@ -79,7 +79,7 @@ class Budgets:
         os.environ.get("REASON_MAX_REVIEW_OUTPUT_TOKENS", "500000")))
     repair_rounds: int = 1
 
-    def as_dict(self) -> dict[str, int]:
+    def as_dict(self) -> dict[str, int | None]:
         return asdict(self)
 
 

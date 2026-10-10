@@ -22,8 +22,8 @@ from reasoning.schemas import ReviewSource
 
 
 class Settings(BaseModel):
-    concurrency: int = Field(default=4, ge=1, le=32)
-    max_calls: int = Field(default=500, ge=0)
+    concurrency: int = Field(default=100, ge=1, le=100)
+    max_calls: int | None = Field(default=None, ge=0)
     max_input_tokens: int = Field(default_factory=lambda: int(os.getenv('NOVELTY_MAX_INPUT_TOKENS', '500000')), ge=1)
     max_output_tokens: int = Field(default_factory=lambda: int(os.getenv('NOVELTY_MAX_OUTPUT_TOKENS', '500000')), ge=1)
 

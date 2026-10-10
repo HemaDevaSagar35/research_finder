@@ -124,7 +124,8 @@ def _find_underexplored(groups: list[ConceptEntry], relationships: list[Relation
 async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
                           extraction_provider: str | None = None,
                           normalize_provider: str | None = None,
-                          aggregation_provider: str | None = None) -> Landscape:
+                          aggregation_provider: str | None = None,
+                          model: str | None = None, concurrency: int | None = None) -> Landscape:
     """The core orchestration, given already-loaded PaperContexts (so this
     is independently testable with synthetic contexts, without S3 or search)."""
     cards = {pid: ctx.card for pid, ctx in contexts.items()}
@@ -133,8 +134,8 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
     # clients do not outlive this operation.
     results = await asyncio.gather(
         _build_graph(contexts, extraction_provider=extraction_provider,
-                     normalize_provider=normalize_provider),
-        aggregate_findings(cards, provider=aggregation_provider),
+                     normalize_provider=normalize_provider, model=model, concurrency=concurrency),
+        aggregate_findings(cards, provider=aggregation_provider, **({"model": model} if model else {}), **({"concurrency": concurrency} if concurrency is not None else {})),
         return_exceptions=True)
     for result in results:
         if isinstance(result, BaseException):
@@ -156,11 +157,11 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
 
 async def _build_graph(contexts: dict[str, PaperContext], *,
                        extraction_provider: str | None,
-                       normalize_provider: str | None):
+                       normalize_provider: str | None, model: str | None = None, concurrency: int | None = None):
     """Extract and normalize the graph while statement aggregation proceeds."""
     cards = {pid: ctx.card for pid, ctx in contexts.items()}
 
-    extractions = await extract_from_papers(cards, provider=extraction_provider)
+    extractions = await extract_from_papers(cards, provider=extraction_provider, **({"model": model} if model else {}), **({"concurrency": concurrency} if concurrency is not None else {}))
     for paper_id, extraction in extractions.items():
         if isinstance(extraction, Exception):
             print(f"warning: extraction failed for {paper_id}: {extraction}")
@@ -192,7 +193,7 @@ async def _build_graph(contexts: dict[str, PaperContext], *,
             all_labels.extend([source, target])
         triple_labels_by_paper[paper_id] = triples
 
-    concept_ids = await normalize_concepts(all_labels, provider=normalize_provider)
+    concept_ids = await normalize_concepts(all_labels, provider=normalize_provider, **({"model": model} if model else {}), **({"concurrency": concurrency} if concurrency is not None else {}))
 
     # -- flat accumulation: groups (ConceptEntry) -----------------------------
     paper_ids_by_concept: dict[str, set[str]] = {}

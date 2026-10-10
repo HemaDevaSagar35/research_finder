@@ -4,6 +4,29 @@ Living document: what exists, what's in progress, what's next. The *why*
 behind decisions lives in `offline_ingestion_design.md`; this page is the
 *what*. Update this file whenever a component is added or materially changed.
 
+## 2026-10-10 — Paper bibliography added
+
+Final JSON/Markdown now includes titles, authors, year, venue, public and PDF
+links, plus source provenance and explicit missing/conflicting metadata. Catalog
+records are joined by exact paper ID; extraction metadata provides a fallback.
+Local query runs discover the index/download metadata automatically. Saved v1
+portfolio artifacts remain readable. An offline enrichment of the real v13 run
+resolved all 53 paper titles and public/PDF links; its scientific blocked status
+was preserved. See [reference documentation](final_portfolio.md).
+
+## 2026-10-10 — Query-to-portfolio runner implemented
+
+`python -m research "QUERY" --out RUN_DIR` now connects all existing stages
+through final portfolio selection. It supports local/OpenSearch retrieval,
+local-first/S3 evidence, typed per-stage checkpoints, bounded refinement, and
+configuration-bound resume. The CLI emits final JSON/Markdown and an explicit
+ready/partial/blocked/empty/failed summary. API hosting remains separate work.
+
+This supersedes the earlier statement that no initial-query runner exists. It
+does not imply a successful new real-provider scientific portfolio: validation
+uses offline integration tests, and existing scientific blockers remain intact.
+See [runner documentation](query_pipeline.md).
+
 ## 2026-10-09 — Final outputs implemented
 
 Architecture sections 16–17 now live in `portfolio/`: typed final candidate

@@ -499,7 +499,7 @@ class Coverage(Strict):
     citations: dict[str, int]
     candidates: dict[str, object]
     review_pages: dict[str, int]
-    calls: dict[str, int]
+    calls: dict[str, int | None]
 
 
 class RunInfo(Strict):
@@ -508,7 +508,7 @@ class RunInfo(Strict):
     review_model: str | None
     prompt_version: str
     schema_version: str = OUTPUT_SCHEMA_VERSION
-    budgets: dict[str, int]
+    budgets: dict[str, int | None]
     verify_mode: Literal["pages", "none"]
     token_counter: str
     started: str

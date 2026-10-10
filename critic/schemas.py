@@ -184,7 +184,7 @@ class CriticResult(Strict):
     novelty_sha256: Text
     candidates: list[CandidateCritique]
     portfolio: PortfolioCritique
-    calls: dict[str, int]
+    calls: dict[str, int | None]
     usage: dict
     run: dict
 

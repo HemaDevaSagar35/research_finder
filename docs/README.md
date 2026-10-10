@@ -52,3 +52,5 @@ links now point to those sections. Future updates go into the same module file.
 
 - [Research Critic](research_critic.md) — independent scientific critique, refinement, and revalidation handoffs.
 - [Final portfolio](final_portfolio.md) — architecture sections 16–17: source-preserving candidate reports, explicit ranking and portfolio selection.
+
+- [Query-to-portfolio pipeline](query_pipeline.md) — one-command execution through section 17 with validated stage checkpoints and resume.

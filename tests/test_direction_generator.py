@@ -193,7 +193,7 @@ def test_bounded_repair_and_truncation(inputs):
     chat = Chat(finish='length')
     result = run(inputs, chat)
     assert result.diagnostics[0].reason == 'invalid_generation'
-    assert result.calls == {'generation': 1, 'repair': 1, 'total': 2, 'budget': 40}
+    assert result.calls == {'generation': 1, 'repair': 1, 'total': 2, 'budget': None}
 
 
 def test_valid_reference_repair(inputs):

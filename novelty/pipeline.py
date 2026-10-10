@@ -31,8 +31,8 @@ class ModelOutputError(ValueError):
 
 
 class Settings(BaseModel):
-    concurrency: int = Field(default=4, ge=1, le=32)
-    max_calls: int = Field(default=40, ge=0)
+    concurrency: int = Field(default=100, ge=1, le=100)
+    max_calls: int | None = Field(default=None, ge=0)
     max_queries: int = Field(default=4, ge=1, le=20)
     record_k: int = Field(default=50, ge=1)
     candidate_k: int = Field(default=100, ge=1)

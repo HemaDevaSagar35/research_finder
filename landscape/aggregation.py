@@ -132,7 +132,7 @@ async def aggregate_findings(cards: dict[str, PaperCard], *,
                              embed_provider: str | None = None,
                              client: AsyncLLMClient | None = None,
                              provider: str | None = None,
-                             model: str | None = None) -> tuple[
+                             model: str | None = None, concurrency: int | None = None) -> tuple[
                                  list[AggregatedItem], list[AggregatedItem], list[AggregatedItem]]:
     """Returns (aggregated_findings, recurring_limitations, common_assumptions),
     matching the architecture doc's Landscape Output fields of the same names.
@@ -160,7 +160,7 @@ async def aggregate_findings(cards: dict[str, PaperCard], *,
         raise ValueError("Pass provider or client, not both")
     owned = client is None
     if owned:
-        client = AsyncLLMClient(provider or os.environ.get("LANDSCAPE_AGGREGATION_PROVIDER"))
+        client = AsyncLLMClient(provider or os.environ.get("LANDSCAPE_AGGREGATION_PROVIDER"), **({"concurrency": concurrency} if concurrency is not None else {}))
     try:
         findings, limitations, assumptions = [], [], []
         # The client's semaphore bounds concurrent provider calls. Drain all

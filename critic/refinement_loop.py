@@ -39,7 +39,7 @@ class RefinementResult(Strict):
     cycles: list[Cycle] = Field(max_length=2)
     status: Literal['ready', 'needs_revision', 'blocked']
     diagnostic: str | None
-    calls: dict[str,int]
+    calls: dict[str, int | None]
     usage: dict
     run: dict
 
@@ -134,12 +134,13 @@ class BorrowedIO:
 
 class RefinementLoop:
     def __init__(self,store,chat=None,*,review_chat=None,provider=None,model=None,review_model=None,
-                 settings=None,retriever=None, max_cycles=2, checkpoint=None):
+                 settings=None,retriever=None, max_cycles=2, checkpoint=None, search_settings=None):
         if max_cycles not in (1,2): raise ValueError('max_cycles must be one or two')
         self.core=ResearchCritic(store,chat,review_chat=review_chat,provider=provider,model=model,
             review_model=review_model,settings=settings)
         self.io=self.core.io
         self.retriever=retriever
+        self.search_settings=search_settings
         self.max_cycles=max_cycles
         self.checkpoint=checkpoint
         self.used=False
@@ -158,7 +159,7 @@ class RefinementLoop:
             corpus_id=str(getattr(self.retriever,'path','configured-index')),retrieval_mode='caller_configured')
         # Share the actual call budget, concurrency limit and fatal-provider state.
         searcher._call=self.io._call
-        searcher.settings=self.io.settings
+        searcher.settings=self.search_settings or self.io.settings
         searcher.budget=self.io.budget
         search=await searcher.run(subset)
         await self.save('fresh_search',search)

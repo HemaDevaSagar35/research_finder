@@ -34,7 +34,8 @@ result = build_portfolio(reviewed_critic_or_refinement,
 ```
 
 The service can call this function after the critic or bounded refinement loop.
-End-to-end API deployment is still separate work.
+The query-to-portfolio CLI is now available as `python -m research`; see
+[runner documentation](query_pipeline.md). HTTP API deployment is still separate work.
 
 ## Section 16: candidate contract
 
@@ -150,3 +151,74 @@ Artifacts and replay timings are saved under
 were found by these additional checks. The first test invocation failed during
 temporary-directory setup because its parent did not exist; creating the parent
 and rerunning yielded 25 passing tests. `git diff --check` passes.
+
+## Readable paper references — 2026-10-10
+
+New reports use `final_portfolio_v2`, adding a normalized `references` bibliography
+and immutable metadata snapshots. Existing v1 JSON still loads and can render
+bibliographic fields already present in its embedded support artifacts.
+
+The Markdown report names and links papers beside the motivating rationale,
+supporting findings, hypothesis evidence/novelty, and prior-work comparisons.
+Its bibliography lists titles, authors, year, venue, public/PDF links, paper IDs,
+loaded/cited pages, candidate IDs and the paper's roles. Bibliography entries also
+cover pending candidates, so withheld scientific output does not hide its sources.
+A bibliography entry is not a scientific approval.
+
+Resolution uses **exact paper IDs**, with these sources in priority order:
+
+1. Explicit metadata JSON/JSONL catalogs, in supplied order. Missing fields can
+   be filled by later catalogs. Supported forms are metadata lists, paper-ID maps,
+   and the index's `papers.jsonl` records.
+2. Optional local/S3 `PaperStore` extraction metadata, only when its artifact hash
+   matches the saved scientific input.
+3. Original `paper_metadata` embedded in reviewed support artifacts.
+
+A public forum/paper URL is preferred; explicit DOI, arXiv or OpenReview identifiers
+can supply a canonical link. A saved PDF URL is a fallback when no landing-page
+link is available. There is no web lookup, fuzzy title matching, or guessed year.
+Missing fields remain explicit. Conflicting title/author/year/venue values are
+retained in JSON, with a note in Markdown. Field-level provenance names the source
+of each selected bibliographic value.
+
+S3 artifact locations remain in JSON as `artifact_location`; they are not shown
+as public paper links. Unsupported URL schemes and credential-bearing/signed
+links are not used as clickable paper references. Scientific evidence IDs,
+claims, hypotheses, novelty decisions and ranking are unchanged by enrichment.
+Metadata snapshots and their digest let JSON reload verify that the rendered
+bibliography matches its saved inputs without re-reading changing catalogs.
+
+For a saved critic result:
+
+```bash
+uv run python -m portfolio --critic /path/to/critic.json \
+  --metadata /srv/research_finder/index/papers.jsonl \
+  --metadata /srv/research_finder/papers/metadata.json \
+  --root /srv/research_finder/markdown \
+  --out /path/to/portfolio.json --markdown /path/to/portfolio.md
+```
+
+Library callers can use `build_portfolio(source, settings,
+metadata_paths=[...], store=paper_store)`. The query-to-portfolio runner discovers
+`INDEX_DIR/papers.jsonl` and sibling `papers/metadata.json` automatically for a
+local backend; `--metadata PATH` adds explicit catalogs at higher priority and
+also supports OpenSearch runs. The runner shares its existing paper store.
+
+Validation against the **actual saved** `momentkv_reassessment_v13` artifact
+resolved **53/53 titles, public links, and PDF links** from existing local data.
+For example, paper `436775470aa1` resolves to *MomentKV: Closing the Directional Gap
+in KV Cache Eviction for Long-Context Inference*, Yu Li, Binxu Li and Tian Lan,
+COLM 2026, with its saved OpenReview forum/PDF links. Capitalization differs
+between catalog and extraction titles; both values are retained as a metadata
+conflict rather than silently erased.
+
+The real report remains scientifically `blocked` with one pending candidate;
+only its bibliography was enriched. Outputs are saved under
+`/home/hema/research_runs/bibliography_validation_20261010/`. No new model calls
+or online metadata searches were used.
+
+Bibliography regression validation: **639 tests plus 13 subtests passed**, with
+one existing faiss/NumPy warning. Thirteen bibliography tests cover exact-ID joins,
+field precedence/conflicts, extracted metadata fallback, hash-matched prior-paper
+metadata, DOI/arXiv URLs, missing metadata, v1 compatibility, rendering and
+metadata/output tampering. `git diff --check` passes.

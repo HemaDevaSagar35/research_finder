@@ -143,7 +143,7 @@ async def normalize_concepts(labels: list[RawLabel], *,
                              embed_provider: str | None = None,
                              client: AsyncLLMClient | None = None,
                              provider: str | None = None,
-                             model: str | None = None) -> dict[RawLabel, str]:
+                             model: str | None = None, concurrency: int | None = None) -> dict[RawLabel, str]:
     """Resolve raw (text, facet) labels into canonical concept_ids.
 
     Returns a dict mapping every input RawLabel to a concept_id string. Two
@@ -176,7 +176,7 @@ async def normalize_concepts(labels: list[RawLabel], *,
         raise ValueError("Pass provider or client, not both")
     owned = client is None
     if owned:
-        client = AsyncLLMClient(provider or os.environ.get("LANDSCAPE_NORMALIZE_PROVIDER"))
+        client = AsyncLLMClient(provider or os.environ.get("LANDSCAPE_NORMALIZE_PROVIDER"), **({"concurrency": concurrency} if concurrency is not None else {}))
     try:
         verdicts = await _judge_pairs(unique, pairs, client=client, model=model)
     finally:

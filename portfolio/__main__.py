@@ -15,6 +15,8 @@ def parser():
     source.add_argument('--refinement', type=Path)
     p.add_argument('--out', required=True, type=Path)
     p.add_argument('--markdown', type=Path)
+    p.add_argument('--metadata', type=Path, action='append', default=[], help='Metadata JSON/JSONL catalog; repeat in priority order')
+    p.add_argument('--root', type=Path, help='Optional local extracted-paper root for hash-matched metadata')
     p.add_argument('--min-directions', type=int, default=3)
     p.add_argument('--max-directions', type=int, default=5)
     return p
@@ -29,8 +31,10 @@ def run(args):
             raise ValueError(f'output already exists: {path}')
     source = (CriticResult.model_validate_json(args.critic.read_text()) if args.critic else
               RefinementResult.model_validate_json(args.refinement.read_text()))
+    from reasoning.evidence import PaperStore
     result = build_portfolio(source, SelectionSettings(min_directions=args.min_directions,
-                                                       max_directions=args.max_directions))
+                                                       max_directions=args.max_directions),
+                             metadata_paths=args.metadata, store=PaperStore(args.root) if args.root else None)
     outputs = [result.model_dump_json(indent=2) + '\n']
     if args.markdown:
         outputs.append(markdown(result))

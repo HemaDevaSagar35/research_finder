@@ -229,7 +229,7 @@ class NoveltyAssessmentResult(Strict):
     inputs: AssessmentInputs
     inputs_sha256: Text
     candidates: list[CandidateAssessment]
-    calls: dict[str, int]
+    calls: dict[str, int | None]
     usage: dict[str, dict[str, int]]
     run: dict
     literature_wide_novelty: Literal['unverified'] = 'unverified'

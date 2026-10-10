@@ -10,10 +10,11 @@ from novelty.comparison_schemas import PairComparison
 from novelty.comparison_records import PriorClaim, Relationship
 from critic.refinement_loop import RefinementResult
 from opportunities.miner import digest
+from portfolio.references import MetadataSnapshot, PaperReference
 
 
 class SelectionSettings(Strict):
-    min_directions: int = Field(default=3, ge=1)
+    min_directions: int = Field(default=3, ge=0)
     max_directions: int = Field(default=5, ge=1)
 
     @model_validator(mode='after')
@@ -85,7 +86,10 @@ class CandidateDisposition(Strict):
 
 
 class FinalPortfolio(Strict):
-    schema_version: Literal['final_portfolio_v1'] = 'final_portfolio_v1'
+    schema_version: Literal['final_portfolio_v1', 'final_portfolio_v2'] = 'final_portfolio_v2'
+    metadata_inputs: list[MetadataSnapshot] = Field(default_factory=list)
+    metadata_inputs_sha256: str | None = None
+    references: list[PaperReference] = Field(default_factory=list)
     source: CriticResult | RefinementResult
     source_sha256: Text
     settings: SelectionSettings
@@ -108,7 +112,16 @@ class FinalPortfolio(Strict):
         if self.source_sha256 != digest(self.source.model_dump()):
             raise ValueError('portfolio source hash mismatch')
         expected = project(self.source, self.settings)
-        actual = self.model_dump(exclude={'source', 'source_sha256', 'settings', 'schema_version'})
+        actual = self.model_dump(exclude={'source', 'source_sha256', 'settings', 'schema_version', 'metadata_inputs', 'metadata_inputs_sha256', 'references'})
         if actual != expected:
             raise ValueError('portfolio differs from reviewed source or selection policy')
+        if self.schema_version == 'final_portfolio_v2':
+            from portfolio.references import bibliography
+            from portfolio.pipeline import current_critic
+            if self.metadata_inputs_sha256 != digest([r.model_dump() for r in self.metadata_inputs]):
+                raise ValueError('bibliography metadata snapshot hash mismatch')
+            if self.references != bibliography(current_critic(self.source), self.metadata_inputs):
+                raise ValueError('bibliography differs from saved metadata and evidence')
+        elif self.metadata_inputs or self.references or self.metadata_inputs_sha256 is not None:
+            raise ValueError('bibliography requires final_portfolio_v2')
         return self

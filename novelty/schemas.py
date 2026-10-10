@@ -144,7 +144,7 @@ class NoveltySearchResult(Strict):
     schema_version: Literal['novelty_search_v1'] = 'novelty_search_v1'
     directions_ref: dict[str, str]
     candidates: list[CandidateSearch]
-    calls: dict[str, int]
+    calls: dict[str, int | None]
     usage: dict[str, dict[str, int]]
     run: dict
     novelty: Literal['not_assessed'] = 'not_assessed'

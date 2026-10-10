@@ -173,7 +173,7 @@ class GenerationResult(Strict):
     reviews: list[ReviewRecord]
     diagnostics: list[Diagnostic]
     coverage: dict[str, int]
-    calls: dict[str, int]
+    calls: dict[str, int | None]
     usage: dict[str, dict[str, int]]
     run: dict
 

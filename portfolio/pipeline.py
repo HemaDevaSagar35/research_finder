@@ -106,11 +106,15 @@ def project(source, settings):
         literature_wide_novelty='unverified')
 
 
-def build_portfolio(source, settings=None):
+def build_portfolio(source, settings=None, *, metadata_paths=(), store=None):
     """Validate the complete saved lineage before publishing any candidate."""
     if not isinstance(source, (CriticResult, RefinementResult)):
         raise TypeError('expected CriticResult or RefinementResult')
     source = type(source).model_validate(source.model_dump())
     settings = SelectionSettings.model_validate((settings or SelectionSettings()).model_dump())
-    return FinalPortfolio(source=source, source_sha256=digest(source.model_dump()), settings=settings,
+    from portfolio.references import collect_metadata, bibliography
+    metadata = collect_metadata(current_critic(source), metadata_paths, store)
+    return FinalPortfolio(metadata_inputs=metadata,
+                          metadata_inputs_sha256=digest([r.model_dump() for r in metadata]),
+                          references=bibliography(current_critic(source), metadata), source=source, source_sha256=digest(source.model_dump()), settings=settings,
                           **project(source, settings))

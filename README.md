@@ -286,3 +286,22 @@ uv run python -m portfolio --critic critic.json --out portfolio.json --markdown 
 
 See [final portfolio documentation](docs/final_portfolio.md) for the selection
 policy, CLI options, publication gates and validation.
+
+## Run a research query end to end
+
+```bash
+uv run python -m research "Your research question" \
+  --root /srv/research_finder/markdown \
+  --index-dir /srv/research_finder/index \
+  --out /home/hema/research_runs/my_query_run
+```
+
+This connects planning, retrieval, landscape, reasoning, opportunities, directions,
+novelty, critique/refinement and final portfolio output. It makes real provider
+calls using the configured corpus and models. Final reports are written as
+`final_portfolio.json` and `final_portfolio.md` when the run reaches selection;
+`summary.json` records success, pending scientific work, empty inputs or failures.
+
+Resume an interrupted run with `uv run python -m research --resume --out RUN_DIR`.
+See [query pipeline documentation](docs/query_pipeline.md) for budgets, settings,
+checkpoint behavior and validation limits.

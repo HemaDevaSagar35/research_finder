@@ -149,7 +149,7 @@ async def extract_from_paper(paper_id: str, card: PaperCard, *,
 async def extract_from_papers(cards: dict[str, PaperCard], *,
                               client: AsyncLLMClient | None = None,
                               provider: str | None = None,
-                              model: str | None = None) -> dict[str, RawExtraction]:
+                              model: str | None = None, concurrency: int | None = None) -> dict[str, RawExtraction]:
     """Extract from many papers concurrently (bounded by the client's
     concurrency limit). A paper whose extraction call fails is reported via
     the returned dict value being an ExtractionError instance, not silently
@@ -157,7 +157,7 @@ async def extract_from_papers(cards: dict[str, PaperCard], *,
     acceptable."""
     owned = client is None
     if owned:
-        client = AsyncLLMClient(provider or os.environ.get("LANDSCAPE_EXTRACTION_PROVIDER"))
+        client = AsyncLLMClient(provider or os.environ.get("LANDSCAPE_EXTRACTION_PROVIDER"), **({"concurrency": concurrency} if concurrency is not None else {}))
     try:
         paper_ids = list(cards)
         results = await asyncio.gather(

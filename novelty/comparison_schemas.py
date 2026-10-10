@@ -292,7 +292,7 @@ class NoveltyComparisonResult(Strict):
     directions_ref: dict[str,str]
     search_ref: dict[str,str]
     candidates: list[CandidateComparison]
-    calls: dict[str,int]
+    calls: dict[str, int | None]
     usage: dict[str,dict[str,int]]
     run: dict
     literature_novelty: Literal['not_assessed'] = 'not_assessed'

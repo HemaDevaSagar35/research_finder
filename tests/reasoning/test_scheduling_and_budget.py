@@ -108,3 +108,18 @@ def test_review_environment_budget_reaches_model(corpus, monkeypatch):
     assert Budgets(max_review_output_tokens=12000).max_review_output_tokens == 12000
     monkeypatch.delenv("REASON_MAX_REVIEW_OUTPUT_TOKENS")
     assert Budgets().max_review_output_tokens == 500000
+
+
+def test_unlimited_budget_keeps_accounting_under_concurrency():
+    async def exercise():
+        budget = AttemptBudget(None)
+        assert all(await asyncio.gather(*(budget.reserve('draft') for _ in range(1000))))
+        assert budget.remaining is None
+        assert budget.snapshot() == {'draft': 1000, 'total': 1000, 'budget': None}
+        zero = AttemptBudget(0)
+        assert not await zero.reserve('draft')
+        finite = AttemptBudget(7)
+        results = await asyncio.gather(*(finite.reserve('review') for _ in range(100)))
+        assert sum(results) == 7
+        assert finite.remaining == 0
+    asyncio.run(exercise())
