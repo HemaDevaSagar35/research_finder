@@ -193,3 +193,10 @@ integer still enforces a budget; `0` permits no calls. Attempt totals remain
 recorded, with `calls.budget: null` for unlimited runs. Refinement shares this
 allowance across its cycles. Per-item repair limits, concurrency, thread and
 candidate limits, and refinement-cycle limits remain separate and unchanged.
+
+When `--out` is omitted, the CLI creates a 16-character SHA-256 prefix folder
+from the effective query and current nanosecond timestamp. The parent is
+`research_runs` beside the repository (here `/home/hema/research_runs`),
+independent of the shell's working directory. The full output path is printed
+at startup. Explicit `--out` still overrides this; `--resume` requires the
+original `--out` path. Existing directories are never overwritten by a new run.

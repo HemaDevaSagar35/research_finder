@@ -244,3 +244,18 @@ def test_stage_progress_logs_duration_and_checkpoint(monkeypatch, capsys):
     assert 'reasoning: failed (5.00s)' in output
     assert 'retrieval: reused (checkpoint; not rerun)' in output
     assert '+00:00]' in output
+
+
+def test_automatic_output_uses_query_and_time(monkeypatch):
+    import hashlib
+    from research import __main__ as cli
+    monkeypatch.setattr(cli.time, 'time_ns', lambda: 123456789)
+    first = cli.automatic_output('topic')
+    assert first.parent == Path(cli.__file__).resolve().parents[2] / 'research_runs'
+    assert first.name == hashlib.sha256(json.dumps(['topic', 123456789], ensure_ascii=False).encode()).hexdigest()[:16]
+    assert cli.automatic_output('different topic') != first
+    monkeypatch.setattr(cli.time, 'time_ns', lambda: 123456790)
+    assert cli.automatic_output('topic') != first
+    assert parser().parse_args(['topic']).out is None
+    with pytest.raises(ValueError, match='--resume requires --out'):
+        configuration(parser().parse_args(['--resume']))

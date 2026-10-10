@@ -1,5 +1,6 @@
 """Run an initial research query through reviewed final portfolio output."""
 import argparse
+import hashlib
 from contextlib import redirect_stdout
 import asyncio
 import json
@@ -14,7 +15,7 @@ from research.pipeline import PipelineConfig, run_pipeline
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('query', nargs='?', help='Initial research question; omit when resuming')
-    p.add_argument('--out', required=True, type=Path, help='New run directory, or the original directory with --resume')
+    p.add_argument('--out', type=Path, help='Output directory; defaults to a query/time hash under research_runs beside the repository. Required with --resume')
     p.add_argument('--resume', action='store_true', help='Reuse validated completed stage checkpoints')
     p.add_argument('--config', type=Path, help='JSON PipelineConfig overrides, including per-stage call/token budgets')
     p.add_argument('--root', type=Path, help='Local paper.json/Markdown corpus; S3 fallback is enabled unless disabled')
@@ -37,6 +38,8 @@ def parser():
 def configuration(args):
     data = {}
     if args.resume:
+        if args.out is None:
+            raise ValueError('--resume requires --out pointing to the original run directory')
         data = json.loads((args.out/'manifest.json').read_text())['config']
     if args.config:
         data.update(json.loads(args.config.read_text()))
@@ -57,6 +60,13 @@ def configuration(args):
         for name in ('opportunities','directions','novelty_search','comparison','assessment','critic','refinement'):
             data[name] = {**data.get(name, {}), 'concurrency': args.concurrency}
     return PipelineConfig.model_validate(data)
+
+
+def automatic_output(query: str) -> Path:
+    """A unique query/time hash beneath the repository's sibling runs directory."""
+    identity = json.dumps([query, time.time_ns()], ensure_ascii=False).encode('utf-8')
+    run_id = hashlib.sha256(identity).hexdigest()[:16]
+    return Path(__file__).resolve().parents[2] / 'research_runs' / run_id
 
 
 class StageProgress:
@@ -83,6 +93,8 @@ def main():
     args = parser().parse_args()
     try:
         config = configuration(args)
+        args.out = (args.out if args.out is not None else automatic_output(config.query)).resolve()
+        print(f'Output directory: {args.out}', file=sys.stderr, flush=True)
         progress = StageProgress()
         with redirect_stdout(sys.stderr):
             summary = asyncio.run(run_pipeline(config, args.out, resume=args.resume, progress=progress))
