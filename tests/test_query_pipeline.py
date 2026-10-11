@@ -223,6 +223,39 @@ def test_runner_passes_concurrency_to_landscape(monkeypatch):
     assert build.call_args.kwargs['concurrency'] == 100
 
 
+def test_reasoning_stage_client_accepts_json_schema(monkeypatch):
+    """CrossPaperReasoner._call sends schema=; the injected client must be the
+    Responses-API method, not chat completions (which rejects that keyword)."""
+    import llm_client
+    from types import SimpleNamespace
+    recorded = []
+    class Client:
+        def __init__(self, provider=None, **kwargs):
+            self.provider, self.default_model = 'fake', 'fake-model'
+            self.raw = SimpleNamespace(close=AsyncMock())
+        async def structured_result(self, prompt=None, *, messages=None, system=None, schema, model=None, max_tokens=None):
+            recorded.append(('responses', schema)); return 'ok'
+        async def chat_result(self, prompt=None, *, messages=None, model=None, max_tokens=None, **kwargs):
+            if 'schema' in kwargs: raise TypeError("create() got an unexpected keyword argument 'schema'")
+            recorded.append(('completions', None)); return 'ok'
+    monkeypatch.setattr(llm_client, 'AsyncLLMClient', Client)
+    captured = {}
+    class Reasoner:
+        def __init__(self, store, chat, **kwargs):
+            captured['chat'] = chat
+        async def run(self, landscape):
+            return await captured['chat'](messages=[], model=None, max_tokens=1, schema={'type': 'object'})
+    monkeypatch.setattr(p, 'CrossPaperReasoner', Reasoner)
+    runner = p.StageRunner(p.PipelineConfig(query='topic', allow_s3=False))
+    async def exercise():
+        try:
+            return await runner.execute('reasoning', {'landscape': 'landscape'})
+        finally:
+            await runner.close()
+    assert asyncio.run(exercise()) == 'ok'
+    assert recorded == [('responses', {'type': 'object'})]
+
+
 def test_unlimited_call_budgets_round_trip():
     config = p.PipelineConfig(query='topic')
     names = ('reasoning', 'opportunities', 'directions', 'novelty_search',

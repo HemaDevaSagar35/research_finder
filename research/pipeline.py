@@ -163,7 +163,7 @@ class StageRunner:
             from llm_client import AsyncLLMClient
             client = AsyncLLMClient(c.provider or os.getenv('REASON_PROVIDER'), concurrency=c.concurrency, max_retries=0)
             try:
-                return await CrossPaperReasoner(self.store, client.chat_result, budgets=c.reasoning,
+                return await CrossPaperReasoner(self.store, client.structured_result, budgets=c.reasoning,
                     provider=client.provider, draft_model=c.model, review_model=c.review_model,
                     concurrency=c.concurrency).run(state['landscape'])
             finally:
