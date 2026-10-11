@@ -42,6 +42,7 @@ class RevisionAttempt(Strict):
 
 
 class DirectionRevision(Strict):
+    support_context: dict | None = Field(default=None, exclude_if=lambda v: v is None)
     original: Direction
     original_sha256: Text
     preflight: LinkedCorrectnessResponse | None
@@ -55,6 +56,9 @@ class DirectionRevision(Strict):
         from directions.revision import apply_patch, validate_revision_review
         if self.original_sha256 != digest(self.original.model_dump()):
             raise ValueError('original direction hash mismatch')
+        if self.support_context is not None:
+            from critic.evidence import validate_support
+            validate_support(self.support_context, self.original)
         current = self.original.proposal
         expected_issues=list(self.preflight.issues) if self.preflight else []
         expected_issues.extend(CorrectnessIssue(category='scope',field_path=r['field_path'],explanation=r['reason'],required_change=r['required_change'],source_spans=[]) for r in self.accepted_refinements)

@@ -37,6 +37,7 @@ def load_source(root):
         for stage in ('assessment','critic','refinement','portfolio'):
             state.pop(stage,None)
         if (root/'assessment.json').exists(): state['assessment']=read('assessment',STAGES['assessment'])
+        if (root/'critic.json').exists(): state['critic']=read('critic',STAGES['critic'])
         return PipelineConfig.model_validate(manifest['config']),state,manifest
     manifest=json.loads((root/'manifest.json').read_text())
     parent=digest(manifest)
@@ -65,6 +66,8 @@ async def recover(source,out,rounds=2, *, start_at="comparison"):
             source_manifest_sha256=digest(manifest),config=config.model_dump(mode='json'),rounds=rounds,start_at=start_at,
             started=datetime.now(timezone.utc).isoformat()))
         runner=StageRunner(config)
+        if (source/'hypothesis_reviews.json').exists():
+            runner.hypothesis_reviews=json.loads((source/'hypothesis_reviews.json').read_text())
         common=dict(provider=config.provider,model=config.model,review_model=config.review_model)
         async def save_stage(name,call):
             progress(name,'running')
@@ -95,6 +98,8 @@ async def recover(source,out,rounds=2, *, start_at="comparison"):
             atomic_json(out/'hypothesis_reviews.json',hypotheses)
             if config.max_refinement_cycles:
                 state['refinement']=await save_stage('refinement',runner.execute('refinement',state))
+            hypotheses=runner.hypothesis_reviews
+            atomic_json(out/'hypothesis_reviews.json',hypotheses)
             result=await save_stage('portfolio',runner.execute('portfolio',state))
             atomic_json(out/'final_portfolio.json',result.model_dump(mode='json'))
             (out/'final_portfolio.md').write_text(markdown(result)+'\n'+hypothesis_markdown(hypotheses))

@@ -25,6 +25,7 @@ class Invalidations(Strict):
 
 
 class AssessmentInputs(Strict):
+    assessment_contract: Literal['isolated_v1'] | None = Field(default=None, exclude_if=lambda v: v is None)
     comparison_coverage_threshold: float | None = Field(default=None, gt=0, le=1, exclude_if=lambda v: v is None)
     individual_assessments: bool | None = Field(default=None, exclude_if=lambda v: v is None)
     generation: GenerationResult
@@ -126,6 +127,11 @@ class AssessmentDraft(Strict):
     refinement: Refinement
 
 
+class DirectionSynthesis(Strict):
+    direction: TargetAssessment
+    refinement: Refinement
+
+
 class ReassessmentRequest(Strict):
     paper_id: Text
     target_ids: list[Text] = Field(min_length=1)
@@ -192,6 +198,7 @@ class CandidateAssessment(Strict):
     format_repairs: list[FormatRepair]
     diagnostic: str | None
 
+    selection_scope: list[Text] | None = Field(default=None, exclude_if=lambda v: v is None)
     hypothesis_assessments: list[CandidateAssessment] | None = Field(default=None, exclude_if=lambda v: v is None)
 
     def outcomes(self):
@@ -218,13 +225,13 @@ class CandidateAssessment(Strict):
             else:
                 changed.update(r.retained_hypothesis_ids)
         # Removing hypotheses changes direction scope, but not unchanged survivors' identity.
-        recheck = [] if r.action == 'reject' else ([direction.direction_id] if r.scientific_edits or r.removed_hypothesis_ids else []) + sorted(changed)
+        recheck = [] if r.action == 'reject' else ([direction.direction_id] if r.scientific_edits or (r.removed_hypothesis_ids and self.selection_scope is None) else []) + sorted(changed)
         return dict(original_candidate_sha256=self.candidate_sha256, proposal_applied=False,
-            unresolved_target_ids=[o['target_id'] for o in self.outcomes() if o['novelty_status'] == 'unresolved'],
+            unresolved_target_ids=[o['target_id'] for o in self.outcomes() if o['novelty_status'] == 'unresolved' and (self.selection_scope is None or o['target_id'] in [direction.direction_id, *self.selection_scope])],
             scientific_quality='not_assessed',
             requires_novelty_recheck_target_ids=recheck,
             next_stage='direction_revision_then_signature_search_comparison' if r.scientific_edits else
-                'narrow_direction_and_recheck_scope' if r.removed_hypothesis_ids and r.retained_hypothesis_ids else
+                'narrow_direction_and_recheck_scope' if r.removed_hypothesis_ids and r.retained_hypothesis_ids and self.selection_scope is None else
                 'stop' if r.action == 'reject' else 'resolve_coverage' if r.action == 'defer' else 'research_critic',
             retained_experiment_links={e.experiment_id: [h for h in e.hypothesis_ids if h in r.retained_hypothesis_ids]
                 for e in direction.proposal.experiments if set(e.hypothesis_ids) & set(r.retained_hypothesis_ids)})
@@ -243,7 +250,7 @@ class NoveltyAssessmentResult(Strict):
 
     @model_validator(mode='after')
     def reviewed_handoff(self):
-        from novelty.assessment_evidence import build_packet, hypothesis_packet, validate_draft, validate_report
+        from novelty.assessment_evidence import build_packet, hypothesis_packet, locked_targets, validate_draft, validate_report
         if self.inputs_sha256 != digest(self.inputs.model_dump()):
             raise ValueError('assessment input hash mismatch')
         if sorted(c.direction_id for c in self.candidates) != sorted(d.direction_id for d in self.inputs.generation.directions):
@@ -272,6 +279,13 @@ class NoveltyAssessmentResult(Strict):
                         validate_draft(child.assessment, scoped)
                     elif not child.diagnostic:
                         raise ValueError('withheld hypothesis requires a diagnostic')
+            if self.inputs.assessment_contract == 'isolated_v1':
+                packet['locked_hypotheses'] = [t.model_dump() for t in locked_targets(packet, c.hypothesis_assessments or [])]
+                expected_scope = c.assessment.refinement.retained_hypothesis_ids if c.assessment and c.assessment.refinement.action in ('retain','narrow') and not c.assessment.refinement.scientific_edits else None
+                if c.selection_scope != expected_scope:
+                    raise ValueError('selection scope must equal independently reviewed retained scope')
+            elif c.selection_scope is not None:
+                raise ValueError('selection scope requires isolated synthesis contract')
             if len(c.reviews) > 2 or [r.round for r in c.reviews] != list(range(len(c.reviews))):
                 raise ValueError('invalid assessment review history')
             for r in c.reviews:
@@ -279,7 +293,7 @@ class NoveltyAssessmentResult(Strict):
                 if r.report:
                     validate_report(r.report, packet)
             if c.assessment is not None:
-                if any(r.report and r.report.reassessment_requests for h in c.hypothesis_assessments or [] for r in h.reviews):
+                if self.inputs.assessment_contract != 'isolated_v1' and any(r.report and r.report.reassessment_requests for h in c.hypothesis_assessments or [] for r in h.reviews):
                     raise ValueError('hypothesis source reassessment must be resolved before publication')
                 if not c.reviews or c.reviews[-1].report is None or c.reviews[-1].report.decision != 'pass' or c.reviews[-1].draft != c.assessment:
                     raise ValueError('assessment must equal the latest independently passing draft')

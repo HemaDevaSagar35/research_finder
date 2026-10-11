@@ -123,7 +123,7 @@ class CorrectnessResponse(Strict):
 class ReviewRecord(Strict):
     review_id: Text
     opportunity_id: Text
-    round: Literal[0, 1]
+    round: int = Field(ge=0, description="Monotonic review round, including subsequent reviewed revisions.")
     proposal: DirectionDraft
     prompt_version: Text
     model: str | None

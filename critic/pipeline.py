@@ -96,25 +96,30 @@ class ResearchCritic:
                 raise ValueError('invalid_' + task + '_after_repair: ' + detail)
             request = {**request, 'invalid_output': map_source_refs(raw, aliases), 'validation_errors': detail}
 
-    async def _reviewed(self, packet, portfolio=False):
+    async def _reviewed(self, packet, portfolio=False, previous=None):
         reviews, repairs, accepted, diagnostic = [], [], None, None
         schema = PortfolioDraft if portfolio else CritiqueDraft
         validate = validate_portfolio if portfolio else validate_draft
         task = 'critic_portfolio' if portfolio else 'research_critique'
         body = {'packet': packet}
+        if previous is not None:
+            body.update(previous_draft=previous.draft.model_dump(),corrections=previous.report.model_dump())
         try:
             for round in range(2):
                 def check(draft):
                     validate(draft, packet)
+                    if not round and previous is not None:
+                        preserve_unaffected(draft,previous.draft,previous.report)
                     if round:
                         preserve_unaffected(draft, reviews[-1].draft, reviews[-1].report)
-                draft, _ = await self._call(task if not round else 'revise_' + task,
-                    prompts.PORTFOLIO if portfolio else prompts.CRITIQUE, schema, body, check, repairs)
+                scope_instruction = (' Scope override: output targets and target_checks ONLY for these IDs: ' + str(packet['review_target_ids']) + '. Other hypotheses and direction text are context only. Keep original proposal field paths. Test-link checks cover only these hypotheses.' if packet.get('review_target_ids') else '')
+                draft, _ = await self._call(task if not round and previous is None else 'revise_' + task,
+                    (prompts.PORTFOLIO if portfolio else prompts.CRITIQUE) + scope_instruction, schema, body, check, repairs)
                 report = error = None
                 model = self.io.review_model or self.io.model
                 try:
                     report, model = await self._call('review_' + task,
-                        prompts.PORTFOLIO_REVIEW if portfolio else prompts.REVIEW, ReviewReport,
+                        (prompts.PORTFOLIO_REVIEW if portfolio else prompts.REVIEW) + scope_instruction + ' ReviewIssue.field_path must point into the submitted critique draft, never into your own test_link_checks. A defective proposal/test requires an upstream direction_correctness request with its original proposal field_paths.', ReviewReport,
                         {'packet': packet, 'draft': draft.model_dump()},
                         lambda r: validate_review(r, draft, packet, portfolio), repairs)
                 except Exception as exc:
@@ -136,7 +141,7 @@ class ResearchCritic:
             diagnostic = errors.describe(exc)
         return accepted, reviews, repairs, None if accepted else diagnostic
 
-    async def _candidate(self, novelty, direction):
+    async def _candidate(self, novelty, direction, previous=None):
         blocked = upstream_route(novelty, direction)
         base = dict(direction_id=direction.direction_id, candidate_sha256=digest(direction.model_dump()),
                     packet=None, packet_sha256=None, critique=None, reviews=[], format_repairs=[])
@@ -147,25 +152,37 @@ class ResearchCritic:
             packet = packet_for(novelty, direction, {k: support[k] for k in ('paper_artifacts', 'pages')})
         except Exception as exc:
             return CandidateCritique(**base, diagnostic=errors.describe(exc), blocked_at='source_loading')
-        critique, reviews, repairs, diagnostic = await self._reviewed(packet)
+        seed=None
+        if previous and previous.packet==packet and previous.reviews:
+            last=previous.reviews[-1]
+            if last.report and last.report.decision=='revise' and not any(r.draft.upstream_requests or (r.report and r.report.upstream_requests) for r in previous.reviews): seed=last
+        critique, reviews, repairs, diagnostic = await self._reviewed(packet,previous=seed)
         return CandidateCritique(direction_id=direction.direction_id, candidate_sha256=base['candidate_sha256'],
             packet=packet, packet_sha256=digest(packet), critique=critique, reviews=reviews,
             format_repairs=repairs, diagnostic=diagnostic, blocked_at=None if critique else 'critique')
 
-    async def run(self, novelty):
+    async def run(self, novelty, *, recovery=None):
         with usage.scoped() as totals:
-            result = await self._run(novelty)
+            result = await self._run(novelty, recovery)
             result.usage = {k: vars(v).copy() for k, v in totals.items()}
             return result
 
-    async def _run(self, novelty):
+    async def _run(self, novelty, recovery=None):
         if self.used:
             raise ValueError('create a new critic per run')
         self.used = True
         novelty = NoveltyAssessmentResult.model_validate(novelty.model_dump())
         started = datetime.now(timezone.utc).isoformat()
         try:
-            results = await progress_gather(*(self._candidate(novelty, d) for d in novelty.inputs.generation.directions), label="critiques")
+            if recovery: recovery=CriticResult.model_validate(recovery.model_dump())
+            async def one(d):
+                old=next((c for c in recovery.candidates if c.direction_id==d.direction_id),None) if recovery else None
+                if old and old.critique and old.packet and not upstream_route(novelty,d):
+                    new_packet=packet_for(novelty,d,old.packet['support_context'])
+                    if {k:v for k,v in old.packet.items() if k!='retrieval_context'}=={k:v for k,v in new_packet.items() if k!='retrieval_context'}:
+                        return old.model_copy(update={'packet':new_packet,'packet_sha256':digest(new_packet)})
+                return await self._candidate(novelty,d,old)
+            results = await progress_gather(*(one(d) for d in novelty.inputs.generation.directions), label="critiques")
             packet = portfolio_packet(results)
             if len(packet['eligible_direction_ids']) < 2:
                 assessment = PortfolioDraft(considered_direction_ids=packet['eligible_direction_ids'], merges=[],

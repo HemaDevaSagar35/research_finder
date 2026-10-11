@@ -66,6 +66,11 @@ class Chat:
                 out['targets'][0]['reasoning'] = 'Revised scope of the original prediction.'
         if self.mutate:
             self.mutate(out, req)
+        if req['packet'].get('assessment_contract') == 'isolated_v1' and 'review_novelty_assessment' not in req['task']:
+            if len(req['packet']['coverage']) == 1:
+                out=out['targets'][0]
+            else:
+                out=dict(direction=out['targets'][0],refinement=out['refinement'])
         return ChatResult(json.dumps(out), 'stop', 'fixture')
 
 

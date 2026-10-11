@@ -23,7 +23,7 @@ def eligibility(candidate, direction, hid):
     return None
 
 
-async def review_hypotheses(novelty, store, *, existing=None, critic_factory=ResearchCritic, **kwargs):
+async def review_hypotheses(novelty, store, *, existing=None, recovery=None, critic_factory=ResearchCritic, **kwargs):
     critic = critic_factory(store, **kwargs)
     async def direction_work(direction):
         assessment = next(c for c in novelty.candidates if c.direction_id == direction.direction_id)
@@ -53,6 +53,10 @@ async def review_hypotheses(novelty, store, *, existing=None, critic_factory=Res
                     packet['review_scope'] = ('Review only the named hypothesis. The full original direction is context; '
                         'do not approve the direction or other hypotheses. Unrelated unresolved targets are not vetoes, '
                         'but shared source defects and experiment dependencies still require upstream requests.')
+                    old = next((r for r in (recovery or {}).get('hypotheses',[]) if r['direction_id']==direction.direction_id and r['hypothesis_id']==hid and r['status'] in ('approved','discarded') and r['packet']==packet), None)
+                    if old is not None:
+                        rows.append(old)
+                        continue
                     draft,reviews,repairs,diagnostic = await critic._reviewed(packet)
                     row.update(packet=packet,critique=draft.model_dump() if draft else None,
                                reviews=[r.model_dump() for r in reviews],diagnostic=diagnostic)

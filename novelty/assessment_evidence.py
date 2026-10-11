@@ -60,11 +60,15 @@ def build_packet(inputs, direction_id):
         cited = {pid for e in evidence for claim in e['claims'] for pid in claim['passage_ids']}
         pages = {p.get('page_id') for pid, p in passages.items() if pid in cited}
         passages = {pid:p for pid,p in passages.items() if pid in cited or (p.get('page_id') is not None and p.get('page_id') in pages)}
-    return dict(direction_id=direction_id, candidate_sha256=c.candidate_sha256,
+    packet = dict(direction_id=direction_id, candidate_sha256=c.candidate_sha256,
         candidate=direction.proposal.model_dump(), signature=c.signature.model_dump() if c.signature else None,
         coverage=coverage, evidence=evidence, source_passages=list(passages.values()),
         scope='Saved index retrieval and its complete recorded shortlists; available extracted evidence only. No global novelty proof.',
         retrieval_context=inputs.search.run)
+    if inputs.assessment_contract:
+        packet["assessment_contract"] = inputs.assessment_contract
+        packet["coverage_threshold"] = inputs.comparison_coverage_threshold or 1.0
+    return packet
 
 
 
@@ -177,10 +181,18 @@ def validate_draft(draft, packet):
     if r.action == 'reframe' and not r.scientific_edits:
         raise ValueError('reframe needs explicit scientific edits')
     assessments = {t.target_id: t for t in draft.targets}
-    if any(assessments[h].finding != 'ALREADY_STUDIED' for h in removed):
+    allowed_removals = ('ALREADY_STUDIED', 'UNRESOLVED') if packet.get('assessment_contract') == 'isolated_v1' else ('ALREADY_STUDIED',)
+    if any(assessments[h].finding not in allowed_removals and not (packet.get('assessment_contract') == 'isolated_v1' and not ledger[h]['complete']) for h in removed):
         raise ValueError('novelty-based removal requires positive already-studied evidence for each removed hypothesis')
     if r.action == 'retain' and any(not ledger[h]['complete'] or assessments[h].finding == 'UNRESOLVED' for h in retained | ({packet['direction_id']} & set(ledger))):
         raise ValueError('unresolved retained scope must defer, narrow or propose a reframe')
+    if packet.get('locked_hypotheses') is not None:
+        actual = {t.target_id:t.model_dump() for t in draft.targets if t.target_id != packet['direction_id']}
+        expected = {t['target_id']:t for t in packet['locked_hypotheses']}
+        if actual != expected:
+            raise ValueError('synthesis cannot replace individual hypothesis judgments')
+        if r.action in ('retain','narrow') and not r.scientific_edits and any(not ledger[h]['complete'] or assessments[h].finding in ('UNRESOLVED','ALREADY_STUDIED') for h in retained):
+            raise ValueError('retained subset needs accepted, evidence-ready hypothesis judgments')
     paths = set()
     scientific = {'research_direction', 'proposed_mechanism', 'scope', 'assumptions', 'what_would_falsify_it'}
     hypothesis_fields = {'condition', 'intervention', 'expected_effect', 'mechanism', 'assumptions', 'falsification_criterion'}
@@ -229,3 +241,28 @@ def hypothesis_packet(packet, target_id):
     scoped['source_passages'] = [p for p in packet['source_passages'] if p['passage_id'] in cited or (p.get('page_id') is not None and p.get('page_id') in pages)]
     scoped['scope'] += ' Assess only the hypothesis listed in coverage; direction context is supplied only for interpretation.'
     return scoped
+
+
+def hypothesis_draft(target, packet):
+    """The model judges novelty; code owns the single-target lifecycle plan."""
+    from novelty.assessment_schemas import AssessmentDraft
+    complete=packet['coverage'][0]['complete']
+    action='reject' if target.finding=='ALREADY_STUDIED' else 'retain' if complete and target.finding!='UNRESOLVED' else 'defer'
+    return AssessmentDraft(targets=[target],refinement=dict(action=action,rationale='Single hypothesis judgment; direction composition is reviewed separately.',
+        retained_hypothesis_ids=[] if action=='reject' else [target.target_id],removed_hypothesis_ids=[target.target_id] if action=='reject' else [],scientific_edits=[]))
+
+
+def locked_targets(packet, children):
+    from novelty.assessment_schemas import TargetAssessment
+    by_id={h.coverage[0].target_id:h for h in children}
+    concerns=[q for c in children for r in c.reviews if r.report for q in r.report.reassessment_requests]
+    result=[]
+    for h in packet['candidate']['hypotheses']:
+        tid=h['hypothesis_id']
+        child=by_id.get(tid)
+        dependent=any(e['target_id']==tid and e['paper_id']==q.paper_id and (not q.claim_ids or set(q.claim_ids)&{c['claim_id'] for c in e['claims']}) for q in concerns for e in packet['evidence'])
+        if child and child.assessment and not dependent:
+            result.append(child.assessment.targets[0])
+        else:
+            result.append(TargetAssessment(target_id=tid,finding='UNRESOLVED',reasoning='Individual assessment pending: '+('Shared evidence requires reassessment.' if dependent else child.diagnostic if child and child.diagnostic else 'No accepted judgment.'),evidence=[],meaningful_difference=None))
+    return result

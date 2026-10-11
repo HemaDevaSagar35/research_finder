@@ -12,7 +12,7 @@ OVERLAP_ORDER = {'SAME': 0, 'VERY_CLOSE': 1, 'PARTIAL_OVERLAP': 2, 'ADJACENT': 3
 
 def current_critic(source):
     if isinstance(source, RefinementResult):
-        return next((c.critic for c in reversed(source.cycles) if c.critic), source.original)
+        return next((c.critic for c in reversed(source.cycles) if c.critic), source.repair_rounds[-1].critic if source.repair_rounds else source.original)
     return source
 
 
@@ -21,7 +21,8 @@ def render_candidate(critic, direction, review):
     targets = {t.target_id: t for t in assessment.assessment.targets}
     coverage = {t.target_id: t for t in assessment.coverage}
     critiques = {t.target_id: t for t in review.critique.targets}
-    proposal = direction.proposal
+    from directions.schemas import DirectionDraft
+    proposal = DirectionDraft.model_validate(review.packet['candidate']) if review.packet.get('selection_scope') is not None else direction.proposal
     packet = build_packet(critic.novelty.inputs, direction.direction_id)
     # Preserve complete reviewed per-paper comparisons and claims. Do not turn a
     # target-wide meaningful difference into a fabricated paper-specific finding.
@@ -41,7 +42,7 @@ def render_candidate(critic, direction, review):
         risks=proposal.risks, uncertainties=proposal.uncertainties,
         what_would_falsify_it=proposal.what_would_falsify_it,
         recommended_next_step=critiques[direction.direction_id].recommended_next_step,
-        recommended_next_experiment_id=direction.recommended_next_experiment_id,
+        recommended_next_experiment_id=direction.recommended_next_experiment_id if direction.recommended_next_experiment_id in {e.experiment_id for e in proposal.experiments} else proposal.experiments[0].experiment_id,
         critique=critiques[direction.direction_id])
 
 
@@ -94,6 +95,10 @@ def project(source, settings):
                            'Generate and review additional candidates upstream; no pending or rejected candidate was promoted to fill the quota.')
     if counts['pending']:
         diagnostics.append('Pending candidates retain their upstream routes; publication does not resolve their scientific issues.')
+    for row in dispositions:
+        if row['disposition'] == 'pending' and critic.novelty.inputs.assessment_contract == 'isolated_v1':
+            route=row['route']
+            diagnostics.append(row['candidate_id'] + ': ' + route['next_stage'] + ': ' + str(route.get('diagnostic') or route.get('upstream_requests') or route.get('upstream_handoff') or 'Review or refinement remains pending.'))
     if isinstance(source, RefinementResult) and source.diagnostic:
         diagnostics.append(source.diagnostic)
     status = ('partial' if counts['pending'] or shortfall else 'ready') if selected else ('blocked' if counts['pending'] else 'empty')

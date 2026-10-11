@@ -181,14 +181,20 @@ class StageRunner:
             return await NoveltyAssessor(settings=c.assessment, **common).run(
                 state['directions'], state['novelty_search'], state['comparison'])
         if name == 'critic':
-            result = await ResearchCritic(self.store, settings=c.critic, **common).run(state['assessment'])
+            result = await ResearchCritic(self.store, settings=c.critic, **common).run(state['assessment'],**({'recovery':state['critic']} if state.get('critic') is not None else {}))
             from critic.hypotheses import review_hypotheses
             self.hypothesis_reviews = await review_hypotheses(state['assessment'], self.store,
-                existing=result, critic_factory=ResearchCritic, settings=c.critic, **common)
+                existing=result, recovery=getattr(self,'hypothesis_reviews',None), critic_factory=ResearchCritic, settings=c.critic, **common)
             return result
         if name == 'refinement':
-            return await RefinementLoop(self.store, settings=c.refinement, retriever=self.get_retriever(),
+            refined = await RefinementLoop(self.store, settings=c.refinement, retriever=self.get_retriever(),
                 max_cycles=c.max_refinement_cycles, search_settings=c.novelty_search, **common).run(state['critic'])
+            if refined.repair_rounds or refined.cycles:
+                from portfolio.pipeline import current_critic
+                from critic.hypotheses import review_hypotheses
+                current=current_critic(refined)
+                self.hypothesis_reviews=await review_hypotheses(current.novelty,self.store,existing=current,recovery=getattr(self,'hypothesis_reviews',None),settings=c.critic,**common)
+            return refined
         if name == 'portfolio':
             paths = list(c.metadata_paths)
             if c.backend == 'local':
@@ -271,7 +277,7 @@ async def run_pipeline(config, out, *, resume=False, runner_factory=StageRunner,
                         atomic_json(out/f'{stage}.json', payload)
                         parent = digest(payload)
                         state[stage] = result
-                        if stage == 'critic' and hasattr(runner, 'hypothesis_reviews'):
+                        if stage in ('critic','refinement') and hasattr(runner, 'hypothesis_reviews'):
                             atomic_json(out/'hypothesis_reviews.json', runner.hypothesis_reviews)
                     except BaseException:
                         if progress:

@@ -8,8 +8,9 @@ from directions.schemas import Strict, Text, GenerationResult
 from directions.judge import validate_report as validate_correctness_report
 from directions.revision_schemas import DirectionRevision
 from directions.revision import revise_direction, revised_generation, confirm_requests
+from directions.subset import SubsetRevision, revise_subset
 from novelty.revalidation import ReuseCertificate, assess_reuse, rebind_reused_inputs
-from novelty.assessment import NoveltyAssessor
+from novelty.assessment import NoveltyAssessor, AssessmentSettings
 from novelty.comparison import NoveltyComparator
 from novelty.pipeline import NoveltySearcher
 from novelty.schemas import NoveltySearchResult
@@ -19,11 +20,12 @@ from critic.schemas import CriticResult, UpstreamRequest
 from critic.evidence import validate_request
 from opportunities.miner import digest
 from llm_client import usage
+from critic.repair_routes import RepairRound, repair_round, validate_rounds
 
 
 class Cycle(Strict):
     input_critic_sha256: Text
-    revisions: list[DirectionRevision]
+    revisions: list[DirectionRevision | SubsetRevision]
     certificates: list[ReuseCertificate]
     generation: GenerationResult | None
     critic: CriticResult | None
@@ -37,6 +39,7 @@ class RefinementResult(Strict):
     original: CriticResult
     original_sha256: Text
     observations: dict[str,list[UpstreamRequest]] = Field(default_factory=dict)
+    repair_rounds: list[RepairRound] | None = Field(default=None, max_length=2, exclude_if=lambda v: v is None)
     cycles: list[Cycle] = Field(max_length=2)
     status: Literal['ready', 'needs_revision', 'blocked']
     diagnostic: str | None
@@ -48,7 +51,7 @@ class RefinementResult(Strict):
     def lineage(self):
         if self.original_sha256!=digest(self.original.model_dump()): raise ValueError('loop parent hash mismatch')
         validate_observations(self.original,self.observations)
-        current=self.original
+        current=validate_rounds(self.original,self.repair_rounds or [])
         for index,cycle in enumerate(self.cycles):
             if index and self.cycles[index-1].critic is None: raise ValueError("unfinished cycle must be last")
             if cycle.input_critic_sha256!=digest(current.model_dump()): raise ValueError('cycle parent hash mismatch')
@@ -57,21 +60,27 @@ class RefinementResult(Strict):
             for r in cycle.revisions:
                 if r.original!=old.get(r.original.direction_id): raise ValueError('revision parent differs from current direction')
                 candidate=next(c for c in current.candidates if c.direction_id==r.original.direction_id)
-                if r.accepted_refinements!=requests_for(candidate)[1]: raise ValueError('unpublished refinements cannot authorize edits')
-                requests=requests_for(candidate)[0]
+                if isinstance(r,SubsetRevision):
+                    assessment=next(a for a in current.novelty.candidates if a.direction_id==r.original.direction_id)
+                    retained=candidate.handoff().get('retained_hypothesis_ids') if candidate.critique else (assessment.selection_scope or (assessment.assessment.refinement.retained_hypothesis_ids if assessment.assessment and assessment.assessment.refinement.action=='narrow' else None))
+                    if retained!=r.retained_hypothesis_ids: raise ValueError('subset differs from independently reviewed retained scope')
+                    continue
+                if r.accepted_refinements!=requests_for(candidate,r.original,current.novelty)[1]: raise ValueError('unpublished refinements cannot authorize edits')
+                requests=requests_for(candidate,r.original,current.novelty)[0]
                 if index==0: requests.extend(q.model_dump() for q in self.observations.get(r.original.direction_id,[]))
                 if not requests and not r.accepted_refinements: raise ValueError('revision has no authorized request')
                 if r.attempts: confirm_requests(r.preflight,requests)
                 if r.preflight:
-                    if candidate.packet is None: raise ValueError('revision requires the original source packet')
-                    payload={'pages':candidate.packet['support_context']['pages']}
+                    support=candidate.packet['support_context'] if candidate.packet else r.support_context
+                    if support is None: raise ValueError('revision requires the original source packet')
+                    payload={'pages':support['pages']}
                     validate_correctness_report(r.preflight,r.original.proposal,payload)
                     for attempt in r.attempts:
                         if attempt.review: validate_correctness_report(attempt.review,attempt.proposal,payload)
             if cycle.generation is not None and cycle.generation!=revised_generation(current.novelty.inputs.generation,cycle.revisions):
                 raise ValueError('generation differs from reviewed revision records')
             if cycle.critic:
-                if any(r.proposal is None for r in cycle.revisions): raise ValueError('unreviewed revision cannot advance')
+                if all(r.proposal is None for r in cycle.revisions): raise ValueError('unreviewed revision cannot advance')
                 if cycle.generation!=cycle.critic.novelty.inputs.generation: raise ValueError('critic did not receive revised generation')
                 s,c=rebind_reused_inputs(current.novelty,cycle.generation,cycle.certificates,cycle.fresh_search,cycle.fresh_comparisons)
                 if s!=cycle.critic.novelty.inputs.search or c!=cycle.critic.novelty.inputs.comparisons:
@@ -87,7 +96,7 @@ class RefinementResult(Strict):
         return self
 
     def handoff(self):
-        current=next((c.critic for c in reversed(self.cycles) if c.critic),self.original)
+        current=next((c.critic for c in reversed(self.cycles) if c.critic),self.repair_rounds[-1].critic if self.repair_rounds else self.original)
         handoff=current.handoff()
         if self.status=='blocked':
             affected={r.original.direction_id for r in self.cycles[-1].revisions} if self.cycles and self.cycles[-1].critic is None else set(self.observations)
@@ -115,13 +124,28 @@ def validate_observations(original,observations):
             validate_request(request,candidate.packet)
 
 
-def requests_for(candidate):
+def requests_for(candidate, original=None, novelty=None):
     requests=[]
     for r in candidate.reviews:
         requests.extend(q.model_dump() for q in r.draft.upstream_requests)
         if r.report: requests.extend(q.model_dump() for q in r.report.upstream_requests)
     # Only published scientific refinements have authority to change a proposal.
     refinements=[r.model_dump() for r in candidate.critique.revisions] if candidate.critique else []
+    if original is not None and candidate.packet and candidate.packet.get('selection_scope') is not None:
+        def translate(path):
+            parts=path.split('/')
+            if len(parts)>2 and parts[1] in ('hypotheses','experiments') and parts[2].isdigit():
+                key=parts[1];field='hypothesis_id' if key=='hypotheses' else 'experiment_id'
+                item=candidate.packet['candidate'][key][int(parts[2])]
+                parts[2]=str(next(i for i,x in enumerate(getattr(original.proposal,key)) if getattr(x,field)==item[field]))
+            return '/'.join(parts)
+        for q in requests: q['field_paths']=[translate(p) for p in q.get('field_paths',[])]
+        for r in refinements: r['field_path']=translate(r['field_path'])
+    if novelty is not None and candidate.blocked_at == 'upstream':
+        assessment=next(a for a in novelty.candidates if a.direction_id==candidate.direction_id)
+        if assessment.assessment:
+            for edit in assessment.assessment.refinement.scientific_edits:
+                refinements.append(dict(field_path=edit.field_path,reason=edit.reason,required_change='Apply the independently reviewed novelty refinement: '+str(edit.proposed_value)))
     dedup={digest(q):q for q in requests}
     return list(dedup.values()),refinements
 
@@ -179,55 +203,79 @@ class RefinementLoop:
         validate_observations(original,observations)
         current=original
         cycles=[]
+        repairs=[]
         diagnostic=None
         started=datetime.now(timezone.utc).isoformat()
         with usage.scoped() as totals:
             try:
+                if current.novelty.inputs.assessment_contract == 'isolated_v1':
+                    for index in range(self.max_cycles):
+                        if ready(current): break
+                        record=await repair_round(self.core,current)
+                        repairs.append(record)
+                        current=record.critic
+                        await self.save(f'repair_{index}',record)
                 for index in range(self.max_cycles):
                     if ready(current) and not (index==0 and observations): break
                     selected=[]
+                    subsets=[]
+                    blockers=[]
                     for candidate in current.candidates:
+                        assessment=next(a for a in current.novelty.candidates if a.direction_id==candidate.direction_id)
+                        direction=next(d for d in current.novelty.inputs.generation.directions if d.direction_id==candidate.direction_id)
+                        if candidate.critique and candidate.handoff()['next_stage']=='narrow_direction_and_recheck_scope':
+                            subsets.append((direction,candidate.handoff()['retained_hypothesis_ids']))
+                            continue
+                        if candidate.blocked_at=='source_loading' and assessment.selection_scope and 'retained_scope_requires_refinement' in str(candidate.diagnostic):
+                            subsets.append((direction,assessment.selection_scope))
+                            continue
+                        if candidate.blocked_at=='upstream' and assessment.assessment and assessment.assessment.refinement.action=='narrow' and assessment.assessment.refinement.removed_hypothesis_ids:
+                            subsets.append((direction,assessment.assessment.refinement.retained_hypothesis_ids))
+                            continue
                         if candidate.blocked_at=='upstream':
                             assessment=next(a for a in current.novelty.candidates if a.direction_id==candidate.direction_id)
                             if assessment.assessment is None:
                                 requests=[q for r in assessment.reviews if r.report for q in r.report.reassessment_requests]
                                 owner='upstream_evidence_reassessment_required' if requests else 'novelty_assessment_review_unresolved'
-                                raise ValueError(owner+': '+str(assessment.diagnostic))
-                        requests,refinements=requests_for(candidate)
+                                blockers.append(owner+': '+candidate.direction_id+': '+str(assessment.diagnostic))
+                                continue
+                        direction=next(d for d in current.novelty.inputs.generation.directions if d.direction_id==candidate.direction_id)
+                        requests,refinements=requests_for(candidate,direction,current.novelty)
                         if index==0: requests.extend(r.model_dump() for r in observations.get(candidate.direction_id,[]))
                         if any(q['stage']!='direction_correctness' for q in requests):
-                            raise ValueError('upstream_evidence_reassessment_required; direction revision cannot rewrite accepted paper evidence')
+                            blockers.append('upstream_evidence_reassessment_required: '+candidate.direction_id)
+                            continue
                         if requests or refinements:
                             direction=next(d for d in current.novelty.inputs.generation.directions if d.direction_id==candidate.direction_id)
                             selected.append((direction,requests,refinements))
-                    if not selected:
-                        raise ValueError('no_revision_route: pending merge, execution failure or upstream work needs its own handler')
-                    revisions=await progress_gather(*(revise_direction(self.io,*args) for args in selected), label="revisions")
+                    if not selected and not subsets:
+                        raise ValueError('; '.join(blockers) or 'no_revision_route: pending merge, execution failure or upstream work needs its own handler')
+                    revisions=await progress_gather(*[revise_direction(self.io,*args) for args in selected], *[revise_subset(self.io,*args) for args in subsets], label="revisions")
                     cycle=Cycle(input_critic_sha256=digest(current.model_dump()),revisions=revisions,
                         certificates=[],generation=None,critic=None,diagnostic='Revision in progress.')
                     cycles.append(cycle)
                     await self.save(f'cycle_{index}_revisions',cycle)
-                    if any(r.proposal is None for r in revisions):
+                    if all(r.proposal is None for r in revisions):
                         cycle.diagnostic='Unresolved candidate correctness: '+'; '.join(r.diagnostic for r in revisions if r.diagnostic)
                         diagnostic=cycle.diagnostic
                         break
                     generation=revised_generation(current.novelty.inputs.generation,revisions)
                     cycle.generation=generation
                     await self.save(f'cycle_{index}_generation',generation)
-                    certificates=await progress_gather(*(assess_reuse(self.core,current,generation,r) for r in revisions), label="reuse_checks")
+                    certificates=await progress_gather(*(assess_reuse(self.core,current,generation,r) for r in revisions if r.proposal is not None), label="reuse_checks")
                     cycle.certificates=certificates
                     await self.save(f'cycle_{index}_applicability',cycle)
                     if all(c.decision=='reuse' for c in certificates):
                         search,comparisons=rebind_reused_inputs(current.novelty,generation,certificates)
                     else:
                         search,comparisons,cycle.fresh_search,cycle.fresh_comparisons=await self._refresh(current.novelty,generation,certificates)
-                    assessor=NoveltyAssessor(settings=self.core.settings)
+                    assessor=NoveltyAssessor(settings=AssessmentSettings(**self.core.settings.model_dump(),comparison_coverage_threshold=current.novelty.inputs.comparison_coverage_threshold or 1.0) if current.novelty.inputs.assessment_contract else self.core.settings)
                     assessor.io=BorrowedIO(self.io)
-                    assessment=await assessor.run(generation,search,comparisons)
+                    assessment=await assessor.run(generation,search,comparisons,recovery=current.novelty)
                     await self.save(f'cycle_{index}_assessment',assessment)
                     critic=ResearchCritic(self.io.store,settings=self.core.settings)
                     critic.io=BorrowedIO(self.io)
-                    reviewed=await critic.run(assessment)
+                    reviewed=await critic.run(assessment,recovery=current)
                     for model,counts in reviewed.usage.items():
                         totals[model].add(usage.Usage(**counts))
                     cycle.critic=reviewed
@@ -241,7 +289,7 @@ class RefinementLoop:
                 if cycles and cycles[-1].critic is None: cycles[-1].diagnostic=diagnostic
             finally:
                 if self.io.client: await self.io.client.raw.close()
-        return RefinementResult(original=original,original_sha256=digest(original.model_dump()),observations=observations,cycles=cycles,
+        return RefinementResult(original=original,original_sha256=digest(original.model_dump()),observations=observations,cycles=cycles,repair_rounds=repairs or None,
             status=status,diagnostic=diagnostic,calls=self.io.budget.snapshot(),usage={k:vars(v).copy() for k,v in totals.items()},
             run=dict(started=started,ended=datetime.now(timezone.utc).isoformat(),max_cycles=self.max_cycles,
                 settings=self.io.settings.model_dump(),scope='saved_corpus_with_explicit_revision_lineage'))

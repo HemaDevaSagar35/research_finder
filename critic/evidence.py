@@ -30,6 +30,19 @@ def packet_for(novelty, direction, support, *, hypothesis_id=None):
         raise ValueError('No independently accepted novelty assessment for review scope')
     packet['novelty_assessment'] = accepted.model_dump()
     packet['novelty_outcomes'] = c.outcomes()
+    if c.selection_scope is not None and hypothesis_id is None:
+        retained=set(c.selection_scope)
+        packet['candidate']['hypotheses']=[h for h in packet['candidate']['hypotheses'] if h['hypothesis_id'] in retained]
+        packet['candidate']['experiments']=[e for e in packet['candidate']['experiments'] if set(e['hypothesis_ids']) <= retained]
+        if not packet['candidate']['experiments']:
+            raise ValueError('retained_scope_requires_refinement: no independent experiment')
+        from directions.schemas import DirectionDraft
+        try:
+            DirectionDraft.model_validate(packet['candidate'])
+        except ValueError as exc:
+            raise ValueError('retained_scope_requires_refinement: '+str(exc)) from exc
+        packet['selection_scope'] = c.selection_scope
+        packet['scope_review_instruction'] = 'Review this exact retained subset for coherence and scientific validity. Removed hypotheses provide no premises. Joint experiments involving omitted hypotheses were removed entirely. Request refinement if direction text or dependencies no longer hold.'
     packet['opportunity'] = direction.opportunity.model_dump()
     packet['support_context'] = support
     validate_support(support, direction)

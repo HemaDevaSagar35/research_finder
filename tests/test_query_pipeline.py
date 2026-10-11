@@ -169,7 +169,8 @@ def test_refinement_receives_configured_search_limits(wired, monkeypatch):
         def __init__(self, *args, **kwargs):
             seen.update(kwargs)
         async def run(self, value):
-            return value
+            from types import SimpleNamespace
+            return SimpleNamespace(repair_rounds=None,cycles=[])
     monkeypatch.setattr(p, 'RefinementLoop', Loop)
     runner = p.StageRunner(config)
     sentinel = object()

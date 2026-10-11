@@ -330,3 +330,17 @@ uv run python -m research.recover --from-run /path/to/recovery-run \
 
 This validates saved checkpoint hashes and lineage and does not run comparison
 recovery. Scientific edits or later refinement may still require new comparisons.
+
+
+New assessments use an isolated target contract: each hypothesis has its own
+validated judgment and exact evidence references. Direction synthesis consumes
+those judgments unchanged. Failed targets stay unresolved; an independently
+reviewed coherent subset can proceed while other hypotheses or directions remain
+pending. Reports identify each pending direction and its repair route.
+
+Refinement first attempts bounded local repairs: assessment wording returns to
+assessment review, and source interpretation requests return to the affected
+paper comparison. Accepted work with unchanged evidence is reused. Narrowing that
+requires redesigned experiments gets a separate scientific review and fresh
+novelty checks; joint experiments are never silently reassigned to survivors.
+The final hypothesis report is refreshed after repair and refinement.

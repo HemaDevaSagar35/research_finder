@@ -97,8 +97,10 @@ def confirm_requests(report, requests):
 
 async def revise_direction(io, direction, requests, refinements):
     preflight, attempts, accepted, diagnostic = None, [], None, None
+    support_context = None
     try:
         source, _ = await io._context(direction, {})
+        support_context = {k:source[k] for k in ('paper_artifacts','pages')}
         payload = dict(opportunity=source['opportunity'], papers=source['paper_artifacts'], pages=source['pages'])
         base = dict(payload=payload, candidate=direction.proposal.model_dump(), reported_correctness_requests=requests)
         preflight = await checked_call(io, 'review_revision_input', judge.SYSTEM+'\n'+INSTRUCTION,
@@ -148,7 +150,7 @@ async def revise_direction(io, direction, requests, refinements):
     except Exception as exc:
         diagnostic=errors.describe(exc)
     return DirectionRevision(original=direction,original_sha256=digest(direction.model_dump()),preflight=preflight,
-        accepted_refinements=refinements,attempts=attempts,proposal=accepted,diagnostic=None if accepted else diagnostic)
+        accepted_refinements=refinements,attempts=attempts,proposal=accepted,support_context=support_context,diagnostic=None if accepted else diagnostic)
 
 
 def revised_generation(original, revisions):
@@ -161,9 +163,11 @@ def revised_generation(original, revisions):
         report=revision.attempts[-1].review
         rid=d['direction_id']+'-revision-'+digest(revision.model_dump())[:16]
         d['proposal']=revision.proposal.model_dump()
+        if d['recommended_next_experiment_id'] not in {e.experiment_id for e in revision.proposal.experiments}:
+            d['recommended_next_experiment_id']=revision.proposal.experiments[0].experiment_id
         d['correctness_review_id']=rid
         basic=report.model_dump(include={'decision','summary','issues'})
-        data['reviews'].append(ReviewRecord(review_id=rid,opportunity_id=d['opportunity_id'],round=1,
+        data['reviews'].append(ReviewRecord(review_id=rid,opportunity_id=d['opportunity_id'],round=1+max((r['round'] for r in data['reviews'] if r['opportunity_id']==d['opportunity_id']),default=0),
             proposal=revision.proposal,prompt_version='direction_revision_v1',model=None,
             report=basic,error=None).model_dump())
         audits[rid]=report.model_dump(exclude={'resolutions'})
