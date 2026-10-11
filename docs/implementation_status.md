@@ -866,3 +866,34 @@ seed COMPARE directly from their saved audits, and 10/12 hypotheses are
 critic-eligible from the saved assessment. Regression tests:
 `tests/test_blocking_defects_regression.py`; full suite **701 passed, 13
 subtests**. No live model calls were made for this change.
+
+Live bounded replay (`coverage60_fixed_20261011T203632Z`; `research.recover
+--from-run coverage60_seed_20261011T184156Z --rounds 1 --direction dir-001`,
+`deepseek-flash`, 36 min). The first attempt (`…202948Z`) raised
+`comparison recovery inputs changed` because the dir-001-h02 retrieval that
+had failed in the seed now succeeded and added targets to saved papers;
+`comparison.one` now compares such papers afresh (da78ac9).
+
+- Comparison: 145 calls, 0 truncations, 0 JSON / unknown-ID failures; the 3
+  seeded dir-001 papers reused their saved audits without re-extraction.
+  dir-001 coverage h01 0.93, h02 0.27 (retrieval mostly skipped), h03 0.97,
+  h04 0.90.
+- Assessment: 41 calls, 0 truncations. dir-001 synthesis = `defer`, all four
+  hypotheses retained, no `scientific_edits`; no "fresh novelty check"
+  blocks remained.
+- Critic: 9/12 hypotheses received a complete critique plus independent
+  review (baseline `coverage60_assessment_20261011T184156Z`: 0 — dir-001
+  died on `truncated model response`, dir-004 on `context_budget` ~965k).
+- Stage 16 still **0 approved / 12 pending**, now for substantive reasons:
+  7 critiques returned `REFINE` (terminal with `max_refinement_cycles=0`);
+  2 returned `KEEP` (dir-004-h02/h03) but the reviewer filed a
+  `direction_correctness` `upstream_request` about hypothesis/experiment
+  wording consistency, which `critic/pipeline._reviewed` treats as "Source
+  defect requires upstream reassessment" and discards the verdict; 3 lack
+  coverage. One residual mechanical failure: dir-004-h01's review emitted an
+  unknown key with value `''` (`drop_null_extras` strips `None` only).
+
+The mechanical blockers are resolved; remaining pendings are policy choices
+(refinement cycles, how reviewer `upstream_requests` interact with `KEEP`,
+and whether `REFINE` with a passing review is its own stage-16 bucket). Not
+changed here.
