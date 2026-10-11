@@ -4,10 +4,14 @@ Design reference: architecture §16 Final Candidate Output (hypothesis-level) an
 
 ## Aim
 
-Publish the saved per-hypothesis decisions as human-readable proposal and
-evidence files, without running any model or retrieval. It re-derives each
-hypothesis status from the saved critic history and refuses to publish a row
-whose lineage does not check out.
+Produce the thing a researcher actually reads: one page per hypothesis with
+its problem, the direction it belongs to, the hypothesis and test, what the
+prior work showed, the critic's verdict, and the evidence behind all of it,
+sorted into `approved/`, `pending/` and `discarded/`. The stage runs no model
+and no retrieval. Its job is to publish *saved* decisions and to refuse to
+publish any decision whose paper trail does not check out — so every file
+under `proposals/` can be trusted to be exactly what the reviewed artifacts
+say.
 
 ## Inputs
 
@@ -23,18 +27,65 @@ Note it always uses the **original** critic checkpoint, not a refined one.
 | `report: dict` | The `hypothesis_reviews.json` payload; `report['assessment_sha256']` must equal `digest(critic.novelty)`, and the rows must cover every `(direction_id, hypothesis_id)` exactly once with unchanged proposal bytes. |
 | `out: Path` | Run directory. |
 
-## Logic (`stage16`, `publication.py:59`)
+## Logic
 
-1. Lineage asserts (above). Harvest paper metadata from the novelty search and critic packets (`saved_metadata`, `:46`).
-2. Per hypothesis row:
-   - `status` must be `approved | pending | discarded`.
-   - For `approved`/`discarded`: `critic.hypotheses.eligibility(...)` must be `None`; the critique must equal the parent direction's published critique **or** the saved packet must equal `packet_for(..., hypothesis_id=...)`; the last review's draft must equal the published critique and its report must be `pass`; drafts/reviews are re-validated; no `upstream_requests` anywhere.
-   - Approval rule: `approved` iff action ∈ `{KEEP, DOWNRANK}`; `discarded` iff `DISCARD`; otherwise the row must be `pending` (this is where `REFINE` lands).
-   - Attach `direction_title`, `direction_context`, `reading_context` (`:10`, evidence rows and passages the critic saw) and `linked_experiments` (with sibling hypothesis statuses).
-3. `counts = {approved, pending, discarded}`; `status`: `partial` if approved and pending both >0, `ready` if approved only, `blocked` if only pending, `empty` otherwise.
+### Step 1 — confirm the two inputs describe the same run
 
-`write_stage16` then writes `stage16.json` and calls
-`research/reading_report.write_reading_report` (`reading_report.py:64`).
+The hypothesis reviews carry the digest of the assessment they were made
+from; it must match the assessment inside the critic result. Every
+hypothesis in every direction must appear exactly once in the reviews, with
+proposal text identical to the direction's. A mismatch means someone is
+trying to publish reviews against a different version of the proposals, and
+the stage raises. (`stage16`, `publication.py:59-70`.)
+
+### Step 2 — re-derive each status instead of trusting the label
+
+For every row the stage recomputes what the status *should* be from the
+saved history, and only then publishes:
+
+- The row's `status` must be one of `approved | pending | discarded`.
+- For `approved` and `discarded` rows, the stage re-runs the eligibility
+  gate (`critic/hypotheses.eligibility`) and requires it to pass — a
+  hypothesis whose coverage was incomplete cannot have been legitimately
+  approved. It then checks that the critique attached to the row is either
+  the parent direction's published critique or an independent one whose
+  packet can be rebuilt byte-for-byte from the critic data; that the last
+  review's draft is that critique and its decision was `pass`; that the
+  drafts and reviews still validate; and that no `upstream_requests` appear
+  anywhere in the history.
+- The action rule is applied: `KEEP` or `DOWNRANK` ⇒ `approved`; `DISCARD` ⇒
+  `discarded`; anything else ⇒ `pending`. If the saved status disagrees with
+  the recomputed one, the stage raises.
+
+This is why a file in `proposals/approved/` can be read as a guarantee: the
+code has re-verified the whole chain, not copied a flag. (`publication.py:72-110`.)
+
+### Step 3 — assemble the reading context
+
+Each row is enriched with what a reader needs without opening the JSON:
+the direction's title and research question, the problem and gap from the
+opportunity, the novelty judgment and its "remaining difference", the
+evidence rows and passages the critic saw (`reading_context`), the linked
+experiments with the statuses of the sibling hypotheses they depend on, the
+critic's verdict and — for `REFINE` — the exact revisions requested, and the
+coverage line ("Usable comparisons: 28/30; required coverage: 60%").
+(`reading_context`, `publication.py:10`; `saved_metadata`, `:46`.)
+
+### Step 4 — summarise
+
+`counts = {approved, pending, discarded}` and a top-level `status`: `ready`
+(some approved, none pending), `partial` (both), `blocked` (only pending),
+`empty`. (`publication.py:111-121`.)
+
+### Step 5 — write the report tree
+
+`write_stage16` writes `stage16.json` and hands off to
+`research/reading_report.write_reading_report`, which renders one Markdown
+and one JSON file per hypothesis into the status folder, an `evidence/`
+page per hypothesis, the exported source passages under `evidence/sources/`,
+an index `summary.md`, and merges `status`, `hypothesis_counts` and a
+hypothesis link index into `summary.json`. (`publication.py:175`;
+`reading_report.py:64`.)
 
 ## Outputs
 
@@ -66,19 +117,19 @@ evidence/sources/...                          # exported passages / references
 `stage16='stage16.json'`, `portfolio='final_portfolio.json'`,
 `completed_stages`, `hypotheses` (link index).
 
-## Interpreting a "blocked" summary
+## Reading a pending page
 
-`hypothesis_counts.approved == 0` with all rows `pending` means no hypothesis
-reached a passing review with `KEEP`/`DOWNRANK`. The `diagnostic` on each
-pending row says why, in order of where the pipeline stopped:
+The "Status and remaining work" section of a `proposals/pending/*.md` file
+carries the diagnostic that stopped the hypothesis. Read from the earliest
+stage outward:
 
-| Diagnostic | Produced by | Meaning |
+| Diagnostic | Produced by | What it means |
 |---|---|---|
-| `Incomplete novelty evidence: ...` | `critic/hypotheses.eligibility` | Coverage below `comparison_coverage_threshold` (stage 10). |
-| `Proposed scientific changes require a fresh novelty check.` | same | Assessment edits touched this hypothesis; novelty must be re-run. |
-| `Critic requests REFINE` | `review_hypotheses` | Critique passed review but asks for revisions; terminal because refinement is disabled. |
-| `Source defect requires upstream reassessment.` | `ResearchCritic._reviewed` | Draft or reviewer filed an `upstream_request` (even alongside `KEEP`). |
-| `ValueError: invalid_..._after_repair` / `truncated_output: ...` | `_call` | Mechanical failure of the model output. |
+| `Incomplete novelty evidence: ...` | `critic/hypotheses.eligibility` | Too few shortlisted papers were successfully compared (stage 9/10 coverage gate), or the novelty judgment itself was `UNRESOLVED`. |
+| `Proposed scientific changes require a fresh novelty check.` | same | The assessment edited the proposal in a way that touched this hypothesis; its novelty must be re-run. |
+| `Critic requests REFINE` | `review_hypotheses` | Critique passed review but lists concrete revisions; terminal in the normal pipeline because refinement is disabled. The revisions are printed on the page. |
+| `Source defect requires upstream reassessment.` | `ResearchCritic._reviewed` | The critic or its reviewer filed an `upstream_request` — typically a proposal/experiment wording inconsistency — which voids the verdict even if it was `KEEP`. |
+| `ValueError: invalid_..._after_repair` / `truncated_output: ...` | `_call` | The model's output could not be made valid, or was cut off. A mechanical failure, not a judgment. |
 
 ## Implementation vs design
 

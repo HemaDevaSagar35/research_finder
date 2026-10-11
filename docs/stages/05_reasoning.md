@@ -4,11 +4,16 @@ Design reference: architecture §5 Cross-Paper Reasoning.
 
 ## Aim
 
-For each landscape item ("thread") decide what the papers collectively
-establish: multi-paper findings, single-paper observations, and unresolved
-tensions. Every accepted statement is grounded in code-selected evidence from
-`paper.json` and verified against the original page text by an independent
-review call. Everything that does not pass is kept as a typed diagnostic.
+The landscape says "six papers connect X and Y". This stage asks the harder
+question for each such item: what do those papers, read together, actually
+establish? The answers come in three kinds — a **finding** (two or more
+papers support the same statement), an **observation** (only one paper
+supports it, so it is not yet a cross-paper fact) and a **tension** (papers
+disagree and the disagreement has not been resolved). Every accepted
+statement must be traceable to specific evidence inside `paper.json` and must
+survive a second, independent model call that checks it against the original
+page text. Anything that fails is kept as a typed diagnostic rather than
+dropped, so the next stage can see what was *not* established and why.
 
 ## Inputs
 
@@ -30,23 +35,100 @@ REASON_PROVIDER, concurrency=c.concurrency, max_retries=0)` whose
 
 ## Logic
 
-1. `schedule_threads(land, budgets)` (`cross_paper.py:151`): one `Thread` per relationship, aggregated finding / limitation / assumption, under-explored regime, and contradiction, ids `t001, t002, ...`; papers per thread chosen by `_ordered` (supporting papers first, then same-group papers, capped). Threads past `max_threads` → `budget_skipped`. Contradiction threads whose side has <2 papers → `insufficient_for_adjudication`.
-2. Per thread (`_process`, `cross_paper.py:445`), concurrently under a semaphore:
-   1. Load papers via `store.get`; none loadable → `insufficient`.
-   2. `candidates(paper, pid)` (`reasoning/evidence.py:236`) walks `PaperAnalysis` into `EvidenceCandidate`s with JSON-pointer `value_path`/`provenance_path`.
-   3. `bundle(...)` (`evidence.py:403`) selects evidence under a per-paper character quota and labels items `t002-e001, ...`; omitted items are recorded explicitly (`OmittedItem`, reason `budget` / `input_tokens`).
-   4. **Draft** (`_draft`, `:524`): `DRAFT_SYSTEM` (`:269`) + fenced JSON bundle → `ThreadReasoningDraft`; `repair_rounds` retries on structural/citation errors; input shrunk by dropping lowest-ranked items until under `max_draft_input_tokens`.
-   5. `_resolve` (`:596`): map cited ids to `Evidence`; 1 paper → observation, ≥2 → finding; tensions need two sides with ≥2 distinct papers; bad citations → diagnostics.
-   6. **Review** (`_review`, `:696`): rank pages by citation count, load page markdown (`page_id = f"{paper_id}#p{page}"`), cap by `max_review_pages` / tokens; `REVIEW_SYSTEM` (`:297`) → `SupportReviewResponse`; a response whose decision set does not match the candidates or cites an unknown page is invalid. Candidates whose required pages were not supplied → `insufficient_pages`.
-   7. `_accept` (`:809`): ids `-cNN` → `-fNN` / `-oNN` / `-xNN`; `review_sources` are built from code-side page hashes, not model text; `agreement` denominator is the thread's scheduled papers; confidence low/medium/high by `_confidence`.
-3. `_assemble` → `CrossPaperReasoning` with coverage counters, call snapshot and usage delta.
+### Framing: threads, and why the code picks the evidence
 
-Status/diagnostic vocabulary: `DiagnosticReason` (`reasoning/schemas.py:478`)
-— `budget_skipped`, `insufficient`, `insufficient_for_adjudication`, `failed`,
-`invalid_citation`, `unresolved_location`, `unverifiable_location`,
-`no_valid_evidence`, `insufficient_pages`, `rejected_on_review`,
-`review_invalid`, `draft_invalid`, `verification_skipped`. A fatal provider
-error fails the remaining threads.
+Each landscape item becomes a **thread**: a question ("what do these papers
+say about *X improves Y*?") plus the list of papers that should be consulted.
+The model never gets to choose its own evidence. The code walks each paper's
+`paper.json`, turns every relevant field (a result, a limitation, a claim with
+its evidence) into a candidate evidence item with a JSON pointer to where it
+lives, and hands the model a numbered bundle. The model can only *cite
+numbers from that bundle*. This is what makes the output auditable: every
+claim the model makes points at a concrete field in a concrete paper, and
+the code — not the model — later resolves what that field says and where on
+the page it came from.
+
+### Step 1 — schedule threads
+
+One thread per relationship, aggregated finding / limitation / assumption,
+under-explored concept and contradiction. Papers for a thread are the item's
+supporting papers first, then other papers that share concept groups with
+it, capped at `max_papers_per_thread`. Contradictions are scheduled with two
+*sides* so the model is asked to adjudicate between them; if either side has
+fewer than two loadable papers the thread is marked
+`insufficient_for_adjudication` up front — the code will not ask a model to
+settle a dispute with one paper per side. Threads beyond `max_threads` are
+recorded as `budget_skipped` rather than silently omitted. (`schedule_threads`,
+`cross_paper.py:151`; `_ordered`, `:107`; `allocate_sides`, `:123`.)
+
+### Step 2 — build the evidence bundle
+
+For each thread's papers the code extracts candidate evidence from
+`paper.json` and selects a bundle under a character budget, giving each paper
+a fair share so one long paper cannot crowd the others out. Items that did
+not fit are listed explicitly as *omitted*. That list matters: the model is
+told that an item not shown to it is not evidence of agreement, and the
+prompt forbids treating silence as support. (`candidates`,
+`reasoning/evidence.py:236`; `bundle`, `:403`.)
+
+### Step 3 — draft
+
+The model receives the thread question, the paper titles and the numbered
+bundle and is asked to propose candidate statements: for each, the statement,
+the conditions under which it holds, which bundle items support it, and (for
+tensions) which items sit on each side. If the response is structurally
+invalid or cites an item that is not in the bundle, the code sends it back
+once with the errors (`repair_rounds`). If the bundle is too large for the
+input budget, the lowest-ranked items are dropped and moved to the omitted
+list. (`_draft`, `cross_paper.py:524`; prompt `DRAFT_SYSTEM`, `:269`;
+schema `ThreadReasoningDraft`.)
+
+### Step 4 — resolve, classify, and apply the paper-count rule
+
+The code turns each citation back into an `Evidence` record (paper, pointer,
+the actual source value, its page/section locations, the artifact hash at
+read time). Then it counts *distinct papers*, not citations: a statement
+supported by one paper is an **observation** no matter how many of that
+paper's fields it cites; two or more papers make a **finding**; a tension
+needs two sides with at least two distinct papers across them. Citations
+that cannot be resolved, or evidence whose location is unknown, are recorded
+as diagnostics (`invalid_citation`, `unresolved_location`,
+`unverifiable_location`, `no_valid_evidence`). (`_resolve`, `cross_paper.py:596`.)
+
+### Step 5 — independent page review
+
+A second model call — with the review model, in a fresh context — receives
+the candidate statements and the *actual page text* of the pages the cited
+evidence points to, and is asked, per candidate, whether the pages support
+the statement as written. This is the check against the extraction layer: a
+`paper.json` field may have been mis-extracted, and the only way to know is to
+read the page. Pages are ranked by how many citations point to them and
+capped at `max_review_pages`; a candidate whose required pages did not fit is
+marked `insufficient_pages` rather than approved on partial reading. A review
+that returns a decision set different from the candidates it was given, or
+cites a page it was not shown, is invalid as a whole. (`_review`,
+`cross_paper.py:696`; prompt `REVIEW_SYSTEM`, `:297`; schema
+`SupportReviewResponse`.)
+
+### Step 6 — accept
+
+Only candidates the review supports become findings / observations /
+tensions. Their `review_sources` (page number and page-file hash) are
+written by the code from the pages it actually loaded, never copied from
+model text. `agreement` is expressed over the thread's scheduled papers
+(e.g. 3 of 7 consulted papers support it), so a finding backed by three
+papers out of twelve reads differently from three out of three.
+(`_accept`, `cross_paper.py:809`; `_agreement`, `:834`; `_confidence`, `:854`.)
+
+### What a diagnostic means
+
+`DiagnosticReason` (`reasoning/schemas.py:478`) distinguishes: budget limits
+(`budget_skipped`), not enough material (`insufficient`,
+`insufficient_for_adjudication`, `no_valid_evidence`, `insufficient_pages`),
+bad model output (`draft_invalid`, `review_invalid`, `invalid_citation`),
+evidence that cannot be located on a page (`unresolved_location`,
+`unverifiable_location`), and `rejected_on_review`. A fatal provider error
+fails the remaining threads instead of retrying indefinitely.
 
 ## Outputs
 
@@ -71,9 +153,9 @@ Persisted as `out/reasoning.json`.
 
 ## What later stages rely on
 
-- Only items with `verification == 'verified'` and non-empty `review_sources` can be mined; `opportunities` namespaces them as `finding:t002-f01` and evidence as `observation:t002-o01/t002-e001`.
-- `Evidence.artifact_sha256` and `ReviewSource.sha256` are re-checked on every reload; a mismatch is `stale_evidence`.
-- `refines` ids must resolve to landscape `item_id`s.
+- Only items with `verification == 'verified'` and non-empty `review_sources` can be mined for opportunities; the diagnostics are context, never evidence.
+- `Evidence.artifact_sha256` and `ReviewSource.sha256` are re-checked every time a later stage reloads the paper or page; a mismatch is `stale_evidence`.
+- `refines` ids must resolve to landscape `item_id`s, which is how an opportunity can later say which part of the map it comes from.
 
 ## Implementation vs design
 

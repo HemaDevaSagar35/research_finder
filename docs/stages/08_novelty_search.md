@@ -4,11 +4,14 @@ Design reference: architecture §9 Novelty Search = Second RAG, §10 Novelty Sig
 
 ## Aim
 
-For every direction and every hypothesis, build a reviewed *signature* (what
-exactly is being claimed, split into source facts and candidate proposals,
-with provenance) and a set of search queries; then retrieve candidate prior
-papers from the full index and rerank them. The stage produces shortlists
-only — `novelty='not_assessed'` is stamped on every output.
+A direction was written from fifteen papers. The obvious risk is that paper
+number sixteen, somewhere in the full index, already did it. This stage
+begins the check. For the direction and for each hypothesis it first writes a
+**signature** — a precise statement of what is being claimed, separated into
+facts taken from the source papers and proposals that are the candidate's
+own — and then uses that signature to search the *whole* index and shortlist
+the prior papers most likely to overlap. It produces shortlists, not
+verdicts: every output is stamped `novelty='not_assessed'`.
 
 ## Inputs
 
@@ -26,31 +29,77 @@ retrieval_mode=c.backend, **common).run(state['directions'])`.
 | provider / models | `NOVELTY_PROVIDER`, `NOVELTY_MODEL`, `NOVELTY_REVIEW_MODEL` fallbacks. |
 | `recovery`, `signature_recovery` | Prior results for resumption (used by `research/recover.py`). |
 
-Signature contract (`novelty/schemas.py`):
-
-| Model | Contract |
-|---|---|
-| `Facet` (`:11`) | `text`; `basis` `source_fact|candidate_proposal|unknown`; `proposal_paths` (JSON pointers into the proposal; required for `candidate_proposal`); `evidence_ids`; `source_spans` (page quotes; required for `source_fact`). |
-| `TargetSignature` (`:32`) | `target_id`, `level` `direction|hypothesis`; facets `problem`, `intervention`, `expected_effect` (≥1 each), `decision_signal`, `mechanism`, `regime`, `comparison`; `queries` (1–20). |
-| `SignatureResponse` (`:49`) | `signature: SignatureDraft` xor `abstention_reason`. |
-| `RankingResponse` (`:79`) | `papers: RankedMatch[]` (`paper_id`, `why_relevant`). |
-
 Prompt versions (`novelty/prompts.py`): `SIGNATURE_VERSION =
 'novelty_signature_v4_direct_page_provenance'`, plus `REVIEW_VERSION`, `RANK_VERSION`.
 
 ## Logic
 
-Per direction, concurrently (`process`, `pipeline.py:384`):
+### Why a signature, and why it splits fact from proposal
 
-1. `_context` (`:211`): reload the direction's papers and context pages, verify `paper_artifact_hashes` and the opportunity evidence, and build the payload `{candidate, opportunity, paper_artifacts, pages, max_queries}` with `page_id = '<paper>#p<N>'`.
-2. **Signature** (`_signature`, `:261`): task `create_signature` with `prompts.SIGNATURE` → `SignatureResponse`; one format repair (`repair_signature`); `normalize_proposal_paths` then `validate_signature` (`:113`): one target per direction + hypothesis, unique queries ≤ `max_queries`, pointers resolve, quotes present on the cited pages and covering every cited paper. Then up to two review rounds: task `review_signature` with `prompts.REVIEW` → `CorrectnessResponse`; `pass` → accept; `revise` → `revise_signature` once; `abstain` or second non-pass → `signature_review_unresolved`. Each round is kept as a `SignatureReview`.
-3. **Search** per target (`_search`, `:318`): `retriever.retrieve(QueryPlan(queries), record_k, paper_k=candidate_k)`; load every returned artifact (unloadable → `unavailable_papers`); task `rerank` with `prompts.RANK` → `RankingResponse`, which must return exactly `min(rerank_k, loaded)` unique loaded ids. Status `complete` (all loaded), `partial` (some unavailable) or `failed` (exception, with `diagnostic`).
-4. Any failure before a signature is accepted yields a `CandidateSearch` with `signature=None` and a `diagnostic`; no searches run for that direction.
+Searching the index with the direction's title would find papers about the
+same *topic*, which is not the question. The question is whether a prior
+paper already *does what the candidate proposes*. To ask that precisely the
+stage decomposes each target into facets — the problem, the intervention,
+the expected effect, the decision signal, the mechanism, the regime, the
+comparison — and labels every facet with its **basis**:
 
-Shared call plumbing (`_call`, `:165`): JSON body with `task`; input budget
-check; `TruncatedOutputError` if the provider reports truncation (not
-repaired); `drop_null_extras` (`:34`) removes unknown keys whose value is
-`null` and records the normalisation; review tasks use the review model.
+- `source_fact`: this comes from the source papers (and the facet must quote
+  the page it comes from);
+- `candidate_proposal`: this is the candidate's own idea (and the facet must
+  point, by JSON pointer, at where in the proposal it is stated).
+
+The split is what makes the later comparison meaningful. A prior paper that
+matches only the `source_fact` facets is background the candidate already
+cites; one that matches the `candidate_proposal` facets is a genuine overlap.
+Each signature also carries the search queries that should find such papers.
+(`Facet`, `TargetSignature`, `novelty/schemas.py:11-42`.)
+
+### Step 1 — rebuild the context
+
+The direction's source papers and context pages are reloaded and their
+hashes checked against the direction; the payload is the proposal, the
+opportunity, the paper artifacts and the page texts. (`_context`, `pipeline.py:211`.)
+
+### Step 2 — write and review the signature
+
+The model is asked for one signature per target (the direction and every
+hypothesis), with the basis labelling above and up to `max_queries` queries
+each. The code validates it: every target covered exactly once, pointers
+resolve into the proposal, every `source_fact` quote is literally present on
+a supplied page and the quoted pages cover every paper cited, queries unique.
+Then an independent review call — with the review model — checks the
+signature for correctness against the same pages: is a facet labelled
+`source_fact` really stated by the source, or is it the candidate's inference
+dressed as a fact? `pass` accepts; `revise` gives one revision and one more
+review; a second non-pass or an `abstain` withholds the whole direction from
+search. A direction with no accepted signature gets no shortlist at all — it
+is better to say "not searched" than to search for the wrong thing.
+(`_signature`, `pipeline.py:261`; `validate_signature`, `:113`; prompts
+`SIGNATURE`, `REVIEW`.)
+
+### Step 3 — search and rerank per target
+
+For each target the signature's queries are run through the same retriever
+as stage 2 but asking for many more papers (`candidate_k` = 100) — recall
+matters more than precision here. Every returned paper's artifact is loaded;
+papers whose `paper.json` is unavailable are listed as such and cannot be
+ranked. The model then reads the signature and the loaded papers' cards and
+returns the `rerank_k` (20) most likely to overlap, each with a sentence on
+why. The code requires exactly that many unique, loadable ids — a rerank that
+drops or invents a paper is invalid. The target's status is `complete` if
+everything loaded, `partial` if some artifacts were unavailable, `failed` on
+any exception. (`_search`, `pipeline.py:318`; prompt `RANK`; schema `RankingResponse`.)
+
+### Call plumbing shared with later novelty stages
+
+Every model call goes through `_call`: the request is a JSON body with a
+`task` name; the input is checked against the token budget before sending; a
+response the provider reports as *truncated* raises `TruncatedOutputError`
+and is **not** resent unchanged (resending the same oversize input just
+truncates again); unknown keys whose value is `null` are stripped and
+recorded, because the provider's JSON-schema mode is advisory and models
+occasionally emit optional keys as `null`. (`_call`, `pipeline.py:165`;
+`drop_null_extras`, `:34`.)
 
 ## Outputs
 
@@ -77,13 +126,12 @@ during recovery).
 
 ## What later stages rely on
 
-- `comparison` groups `ranked` papers across targets into one shortlist per direction and audits each (target, paper) pair; `paper_artifact_hashes` must agree across targets.
-- The signature's facets and `proposal_paths` define the "proposal requirements" the evidence audit checks against.
-- A `failed` target (e.g. `dir-001-h02` in the October replay) leaves that hypothesis with no shortlist, so its coverage stays below threshold in `assessment`.
+- `comparison` merges the `ranked` lists of all targets of a direction into one shortlist and audits every (target, paper) pair; the signature's facets become the "proposal requirements" the evidence audit checks a paper against.
+- A `failed` target has no shortlist, so in `assessment` its coverage is below threshold and the hypothesis cannot be approved (this is what happened to `dir-001-h02` in the October replay).
 
 ## Implementation vs design
 
 §10 signature is implemented with a stricter provenance rule than designed
 (every source-fact facet must quote a supplied page). §11 uses the same
-retriever as stage 2 with LLM reranking; there is no separate embedding
+retriever as stage 2 with model reranking; there is no separate embedding
 index for novelty.

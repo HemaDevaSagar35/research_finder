@@ -4,20 +4,21 @@ Design reference: architecture §12 Candidate-vs-Prior-Work Comparison. Implemen
 
 ## Aim
 
-For every shortlisted (target, prior paper) pair, decide how the prior paper
-relates to the candidate using the paper's own pages: first extract and audit
-the evidence claims, then compare, then have an independent reviewer check
-the comparison. The stage publishes pairwise overlap relationships; it does
-not decide literature-wide novelty (`literature_novelty='not_assessed'`).
+For every shortlisted prior paper, read it and decide how it relates to each
+target: does it already do what the hypothesis proposes, overlap partly,
+supply only components, or barely touch it? The stage insists on doing this
+from the paper's own pages, in two separable steps — first establish *what
+the paper says* as a set of audited claims, then *interpret* those claims
+against the candidate — so that an interpretation can never rest on a claim
+the paper does not make. Its output is pairwise relationships; the overall
+novelty judgment is left to `assessment`.
 
 ## Inputs
 
 Entry point: `NoveltyComparator(store, chat=None, *, review_chat, provider, model, review_model, settings).run(generation, search, *, paper_ids=None, recovery=None) -> NoveltyComparisonResult`
 — constructor `novelty/comparison.py:57`, `run` at `:210`. Pipeline:
 `NoveltyComparator(self.store, settings=c.comparison, **common).run(state['directions'], state['novelty_search'])`
-(`research/pipeline.py:178`). Internally the comparator wraps a
-`NoveltySearcher` for its `_call` plumbing inside `AliasedCalls`
-(`novelty/comparison_aliases.py`).
+(`research/pipeline.py:178`).
 
 | Input | Contract |
 |---|---|
@@ -26,17 +27,6 @@ Entry point: `NoveltyComparator(store, chat=None, *, review_chat, provider, mode
 | `recovery` | Prior `NoveltyComparisonResult` to reuse completed papers and saved evidence audits. |
 | `settings: Settings` (`comparison.py:26`) | `concurrency` 100; `max_calls` None; `max_input_tokens` / `max_output_tokens` (`NOVELTY_MAX_*`, 500 000). |
 
-Core contracts (`novelty/comparison_schemas.py`, `novelty/comparison_records.py`):
-
-| Model | Contract |
-|---|---|
-| `Passage` (`comparison_schemas.py:14`) | `passage_id = '<paper>#p<N>:<12 hex>'` (hash of page sha, offsets and text), `page_id`, `page_sha256`, `start`, `end`, `text`. Immutable quote unit for all citations. |
-| `EvidenceResponse` (`comparison_records.py:80`) | `record` (claims per target with `passage_ids`, coverage per target, relationships) xor `abstention_reason`; `revision_notes`. |
-| `EvidenceReport` (`:115`) | Auditor output: `claim_checks` (`supported|unsupported|missing_citation|...` per claim), `coverage_checks`, `summary`. |
-| `EvidenceReview` (`:127`) | One audit cycle: `version` 0–7, `trigger` `initial|evidence_repair|comparison_reopen`, `record`, `report` xor `error`, `format_repairs`, `model`. |
-| `ComparisonResponse` / `ComparisonReport` | COMPARE draft (per-target pairs with relationship, finding, cited claims) and its REVIEW report. |
-| `PaperComparison` (`:189`) | Per paper: `targets`, `passages`, `evidence_reviews`, `reviews`, published `comparison`, `status`, `diagnostic`. Validators enforce that the published comparison equals the projection of the last passing review. |
-
 Prompt versions (`novelty/comparison_prompts.py`): `VERSION =
 'novelty_comparison_v7_targeted_repair'`, `REVIEW_VERSION =
 'novelty_comparison_review_v7_addressed'`, `EVIDENCE_VERSION =
@@ -44,22 +34,103 @@ Prompt versions (`novelty/comparison_prompts.py`): `VERSION =
 
 ## Logic
 
-Per direction (`process`, `comparison.py:245`): group ranked papers by
-target, build the shortlist, re-run `_context` and `validate_signature`; if
-that fails every paper is `failed`. Otherwise, per paper concurrently
-(`one`, `:281` → `_paper`, `:159`):
+### The unit of evidence: passages
 
-1. Load the paper and its pages (`page_numbers`, `:33`) and cut them into `Passage`s. Payload: targets, `proposal_requirements` (from the signature), candidate passages, prior passages (aliased to `src0, src1, ...` on the wire by `AliasedCalls`; ids restored on return), table references, missing pages.
-2. Recovery: `reusable_evidence(old, passages)` (`:142`) reuses the last saved audit when the passages are identical and its eligible targets include something still unresolved; if the saved paper's targets differ from the new grouping, the paper is compared afresh.
-3. **Evidence** (`EvidenceBuilder.initial`, `novelty/comparison_workflow.py:296`): `generate` (task `extract_comparison_evidence`, prompt `EXTRACT` → `EvidenceResponse`, 1 repair) → `audit` (task `review_comparison_evidence`, prompt `EVIDENCE_REVIEW` → `EvidenceReport`) → `repair_remaining` (up to 3 `evidence_repair` cycles via `patch`, task `patch_comparison_evidence`, stopping when a repair repeats a fingerprint).
-4. **Eligibility** (`eligible`, `workflow.py:100`): a target is eligible when its claims are `supported`, have no `scope_citation_gaps` (`workflow.py:70`: an auditor scope check cites passages not attached to the claim **and** either the check is `missing_citation`, the claim is not `supported`, or the check cites none of the claim's own passages), coverage is adequate, and relationship references point at supported claims. `corroborating_citations` (`:89`) reports extra citations on supported claims without blocking. No eligible target → the paper is `unresolved`.
-5. **Compare** (`_reviewed`, `comparison.py:64`, ≤2 rounds): task `compare_prior_work` with `COMPARE` → `ComparisonResponse` (or `patch_comparison` with `PATCH_INTERPRETATION` when revising sparsely); 1 format repair; `assemble` + `bind_relationships` (`workflow.py:109-135`) bind `hypothesis_tested` and claim ids from code, not from the model; an `evidence_requests` list reopens the evidence once.
-6. **Review**: task `review_comparison` with `REVIEW` → `ComparisonReport`; `validate_report`. `pass` → `project(draft, accepted_targets(...))` becomes the published `comparison`; `revise` → reopen evidence (claim issues) or patch interpretation, one more round; `abstain` / second failure → keep accepted pairs only.
-7. Status: `complete` (all requested targets accepted), `partial` (some), `unresolved` (reviews ran, nothing publishable), `failed` (load/context failure or exception with empty history), `skipped` (out of `paper_ids` scope with no saved result). Accepted pairs are never overwritten by a later regression.
+Each prior paper's pages are cut into **passages**, and a passage id encodes
+the page, the exact character span and a hash of the text
+(`41d503b70097#p8:3f9a2c1b7e4d`). Every claim in this stage cites passage
+ids, never free text, so a citation can always be re-opened to the exact
+words it rests on, and a changed page invalidates it automatically. On the
+wire the ids are replaced by short aliases (`src0`, `src1`, ...) — models
+copy 12-hex hashes unreliably — and restored on the way back. (`Passage`,
+`novelty/comparison_schemas.py:14`; `AliasedCalls`, `novelty/comparison_aliases.py`.)
 
-Truncated model output raises `TruncatedOutputError` and is not resent with
-the same input; the paper ends `unresolved`/`failed` with a
-`truncated_output: ...` diagnostic.
+### Per direction: shortlist and sanity check
+
+The ranked papers of all the direction's targets are merged into one
+shortlist, so a paper that surfaced for `h01` and `h03` is read once and
+compared against both. The direction's context is rebuilt and its signature
+re-validated; if that fails, every paper in the shortlist is marked `failed`
+— the comparison cannot be trusted if the thing being compared has drifted.
+(`process`, `comparison.py:245`.)
+
+### Per paper, phase 1 — establish what the paper says
+
+1. **Extract.** The model reads the paper's passages and, for each target,
+   writes *claims*: short factual statements about what the paper does,
+   studies or reports, each citing the passages that state it; a *coverage*
+   judgment of whether the passages shown are enough to characterise the
+   paper for that target; and a provisional *relationship* per target. It
+   is also handed the signature's `proposal_requirements` so it knows which
+   aspects of the paper matter. (`EvidenceBuilder.generate`,
+   `novelty/comparison_workflow.py:202`; prompt `EXTRACT`.)
+2. **Audit.** A second model, with only the passages and the claims, checks
+   each claim: `supported` by its citations, `unsupported`, or
+   `missing_citation` (true but the citing passage is elsewhere). It also
+   checks whether the per-target coverage is adequate. (`EvidenceBuilder.audit`,
+   `:251`; prompt `EVIDENCE_REVIEW`; schema `EvidenceReport`.)
+3. **Repair what the audit flagged.** Claims the auditor rejected go back to
+   the extractor with the auditor's notes, up to three times. Each cycle is
+   recorded as an `EvidenceReview` so the full history is visible. The loop
+   stops early if a repair reproduces a previous attempt — a sign the model
+   is going in circles. (`repair_remaining`, `:277`; `patch`, `:223`.)
+
+### The eligibility gate
+
+Before any interpretation happens, the code decides which targets have
+*usable* evidence: a target is eligible when its claims are `supported`,
+its coverage is `adequate`, and its provisional relationship refers only to
+supported claims. One subtlety carries a history. The auditor sometimes
+cites an extra passage that is not attached to the claim. If the auditor
+says the claim is `missing_citation`, or the claim is not supported, or the
+auditor cited *none* of the claim's own passages, that extra citation is a
+real gap and blocks eligibility. But if a supported claim's supported check
+merely cites its own passages *plus* a corroborating one, that is extra
+support, not a defect — treating it as a defect used to send the same record
+back for re-audit three times, each audit naming new passages, and never
+converging (`docs/implementation_status.md`, 2026-10-11). If no target is
+eligible the paper ends `unresolved`. (`eligible`, `workflow.py:100`;
+`scope_citation_gaps`, `:70`; `corroborating_citations`, `:89`.)
+
+### Per paper, phase 2 — interpret and review
+
+4. **Compare.** The model now sees the *audited* claims (not the raw pages)
+   and the candidate, and for each eligible target states the relationship —
+   e.g. direct empirical study of the same question, partial overlap,
+   components only, adjacent — the finding, and which claims the judgment
+   rests on. It may ask for specific additional evidence
+   (`evidence_requests`), which reopens phase 1 once. The code binds the
+   relationship to the claims and the hypothesis it tests itself, so a
+   comparison cannot quietly cite a claim that was not supported.
+   (`_reviewed`, `comparison.py:64`; prompt `COMPARE`; `assemble`,
+   `bind_relationships`, `workflow.py:109-135`.)
+5. **Review.** An independent reviewer gets the claims, the passages and the
+   comparison, and asks: does the relationship follow from these claims, is
+   anything overstated, is a claim being used for more than it says? `pass`
+   publishes; `revise` either reopens the evidence (if the problem is a
+   claim) or asks for an interpretation patch (if the problem is the
+   reading), for one more round; `abstain` or a second failure publishes
+   only the pairs the reviewer did accept. (prompt `REVIEW`; schema
+   `ComparisonReport`; `accepted_targets`, `project`, `workflow.py:136-158`.)
+
+### Status and what it means
+
+`complete` — every requested target has an accepted pair. `partial` — some
+do. `unresolved` — the paper was read and audited but nothing was
+publishable. `failed` — the paper could not be loaded or compared at all.
+`skipped` — outside a recovery scope with no saved result. Accepted pairs
+are never overwritten by a later worse attempt, and a truncated model
+response (`truncated_output: ...`) is recorded as the diagnostic rather than
+retried with the same oversize input. (`_paper`, `comparison.py:159`;
+`one`, `:281`.)
+
+### Recovery
+
+When replaying from a saved run, a paper whose passages are unchanged reuses
+its last saved evidence audit and starts at the eligibility gate — the
+expensive extract/audit phase is not repeated. A paper whose target set has
+grown (a retrieval that failed before now succeeded) is compared afresh.
+(`reusable_evidence`, `comparison.py:142`.)
 
 ## Outputs
 
@@ -72,19 +143,23 @@ the same input; the paper ends `unresolved`/`failed` with a
 | `calls`, `usage`, `run` | Budget snapshot; usage incl. `truncated` count; prompt versions, settings, `selected_papers`, `scope`, `repair_policy`, `recovery_parent_sha256`. |
 | `literature_novelty='not_assessed'` | |
 
+`PaperComparison` (`:189`): `paper_id`, `targets`, `passages`,
+`evidence_reviews: EvidenceReview[]` (the full phase-1 history),
+`reviews: ComparisonReview[]` (phase 2), `comparison` (the published,
+projected result), `status`, `diagnostic`. Validators enforce that the
+published comparison equals the projection of the last passing review.
+
 Persisted as `out/comparison.json` (or `comparison_recovery_N.json` under recovery).
 
 ## What later stages rely on
 
-- `assessment` counts a (target, paper) pair as `reviewed` only when the paper has an accepted pair for that target and its relationship is not `insufficient_evidence`; everything else is `withheld`/`skipped`/`failed` and lowers coverage.
-- Accepted claims and their `passage_ids` are the only evidence the assessor and critic may cite; passage text is carried forward verbatim.
+- `assessment` counts a (target, paper) pair as *reviewed* only when there is an accepted pair for that target whose relationship is not `insufficient_evidence`; everything else lowers that target's coverage.
+- The accepted claims and their passages are the only evidence the assessor and critic may cite; the text travels forward verbatim.
 - `research/recover.py --direction/--paper` narrows `paper_ids`; saved results outside the scope are preserved.
 
 ## Implementation vs design
 
 §12 describes a single compare step. The implementation splits it into
 extract → audit → repair → compare → review, with code-owned binding of
-hypothesis/claim ids, so that a model may not cite evidence that the auditor
-did not support. The October 2026 fix narrowed `scope_citation_gaps` so that
-corroborating citations on supported claims no longer block eligibility
-(`docs/implementation_status.md`, 2026-10-11).
+hypothesis/claim ids, so that a model may not cite evidence the auditor did
+not support.

@@ -4,9 +4,13 @@ Design reference: `research_path_generator_architecture_refined.md` §2.1 Query 
 
 ## Aim
 
-Expand the user's topic into a small set of complementary literature-search
-queries. The stage produces search strings only; the original query is always
-kept first. No ranking, retrieval or judgment happens here.
+A single user query rarely covers a research area: the same idea is described
+with different vocabulary in different sub-communities, and a literal search
+for the user's phrasing would miss half of the relevant papers. This stage
+asks a model to write a handful of complementary search queries that approach
+the topic from different angles, so that the retrieval stage sees the area
+rather than one phrasing of it. The stage deliberately does nothing else: no
+retrieval, no filtering, no judgment about the topic.
 
 ## Inputs
 
@@ -26,14 +30,33 @@ Env read (via `llm_client/client.py`): `<P>_API_KEY`, `<P>_BASE_URL`,
 
 ## Logic
 
-1. Validate arguments; `ValueError` on empty query, bad `max_queries`, or both `client` and `provider` (`query_planner.py:73`).
-2. One structured call: system prompt `SYSTEM_PROMPT` (`query_planner.py:27`), user content `{"query", "max_queries"}` as JSON, response schema `QueryPlan` via `AsyncLLMClient.structured` (`llm_client/client.py:383`). No repair call, no fallback plan (docstring `query_planner.py:62`).
-3. `_parse_plan` (`query_planner.py:39`): parse JSON into `QueryPlan`; reject blank queries (`QueryPlanningError`); rebuild deterministically — original query first, then expansions deduplicated on whitespace-normalised casefold, truncated to `max_queries`.
-4. Close the owned client.
+**What the model is asked.** The system prompt tells the model it is a
+literature-search planner: given the topic and a budget, return a JSON list of
+search queries that are *complementary* — different vocabulary, adjacent
+sub-problems, the method names a practitioner would use — rather than
+paraphrases of the same sentence. The model returns a `QueryPlan` object and
+nothing else. (`SYSTEM_PROMPT`, `query_planner.py:27`; the call is
+`AsyncLLMClient.structured`, which sends the pydantic schema as the response
+format.)
 
-Failure mode: invalid JSON or an empty query → `QueryPlanningError`
-(subclass of `ValueError`), which fails the run. There is no retry beyond the
-SDK's transient retries.
+**Why the original query is kept first.** Expansions are a bet; the user's
+wording is the one query we know is on-topic. The code therefore does not
+trust the model to include it — it rebuilds the list itself with the original
+first, then appends the model's expansions. This guarantees that even a poor
+expansion set cannot make retrieval *worse* than a plain search.
+(`_parse_plan`, `query_planner.py:39`.)
+
+**Why duplicates are removed by the code, not the model.** Two queries that
+differ only in case or spacing would hit the index twice and double-count the
+same papers in the rank fusion of stage 2. The parser normalises whitespace
+and case and drops repeats, then cuts the list to `max_queries`.
+
+**Why there is no retry or fallback.** If the model returns invalid JSON or an
+empty query, the stage raises `QueryPlanningError` and the run fails. A silent
+fallback (for example, "just use the original query") would hide a broken
+provider configuration behind a run that looks normal but retrieves less; the
+authors chose to fail loudly instead. The only retries are the SDK's transient
+network retries.
 
 ## Outputs
 
@@ -47,7 +70,7 @@ Persisted as `out/plan.json` in the standard checkpoint wrapper.
 
 ## What later stages rely on
 
-- `retrieval` re-validates the list (1–20 unique, non-blank) in `MultiQueryRetriever.retrieve`.
+- `retrieval` re-validates the list (1–20 unique, non-blank) and gives every query an equal vote in rank fusion — so the *number* of expansions directly shapes which papers surface.
 - Nothing downstream reads the plan after retrieval; it is kept for provenance.
 
 ## Implementation vs design

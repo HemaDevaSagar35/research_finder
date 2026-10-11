@@ -4,12 +4,15 @@ Design reference: architecture §7 Future Direction Generator and §8 Candidate 
 
 ## Aim
 
-Turn each accepted opportunity into one research direction with testable
-hypotheses and linked experiments, grounded only in the opportunity's
-evidence and pages. Every draft gets an independent correctness review in a
-fresh context; a failing draft may be revised once and re-reviewed. Only
-passing drafts become directions. Scientific merit and literature novelty are
-explicitly not assessed here.
+An opportunity is a question; a direction is a plan to answer it. For each
+accepted opportunity the stage asks a model to write one research direction:
+the framing, a proposed mechanism, up to four hypotheses stated so they can
+be falsified, and up to four experiments that would test them — all grounded
+only in the evidence and pages the opportunity was accepted on. A second
+model then reviews the draft in a fresh context for *correctness* (does the
+text say what the evidence says? do the experiments actually test the
+hypotheses?), and the draft may be revised once. Whether the direction is
+scientifically valuable or novel is explicitly not judged here.
 
 ## Inputs
 
@@ -42,23 +45,88 @@ Prompt versions: `direction_v2_explicit_comparisons` (`generator.py:27`),
 
 ## Logic
 
-Per opportunity, concurrently (`process`, `generator.py:446`):
+Each opportunity is processed independently and concurrently; a failure in
+one never affects the others. (`process`, `generator.py:446`.)
 
-1. `_source_context` / `_payload` (`generator.py:169`): rebuild the opportunity's evidence and page inventory; reload papers and pages and compare hashes (`stale_evidence`, `missing_artifact`, `missing_pages`); `len(review_sources) > max_pages` → `page_budget`. The payload carries the full opportunity, the landscape, cross-paper statements (context only, not citable), paper cards, pages, `citable_evidence_ids`, `citable_page_ids`, and the caps.
-2. **Generate** (`_generate`, `:325`): task `generate_direction` with `SYSTEM` (`:28`) → `GenerationResponse` (`direction` xor `abstention_reason`); `repair_rounds` format repairs. `_validate_draft` (`:278`): caps, citations ⊆ citable sets, cited pages cover cited evidence papers, at least one supporting paper cited, hypothesis `evidence_ids` ⊆ opportunity evidence.
-3. `_assign_ids` (`:350`): `direction_id = f'dir-{index:03d}'` (index in the opportunities list), hypotheses `dir-NNN-hNN`, experiments `dir-NNN-eNN`, experiment `hypothesis_ids` remapped.
-4. **Correctness review** (`_review`, `:363`): messages from `directions/judge.py:62`, prompt `judge.SYSTEM` + `test_links.INSTRUCTION`, task `review_direction`, schema `LinkedCorrectnessResponse`, review model. `judge.validate_report` resolves every issue's JSON pointer into the draft and requires quoted grounding text to appear on supplied pages; `validate_links` requires exactly one check per link. Invalid review → `invalid_review` (no repair loop). Each attempt is appended as a `ReviewRecord` with id `dir-NNN-review-<round>`.
-5. `_complete` (`:387`): pass → done; abstain → `review_abstained`; revise in round 0 → one `revise_direction` generation with the issues, then round 1 review; revise in round 1 → `correctness_unresolved`.
-6. Build `Direction` (`:435`): `direction_id`, `opportunity_id`, `proposal` (the passing `DirectionDraft`), embedded `opportunity` snapshot, `paper_artifact_hashes`, `correctness_review_id`, `context_pages = opportunity.review_sources`, `recommended_next_experiment_id = experiments[0]`, plus fixed flags `correctness_review='passed'`, `hypothesis_status='proposed_untested'`, `scientific_review='not_assessed'`, `literature_novelty='not_assessed'`.
+### Step 1 — rebuild and re-verify what the direction may stand on
 
-Failures are per-opportunity `Diagnostic`s (reasons in `schemas.py:157`:
-`no_opportunities`, `invalid_source`, `missing_artifact`, `stale_evidence`,
-`missing_pages`, `page_budget`, `input_budget`, `call_budget`,
-`invalid_generation`, `invalid_review`, `review_abstained`,
-`correctness_unresolved`, `abstained`, `provider_error`, `call_failed`).
+The code reconstructs the opportunity's evidence inventory (which papers,
+which evidence ids, which were `supporting` vs `context_only`) and reloads
+every paper and page the opportunity was reviewed on, comparing hashes
+against the stage-6 record. The payload sent to the model contains the
+opportunity itself, the landscape, the cross-paper statements (as context,
+marked *not citable*), the paper cards, the page texts, and two explicit
+lists: `citable_evidence_ids` and `citable_page_ids`. Everything the model
+is allowed to cite is enumerated up front; everything else is background.
+If the pages exceed `max_pages` or any hash has drifted, the opportunity is
+withheld (`page_budget`, `stale_evidence`, ...) rather than developed on
+evidence that may no longer hold. (`_source_context`, `_payload`,
+`generator.py:169`.)
 
-`run_pipeline` stops after this stage if `directions` is empty: status
-`blocked` when diagnostics exist, else `empty` (`pipeline.py:291`).
+### Step 2 — generate the draft
+
+The system prompt asks for one direction that *attacks* the opportunity —
+not one that re-describes the gap. It must propose a mechanism, state each
+hypothesis as condition → intervention → expected effect with a
+falsification criterion, and design experiments with explicit comparisons
+and "which outcome would mean what". The model may abstain with a reason if
+the opportunity does not support a direction. (`_generate`, `generator.py:325`;
+prompt `SYSTEM`, `:28`; schema `GenerationResponse`.)
+
+The code then checks the draft before anyone reviews it: no more hypotheses
+or experiments than allowed; every rationale citation is in the citable
+lists; the cited pages cover every paper whose evidence is cited (you may not
+cite a paper's evidence without pointing to a page of it); at least one
+`supporting` paper is cited; each hypothesis's `evidence_ids` are opportunity
+evidence. A failure here is sent back to the model once as a format repair.
+(`_validate_draft`, `:278`.)
+
+### Step 3 — give everything a stable id
+
+Hypotheses and experiments are numbered as `dir-NNN-h01`, `dir-NNN-e01`
+(NNN = the opportunity's position in the mining result), and the experiments'
+`hypothesis_ids` are remapped to the global ids. From here on every later
+stage — novelty, critic, stage 16 — refers to a hypothesis by this id and to
+a field of the proposal by a JSON pointer into this draft (e.g.
+`/hypotheses/2/condition`). (`_assign_ids`, `:350`.)
+
+### Step 4 — independent correctness review
+
+A second model, in a fresh context with the same pages, is asked two things.
+First, *grounding*: for each factual statement, does the cited page actually
+say it? Issues must quote the page text they rely on, and the code verifies
+that each quote appears on a supplied page, so the reviewer cannot
+"correct" the draft with facts of its own. Second, *test links*: for every
+(hypothesis, experiment) pair, state the hypothesis's prediction, the
+experiment's informative outcomes, and whether they are consistent — the
+check that an experiment really tests the hypothesis it claims to, including
+the equality / null case. The review passes only if every link is
+`consistent` and there are no grounding issues. An invalid review (missing a
+link, unresolvable pointer) is a failure of the review, not of the draft, and
+is recorded as `invalid_review`. (`_review`, `generator.py:363`;
+`directions/judge.py`; `directions/test_links.py`.)
+
+### Step 5 — at most one revision
+
+`pass` → the draft becomes a direction. `revise` in the first round → the
+draft and the reviewer's issues go back to the generator once
+(`revise_direction`), and the revised draft is reviewed afresh. `revise`
+again, or `abstain` → the opportunity ends with a diagnostic
+(`correctness_unresolved`, `review_abstained`). Two rounds is the limit so
+that a draft cannot be nudged through review by repeated small edits.
+(`_complete`, `:387`.)
+
+### Step 6 — publish with explicit non-claims
+
+The resulting `Direction` carries the passing proposal, the opportunity
+snapshot, the artifact hashes it was built on, the id of the review that
+passed it, and fixed flags: `correctness_review='passed'`,
+`hypothesis_status='proposed_untested'`, `scientific_review='not_assessed'`,
+`literature_novelty='not_assessed'`. Those flags are how the output states
+what has and has not been checked at this point.
+
+If no opportunity yields a direction, `run_pipeline` stops here with status
+`blocked` (diagnostics exist) or `empty` (`pipeline.py:291`).
 
 ## Outputs
 
@@ -69,7 +137,7 @@ Failures are per-opportunity `Diagnostic`s (reasons in `schemas.py:157`:
 | `landscape_ref`, `reasoning_ref`, `opportunities_ref` | Input digests. |
 | `directions: list[Direction]` | Only proposals whose cited review passed; enforced by `only_reviewed_proposals_advance` (`schemas.py:181`), which also re-validates the saved test-link audit. |
 | `reviews: list[ReviewRecord]` | Every review attempt (`review_id`, `round`, `proposal`, `report` xor `error`). |
-| `diagnostics: list[Diagnostic]` | Per-opportunity failures. |
+| `diagnostics: list[Diagnostic]` | Per-opportunity failures (`schemas.py:157`). |
 | `coverage` | `accepted_opportunities`, `generated_directions`, `opportunities_without_direction`. |
 | `calls`, `usage`, `run` | Budget, usage, prompt/model metadata, `correctness_contract='test_links_v1'`, `test_link_reviews`. |
 
@@ -77,15 +145,13 @@ Persisted as `out/directions.json`.
 
 ## What later stages rely on
 
-- `direction.proposal.model_dump()` is the `candidate` document for novelty signatures, comparison, assessment and critic; `proposal_paths` / `field_path` values everywhere downstream are JSON pointers into it (e.g. `/hypotheses/2/condition`).
-- Novelty targets are `direction_id` plus every `hypothesis_id`.
+- `direction.proposal.model_dump()` is the `candidate` document for every later stage; `proposal_paths` / `field_path` values are JSON pointers into it.
+- Novelty targets are `direction_id` plus every `hypothesis_id` — the direction as a whole and each hypothesis are assessed separately.
 - `paper_artifact_hashes` and `context_pages` are re-verified by `novelty_search` and `comparison`.
-- `recommended_next_experiment_id` and hypothesis↔experiment links are carried into stage 16 as `linked_experiments`.
+- The hypothesis↔experiment links and `recommended_next_experiment_id` are carried into stage 16 as `linked_experiments`.
 
 ## Implementation vs design
 
 §7 is implemented; §8 (candidate × hypothesis interpretation) is realised as
 the per-hypothesis targets created here and consumed by `novelty_search`.
-The test-link audit (`test_links_v1`) is an implementation addition: the
-reviewer must state, per hypothesis/experiment pair, whether the experiment's
-informative outcomes are consistent with the hypothesis prediction.
+The test-link audit (`test_links_v1`) is an implementation addition.

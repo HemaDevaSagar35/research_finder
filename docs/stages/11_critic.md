@@ -4,12 +4,18 @@ Design reference: architecture §15 Research Critic. Implementation notes: `docs
 
 ## Aim
 
-Judge the scientific quality of each direction and of each evidence-ready
-hypothesis against eight fixed criteria, grounded in the accepted novelty
-evidence and the source pages. Each critique is audited by an independent
-review call. The direction critic also proposes cross-direction merges for the
-portfolio. Hypotheses are reviewed individually so that one can be approved
-without approving its whole direction.
+Novelty asks "has this been done?"; the critic asks "is this good science?"
+For each direction, and separately for each hypothesis whose novelty
+evidence is complete, a model reviews the proposal against eight fixed
+criteria — is the gap real, is the distinction from prior work meaningful,
+is the mechanism plausible, is it testable, is it falsifiable, would a
+negative result teach something, and so on — and returns one of four
+actions: `KEEP`, `DOWNRANK`, `REFINE` (with the exact changes required) or
+`DISCARD`. A second, independent model audits the critique itself: is the
+praise earned, is the criticism grounded, did the critic miss a defect in
+the proposal or in the upstream evidence? Hypotheses are reviewed on their
+own so that a sound hypothesis can be approved even when its direction as a
+whole is not.
 
 ## Inputs
 
@@ -32,7 +38,7 @@ Contracts (`critic/schemas.py`):
 | Model | Contract |
 |---|---|
 | `Action` (`:16`) | `KEEP` (pursue unchanged), `REFINE` (needs listed revisions), `DOWNRANK` (sound, lower value), `DISCARD` (substantive defect). |
-| `Finding` (`:19`) | One of 8 `CRITERIA`; `assessment` `adequate|concern|uncertain|not_applicable`; `basis` `source_fact|scientific_inference|proposal_analysis`; `reasoning`; `passage_ids`; `proposal_paths`. |
+| `Finding` (`:19`) | One of 8 `CRITERIA` (`gap_support`, `meaningful_distinction`, `combination_justification`, `mechanism_plausibility`, `testability`, `falsifiability`, `negative_result_value`, `research_contribution`); `assessment` `adequate|concern|uncertain|not_applicable`; `basis` `source_fact|scientific_inference|proposal_analysis`; `reasoning`; `passage_ids`; `proposal_paths`. |
 | `TargetCritique` (`:28`) | `target_id`, `action`, `rationale`, `findings` (exactly 8), `learning_if_negative`, `recommended_next_step`. |
 | `RevisionRequest` (`:37`) | `target_id`, `field_path` (pointer into the proposal), `required_change`, `reason`. Required iff action is `REFINE`. |
 | `UpstreamRequest` (`:44`) | `stage` `direction_correctness|novelty_comparison|novelty_assessment`, `target_id`, `reason`, `basis` `source_grounding|proposal_consistency`, `passage_ids` / `field_paths`. |
@@ -46,24 +52,114 @@ Prompts (`critic/prompts.py`): `CRITIQUE`, `REVIEW`, `PORTFOLIO`,
 
 ## Logic
 
-### Direction critic (`ResearchCritic._run`, `critic/pipeline.py:170`)
+### What the critic is given, and what it is not allowed to do
 
-1. `upstream_route(novelty, direction)` (`critic/evidence.py:11`): read `refinement_handoff`; unless `next_stage == 'research_critic'` with no unresolved / recheck targets → `blocked_at='upstream'`, no call.
-2. `packet_for(novelty, direction, support)` (`evidence.py:21`): candidate, novelty assessment and outcomes, opportunity, support pages as passages, optional `selection_scope`. Loading failure → `blocked_at='source_loading'`.
-3. `_reviewed(packet)` (`pipeline.py:99`), ≤2 rounds:
-   - Draft: task `research_critique` (or `revise_research_critique`) with `CRITIQUE` → `CritiqueDraft`; `validate_draft` (`evidence.py:112`): passage/pointer references resolve, `REFINE` ↔ revisions bijective, `DISCARD` needs a `concern`; revisions must not touch targets the reviewer did not flag (`preserve_unaffected`, `pipeline.py:46`).
-   - Review: task `review_research_critique` with `REVIEW` → `ReviewReport`; `validate_review` (`evidence.py:182`).
-   - Exit rule (`pipeline.py:130`): if the draft **or** the report carries `upstream_requests` → `diagnostic='Source defect requires upstream reassessment.'`, critique withheld; `pass` → accept; `revise` → one more round; `abstain` → stop.
-   - `_call` (`pipeline.py:75`): one format repair (`repair_<task>` with `invalid_output` + `validation_errors`); each recorded as `FormatRepair`.
-4. Portfolio: `portfolio_packet` (`evidence.py:202`) over candidates whose `handoff()['next_stage']=='ranking'`; <2 eligible → trivial `PortfolioDraft`, else `_reviewed(packet, portfolio=True)` with `PORTFOLIO` / `PORTFOLIO_REVIEW`.
-5. `CandidateCritique.handoff()` (`schemas.py:143`) routes by consequence, not by label: direction action `DISCARD` → `stop`; any `revisions` (on the direction or any hypothesis; an `/experiments/N/...` revision counts for every linked hypothesis) → `direction_revision_then_correctness_and_novelty`; hypothesis `DISCARD`s without revisions → `narrow_direction_and_recheck_scope`; otherwise → `ranking`. So a direction `KEEP` with a single hypothesis `REFINE` is not rankable. Withheld critiques → `resolve_upstream` (blocked upstream or any upstream request in history) or `retry_critic`.
+The critique packet contains the proposal, the opportunity it came from, the
+novelty assessment (findings and the "meaningful difference" for each
+target), the audited claims and passages from stage 9, and the source pages
+of the direction's own papers. Every finding the critic writes must say what
+it rests on: a `source_fact` must cite passages, a `proposal_analysis` must
+point into the proposal by JSON pointer, and a `scientific_inference` is
+labelled as the critic's own reasoning. A `REFINE` must be accompanied by
+concrete `RevisionRequest`s — field, required change, reason — and *only* a
+`REFINE` may carry them; a `DISCARD` must rest on at least one `concern`
+finding. The critic cannot approve novelty (that was stage 10) and cannot
+correct the evidence; if it believes the evidence or the proposal text is
+defective, it must file an `UpstreamRequest` naming the stage that owns the
+defect. (`packet_for`, `critic/evidence.py:21`; `validate_draft`, `:112`.)
 
-### Hypothesis reviews (`review_hypotheses`, `critic/hypotheses.py:26`)
+### Direction critic
 
-1. `eligibility(candidate, direction, hid)` (`:8`) returns a blocking diagnostic or `None`: no accepted assessment (direction-level or the hypothesis's own); coverage incomplete **or** the target's novelty status `unresolved` → `Incomplete novelty evidence: <blockers>` (the message names coverage even when the cause is an unresolved judgment); `hid ∈ requires_novelty_recheck_target_ids` → `Proposed scientific changes require a fresh novelty check.`; `hid ∈ removed_hypothesis_ids` → not eligible for independent approval.
-2. If the parent direction has a published critique, reuse its target action (no call).
-3. Else `packet_for(..., hypothesis_id=hid)` builds a hypothesis-scoped packet (`scope_sources` limits evidence and passages to that target; `review_target_ids=[hid]`) and `critic._reviewed(packet)` runs the same draft/review loop with a scope instruction appended.
-4. Status mapping: `KEEP`/`DOWNRANK` → `approved`; `DISCARD` → `discarded`; anything else (`REFINE`, upstream request, failed review) → `pending` with `diagnostic` (`Critic requests REFINE`, `Source defect requires upstream reassessment.`, or the error).
+**Gate.** A direction is critiqued only if stage 10 handed it over cleanly:
+`next_stage == 'research_critic'`, nothing unresolved, nothing awaiting a
+novelty recheck. Otherwise it is recorded as `blocked_at='upstream'` with the
+handoff's diagnostic and no model call is made — critiquing a direction whose
+novelty is still open would produce a verdict that has to be thrown away.
+(`upstream_route`, `evidence.py:11`.)
+
+**Draft.** The critic model produces a `TargetCritique` for the direction
+and for every hypothesis (eight findings each), plus revisions and upstream
+requests. (`_reviewed`, `critic/pipeline.py:99`; prompt `CRITIQUE`.)
+
+**Independent review.** A second model, with the same packet and the
+critique, is asked to audit the *critique*: unsupported praise (a finding
+marked `adequate` the evidence does not support), unsupported criticism,
+internal contradictions, and — importantly — defects in the proposal or
+upstream evidence that the critic should have caught. It returns `pass`,
+`revise` (with issues pointing into the critique by path) or `abstain`, and
+may file its own `upstream_requests`. (prompt `REVIEW`; `validate_review`,
+`evidence.py:182`.)
+
+**Exit rule.** This is the rule that decides most outcomes:
+
+- If the draft **or** the reviewer filed any `upstream_requests`, the
+  critique is withheld with `Source defect requires upstream reassessment.`
+  — regardless of the action. The logic is that a `KEEP` on a proposal with
+  a known inconsistency between a hypothesis and its experiment is not a
+  `KEEP` that should be published; the inconsistency has to be fixed first,
+  by the stage that owns the text. In the normal pipeline nothing fixes it,
+  so the hypothesis stays pending.
+- If the reviewer `pass`es, the draft is accepted.
+- If the reviewer says `revise`, the critic gets the issues and one more
+  round; the revised draft may change only the targets the reviewer flagged
+  (`preserve_unaffected`), so a reviewer's objection to one hypothesis cannot
+  be used as cover to rewrite the rest.
+- `abstain`, or a second non-pass, withholds the critique with the
+  reviewer's summary as the diagnostic.
+
+(`pipeline.py:130-139`; `preserve_unaffected`, `:46`.)
+
+**Format repairs.** Any model response that fails schema or reference
+validation is sent back once with the invalid output and the errors; a
+second failure fails that call. (`_call`, `pipeline.py:75`.)
+
+**Routing.** From an accepted critique the code derives the direction's next
+step, by *consequence* rather than label: direction `DISCARD` → `stop`; any
+revision anywhere (an experiment revision counts for every hypothesis linked
+to it) → `direction_revision_then_correctness_and_novelty`; hypothesis
+`DISCARD`s without revisions → `narrow_direction_and_recheck_scope`;
+otherwise → `ranking`. So a direction marked `KEEP` with one hypothesis
+marked `REFINE` is not yet rankable. Withheld critiques route to
+`resolve_upstream` or `retry_critic`. (`CandidateCritique.handoff`,
+`critic/schemas.py:143`.)
+
+**Portfolio pass.** Directions that reached `ranking` are shown together to
+the critic model, which may propose merges (two directions that are really
+one) with a rationale; a reviewer audits the proposal. Merges are proposals
+only; nothing is merged automatically. With fewer than two rankable
+directions the step is skipped. (`portfolio_packet`, `evidence.py:202`;
+prompts `PORTFOLIO`, `PORTFOLIO_REVIEW`.)
+
+### Hypothesis reviews
+
+**Why they exist.** Under the rules above a single weak hypothesis, or a
+single upstream request, blocks the direction's critique. The hypothesis
+reviews let each hypothesis be judged on its own evidence so one sound
+hypothesis can be published while its siblings are pending.
+
+**Eligibility.** A hypothesis is reviewed only if its novelty judgment is
+usable: there is an accepted assessment (its own or the direction's); its
+coverage is complete and its novelty status is not `unresolved` (otherwise
+`Incomplete novelty evidence: <blockers>` — the message names coverage even
+when the cause is an unresolved judgment); it is not awaiting a novelty
+recheck because an edit touched it (`Proposed scientific changes require a
+fresh novelty check.`); and the assessment did not ask for its removal.
+(`eligibility`, `critic/hypotheses.py:8`.)
+
+**Inherit or review.** If the direction's critique *was* published, the
+hypothesis simply inherits that critique's action for its target — there is
+no reason to ask again. Otherwise the hypothesis gets its own packet, scoped
+to its evidence and passages only (`scope_sources`), with
+`review_target_ids=[hid]` and an instruction that the rest of the direction
+is context: other hypotheses' unresolved status is not a veto, but a shared
+source defect or an experiment dependency still is. The same draft → review
+→ exit-rule loop runs on that packet. (`hypotheses.py:40-66`;
+`packet_for(..., hypothesis_id=)`, `evidence.py:21`.)
+
+**Status.** `KEEP` / `DOWNRANK` → `approved`; `DISCARD` → `discarded`;
+anything else → `pending`, with the diagnostic saying why: `Critic requests
+REFINE`, `Source defect requires upstream reassessment.`, or the error text
+of a failed call.
 
 ## Outputs
 
