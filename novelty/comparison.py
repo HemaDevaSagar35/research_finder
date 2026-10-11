@@ -282,9 +282,18 @@ class NoveltyComparator:
                     old_candidate = saved.get(candidate.direction_id)
                     old = next((p for p in old_candidate.papers if p.paper_id == pid), None) if old_candidate else None
                     if old is not None:
-                        if old_candidate.signature != signature or old.targets != grouped[pid] or old.expected_artifact_sha256 != hashes[pid]:
+                        if old_candidate.signature != signature or old.expected_artifact_sha256 != hashes[pid]:
                             raise ValueError('comparison recovery inputs changed')
-                        if old.status == 'complete':
+                        if old.targets != grouped[pid]:
+                            # A previously failed retrieval that now succeeds adds targets to a paper
+                            # already compared for its siblings. The saved record covers only the old
+                            # targets, so this paper is compared afresh across all of them; the saved
+                            # result is superseded, not silently reused. Any other difference is a
+                            # changed input and still fails.
+                            if any(t not in grouped[pid] for t in old.targets):
+                                raise ValueError('comparison recovery inputs changed')
+                            old = None
+                        elif old.status == 'complete':
                             return old
                     if paper_ids is not None and pid not in paper_ids:
                         # Saved work outside an explicit scope is preserved, never downgraded to skipped.
