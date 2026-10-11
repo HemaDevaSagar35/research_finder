@@ -1,0 +1,2460 @@
+{
+  "provenance": {
+    "run": "cost_aware_agent_rl_20261011T034213Z",
+    "checkpoint": "comparison.json",
+    "checkpoint_sha256": "9fb5f6b9ffc43d14a7e1b606e9a5cb29e6f3f237a2ef2285c56b1338bea35c67",
+    "direction_id": "dir-001",
+    "paper_id": "0af0dd706055",
+    "authenticity": "actual saved failed review response; may be an intermediate attempt",
+    "source_pointer": "/result/candidates/0/papers/3/evidence_reviews/1/format_repairs/0"
+  },
+  "invalid_output": {
+    "claim_checks": [
+      {
+        "claim_id": "c1",
+        "decision": "supported",
+        "explanation": "Both cited passages state the claim: PbCRL performs policy optimization with the Lagrange multiplier method on the learned constraint, transforming the safe RL problem (Eq. 2) into a Lagrangian loss with cost-model parameter \u03c8, policy parameter \u03b8 and multiplier \u03bb (p5:89d2bc6f31b6), and Eq. 12 gives L(\u03c8, \u03b8, \u03bb) = \u2212[J_R(\u03c0_\u03b8) \u2212 \u03bb J_{C_\u03c8}(\u03c0_\u03b8)] (p5:fdbc91ed39f0). No clause of the claim is added or dropped.",
+        "scope_checks": [],
+        "scope_summary": "Algorithm/method description with no numerical result, bound or experimental condition of its own; no scoped assertion requires a separate check.",
+        "passage_ids": [
+          "0af0dd706055#p5:89d2bc6f31b6",
+          "0af0dd706055#p5:fdbc91ed39f0"
+        ]
+      },
+      {
+        "claim_id": "c2",
+        "decision": "supported",
+        "explanation": "Eq. 9 as cited defines L_SNR = \u2212\u03b6 Var(\u0108(\u03c4))/H(p(\u03bc)) (p4:8acc497176a2), and the following passage defines \u03b6 as a weighting coefficient, Var(\u0108(\u03c4)) as the variance of the batch's estimated costs used as signal power (degree of differentiation in cost outputs) and H(p(\u03bc)) as the entropy of the preference-label distribution used as noise power (p4:4a5b23326232). Every symbol and its role in the claim matches the source.",
+        "scope_checks": [],
+        "scope_summary": "Loss-definition (method) claim; no result, dataset or comparator assertion to scope.",
+        "passage_ids": [
+          "0af0dd706055#p4:8acc497176a2",
+          "0af0dd706055#p4:4a5b23326232"
+        ]
+      },
+      {
+        "claim_id": "c3",
+        "decision": "supported",
+        "explanation": "The cited sentence states that minimizing the SNR loss encourages the model to induce sufficient cost variance, that this provides a more discriminative cost signal for policy optimization, and that it carries a benefit for policy exploration (p4:3090d97187e6). The claim presents this as the paper's statement, which it is.",
+        "scope_checks": [],
+        "scope_summary": "Author-stated rationale for the SNR term, not a measured outcome of the claim's own; no experimental conditions need checking.",
+        "passage_ids": [
+          "0af0dd706055#p4:3090d97187e6"
+        ]
+      },
+      {
+        "claim_id": "c4",
+        "decision": "supported",
+        "explanation": "p4:be0ba1325ee6 records the evidence motivating the SNR section: a cost model with a flattened or poorly differentiated cost landscape may hinder effective policy-gradient updates, leading to suboptimal performance or slow convergence; p2:063dc8113002 states that most existing studies evaluate cost models solely on prediction accuracy and fail to assess their influence on policy quality. Both clauses of the claim are faithful paraphrases.",
+        "scope_checks": [],
+        "scope_summary": "Motivation/discussion claim, not a result. The flattened-landscape evidence is in the source attributed to prior work (Razin et al., 2025) and the claim's phrasing ('the paper's observation') does not assert otherwise.",
+        "passage_ids": [
+          "0af0dd706055#p4:be0ba1325ee6",
+          "0af0dd706055#p2:063dc8113002"
+        ]
+      },
+      {
+        "claim_id": "c5",
+        "decision": "supported",
+        "explanation": "All three numerical assertions were checked against Table 7 and its prose. The paper states that an excessive SNR weight (10^-2) destabilizes learning with high variance in return and cost, and that removing (0) or underweighting (10^-5) the SNR term yields a flattened cost landscape and slow safety convergence with higher mid-training costs (p8:3348389338fb). Table 7 gives Cost (Mid) 24.8 \u00b1 2.8 at \u03b6 = 0, 24.5 \u00b1 2.5 at \u03b6 = 10^-5 and 18.4 \u00b1 2.3 at \u03b6 = 10^-3, and Return (Mid) 3.8 \u00b1 2.2 / Cost (Mid) 17.9 \u00b1 8.1 at \u03b6 = 10^-2 (p8:a7f1c9e89789). The ablation is run on the Goal task (p8:0b62eda8a71d, p8:588e69d26e60).",
+        "scope_checks": [
+          {
+            "aspect": "result",
+            "assertion": "An excessive SNR loss weight (\u03b6 = 10^-2) destabilizes training, evidenced by high variance in both return and cost.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p8:3348389338fb",
+              "0af0dd706055#p8:a7f1c9e89789"
+            ],
+            "explanation": "The prose reports destabilization 'evidenced by high variance in both return and cost', and Table 7 shows \u03b6 = 10^-2 with Return (Mid) 3.8 \u00b1 2.2 and Cost (Mid) 17.9 \u00b1 8.1, the largest dispersions in the table, so the claim reproduces the quantitative support."
+          },
+          {
+            "aspect": "measurement",
+            "assertion": "Mid-training cost is about 24.8 at \u03b6 = 0, about 24.5 at \u03b6 = 10^-5, versus about 18.4 at \u03b6 = 10^-3.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p8:a7f1c9e89789",
+              "0af0dd706055#p8:588e69d26e60"
+            ],
+            "explanation": "Table 7 ('Ablation study on SNR loss weight \u03b6') reports Cost (Mid) 24.8 \u00b1 2.8 (\u03b6 = 0), 24.5 \u00b1 2.5 (\u03b6 = 10^-5) and 18.4 \u00b1 2.3 (\u03b6 = 10^-3); the claim's numbers are correct to the rounding it uses."
+          },
+          {
+            "aspect": "dataset",
+            "assertion": "The \u03b6 (SNR-weight) ablation is run on the Goal task.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p8:0b62eda8a71d",
+              "0af0dd706055#p8:588e69d26e60"
+            ],
+            "explanation": "The setup sentence says the sensitivity analysis on \u03b6 is conducted 'in Goal task', and Table 7 reports the Goal-task (threshold 20) Return/Cost figures; the claim correctly limits itself to this task instead of generalizing."
+          },
+          {
+            "aspect": "outcome",
+            "assertion": "Removing (\u03b6 = 0) or underweighting (\u03b6 = 10^-5) the SNR term gives a flattened cost landscape and slow safety convergence, i.e. higher cost at mid-training.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p8:3348389338fb",
+              "0af0dd706055#p8:a7f1c9e89789"
+            ],
+            "explanation": "The source says removing or underweighting the SNR term 'leads to a flattened cost landscape, resulting in slow safety convergence (higher costs at mid-training)'. Table 7 shows the gap is at mid-training (Cost Mid 24.8/24.5 vs 18.4) while end costs converge (18.4 at \u03b6 = 0 vs 18.5 at \u03b6 = 10^-3), so the claim's explicit 'mid-training' qualification is necessary and correctly made."
+          }
+        ],
+        "scope_summary": "This is a single-task (Goal) sensitivity result; the claim carries the task, the specific \u03b6 values and the mid-training time point needed to interpret the numbers. Without the mid-training qualification the numbers would look inconsistent with the converged end costs, and the claim supplies it.",
+        "passage_ids": [
+          "0af0dd706055#p8:3348389338fb",
+          "0af0dd706055#p8:a7f1c9e89789",
+          "0af0dd706055#p8:588e69d26e60",
+          "0af0dd706055#p8:0b62eda8a71d"
+        ]
+      },
+      {
+        "claim_id": "c6",
+        "decision": "supported",
+        "explanation": "Lemma 3.1 as cited states that for any unsafe trajectory \u03c4 (\u03b5 = 0) the dead-zone loss gradient is strictly more negative than the original safety loss gradient: \u2207L_safe^DZ < \u2207L_safe < 0 (p4:f7173bd3f152). Theorem 3.2 states that with gradient descent at the same learning rate \u03b7 and identical initialization, \u0108_t^DZ(\u03c4) > \u0108_t(\u03c4) for any t > 0 (p4:ae7a5699d420). Corollary 3.3 states the learned cost distribution has a strictly heavier right tail, P(\u0108^DZ \u2265 z) > P(\u0108 \u2265 z) for any z > 0 within the support (p4:c5dcb80ccf14). The roadmap passage (p4:6f909a3f9707) frames these as micro-gradient \u2192 multi-step dominance \u2192 macroscopic distributional recovery, matching the claim's three-part structure. Proofs are deferred to Appendices B.1\u2013B.3 (p4:077cce839d12, p4:ca506667a8d9).",
+        "scope_checks": [
+          {
+            "aspect": "result",
+            "assertion": "Lemma 3.1: for an unsafe trajectory (\u03b5 = 0), the dead-zone safety loss provides a strictly more negative gradient than the original safety loss.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p4:f7173bd3f152"
+            ],
+            "explanation": "The lemma is stated exactly as \u2207_{\u0108(\u03c4)} L_safe^DZ < \u2207_{\u0108(\u03c4)} L_safe < 0 for any unsafe trajectory with \u03b5 = 0; the claim reproduces the strict inequality and the unsafe-trajectory restriction."
+          },
+          {
+            "aspect": "assumption",
+            "assertion": "Theorem 3.2's strict dominance \u0108_t^DZ(\u03c4) > \u0108_t(\u03c4) holds for any t > 0 under gradient descent with the same learning rate \u03b7 and identical initialization, in the source's setting of unsafe trajectories \u03c4.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p4:ae7a5699d420"
+            ],
+            "explanation": "The theorem text supplies the identical-learning-rate, identical-initialization and 'for any t > 0' conditions that the claim lists, and states the result for unsafe trajectories; the claim's sentence introduces the dead-zone results for unsafe trajectories in its Lemma 3.1 clause, so this population restriction is carried by the claim rather than added by the check."
+          },
+          {
+            "aspect": "outcome",
+            "assertion": "Corollary 3.3: the cost distribution learned with the dead-zone loss has a strictly heavier right tail.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p4:c5dcb80ccf14"
+            ],
+            "explanation": "The corollary gives P(\u0108^DZ \u2265 z) > P(\u0108 \u2265 z) for any z > 0 within the support, which is precisely the claim's 'strictly heavier right tail'."
+          },
+          {
+            "aspect": "other",
+            "assertion": "The three statements are presented as formal results whose proofs are given in Appendices B.1\u2013B.3.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p4:6f909a3f9707",
+              "0af0dd706055#p4:077cce839d12",
+              "0af0dd706055#p4:ca506667a8d9"
+            ],
+            "explanation": "The roadmap says Lemma 3.1 \u2192 Theorem 3.2 \u2192 Corollary 3.3, and each statement's proof pointer is to Appendix B.1/B.2/B.3, which lies outside the supplied pages; the claim reproduces the statements as made and does not assert inspection of the proofs."
+          }
+        ],
+        "scope_summary": "The theoretical content is verifiable only at the level of the main-text statements (proofs sit in Appendices B.1\u2013B.3, not extracted). The dominance in Theorem 3.2 is confined to unsafe trajectories, which is the population the claim attaches to the dead-zone results; the claim does not extend strict dominance to safe trajectories, where the two losses coincide.",
+        "passage_ids": [
+          "0af0dd706055#p4:6f909a3f9707",
+          "0af0dd706055#p4:f7173bd3f152",
+          "0af0dd706055#p4:ae7a5699d420",
+          "0af0dd706055#p4:c5dcb80ccf14",
+          "0af0dd706055#p4:077cce839d12",
+          "0af0dd706055#p4:ca506667a8d9"
+        ]
+      },
+      {
+        "claim_id": "c7",
+        "decision": "supported",
+        "explanation": "The cited paragraph states that the analysis shows the dead-zone upper bound \u03b4 encourages the learned cost distribution to have a heavier right tail, mitigating underestimation of expected cost, and that this will facilitate better constraint alignment and policy optimization in downstream safe RL tasks (p4:84b9af4615f1). The claim presents this explicitly as the paper's interpretation of its analysis, which is exactly what the passage is.",
+        "scope_checks": [],
+        "scope_summary": "Interpretive discussion of the paper's own theoretical results, not an independent empirical result; the claim does not convert the interpretation into a measured finding.",
+        "passage_ids": [
+          "0af0dd706055#p4:84b9af4615f1"
+        ]
+      },
+      {
+        "claim_id": "c8",
+        "decision": "supported",
+        "explanation": "The benchmark paragraph lists exactly three domains: robotic control in Safety Gymnasium, autonomous driving, and language model alignment (p6:c3cf4dd3a318). The Safety Gymnasium setup names the locomotion tasks (HalfCheetah, Walker2d, Humanoid) as involving velocity constraints and the navigation tasks (Goal, Push, Button) as requiring target reaching while avoiding collisions with obstacles (p6:fd49506fc6ef). The driving evaluation uses a driving simulator with two highway tasks, blocked road and lane change (p8:1b84565f702e), and the language-model alignment experiment uses Llama-3.2-1B trained on the Safe RLHF dataset (p8:728acf8a7214). Every element of the claim is present.",
+        "scope_checks": [
+          {
+            "aspect": "dataset",
+            "assertion": "PbCRL is evaluated on three domains: Safety Gymnasium robotic control, an autonomous driving simulator, and language model alignment.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:c3cf4dd3a318"
+            ],
+            "explanation": "The benchmarks paragraph enumerates these three domains with varied safety challenges; the claim's domain list is identical."
+          },
+          {
+            "aspect": "dataset",
+            "assertion": "The Safety Gymnasium suite contains locomotion tasks (HalfCheetah, Walker2d, Humanoid) with velocity constraints and navigation tasks (Goal, Push, Button) requiring target-reaching while avoiding collisions.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:fd49506fc6ef"
+            ],
+            "explanation": "The environment setup passage names the six tasks, the velocity-constraint framing for locomotion and the target-reaching/obstacle-avoidance framing for navigation, matching the claim's split."
+          },
+          {
+            "aspect": "dataset",
+            "assertion": "The driving evaluation uses two highway tasks (blocked road, lane change) in a driving simulator, and the language-model alignment evaluation uses Llama-3.2-1B trained on the Safe RLHF dataset.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p8:1b84565f702e",
+              "0af0dd706055#p8:728acf8a7214"
+            ],
+            "explanation": "Both details are stated verbatim in the cited passages. The alignment experiments are described as preliminary ('While our primary focus remains on safety-critical continuous control, we conduct preliminary experiments in language model alignment'); that caveat concerns emphasis, not whether the domain is evaluated, and the claim's assertion that it is one of the evaluated domains is accurate."
+          }
+        ],
+        "scope_summary": "Evaluation-scope claim spanning three domains and six Safety Gymnasium tasks; the check confirms each domain, task family and their stated constraints. The only unstated nuance is that the language-model alignment results are labelled preliminary by the authors, which does not falsify the claim as written.",
+        "passage_ids": [
+          "0af0dd706055#p6:c3cf4dd3a318",
+          "0af0dd706055#p6:fd49506fc6ef",
+          "0af0dd706055#p8:1b84565f702e",
+          "0af0dd706055#p8:728acf8a7214"
+        ]
+      },
+      {
+        "claim_id": "c9",
+        "decision": "supported",
+        "explanation": "The 'Baselines and Metrics' passage states the comparator set (RLSF with a BT-based binary cost function from segment-level feedback; Safe RLHF adapted to continuous control and referred to as PPO-BT; PPO-Lag trained with ground-truth costs as an oracle upper bound) and states that performance is evaluated using average episode return and ground-truth cost over 5 random seeds (p6:3aa75474384b). The claim reproduces both the comparator identities and the measurement protocol without adding comparators or metrics.",
+        "scope_checks": [
+          {
+            "aspect": "measurement",
+            "assertion": "Performance is measured by average episode return and ground-truth cost over 5 random seeds.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:3aa75474384b"
+            ],
+            "explanation": "The sentence 'Performance is evaluated using average episode return and ground-truth cost over 5 random seeds' supports both metric types and the seed count exactly."
+          },
+          {
+            "aspect": "comparator",
+            "assertion": "Comparators are RLSF, PPO-BT (standard BT-based cost learning) and PPO-Lag trained with ground-truth costs as an oracle upper bound.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:3aa75474384b"
+            ],
+            "explanation": "The same passage defines RLSF, explains that Safe RLHF adapted to continuous control is referred to as PPO-BT, and describes PPO-Lag as the ground-truth-cost oracle upper bound."
+          },
+          {
+            "aspect": "regime",
+            "assertion": "This seed-averaged return/cost protocol and comparator set belong to the paper's benchmark (continuous-control) evaluation.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:3aa75474384b",
+              "0af0dd706055#p8:728acf8a7214"
+            ],
+            "explanation": "The protocol paragraph introduces the Safety Gymnasium and driving benchmark comparisons, and the claim's own measurement wording ('average episode return') is episodic-RL language; the language-model alignment experiment instead reports win rates and reward/cost from trained models (p8:728acf8a7214), which the claim does not assert it follows."
+          }
+        ],
+        "scope_summary": "Evaluation-protocol claim. The 5-seed return/cost protocol and the RLSF / PPO-BT / PPO-Lag comparator set correspond to the benchmark comparisons introduced in the 'Baselines and Metrics' paragraph; the alignment experiments use a different metric family, which the claim's episodic-return wording does not extend to.",
+        "passage_ids": [
+          "0af0dd706055#p6:3aa75474384b"
+        ]
+      },
+      {
+        "claim_id": "c10",
+        "decision": "supported",
+        "explanation": "Table 1 confirms every number the claim asserts. PbCRL costs sit just below threshold in all six tasks (4.66 < 5, 4.62 < 5, 4.85 < 5, 18.50 < 20, 34.86 < 35, 37.51 < 40), and the prose says the true cost of PbCRL 'converges closely to the safety threshold, mirroring the behavior of the Oracle (PPO-Lag)' (p6:3fe5e0579a10). PPO-BT exceeds the threshold on five tasks (5.58 > 5, 5.89 > 5, 26.97 > 20, 41.85 > 35, 50.78 > 40) but its Walker2d cost is 4.91 \u00b1 1.11 \u2264 5, so the claim's caution about the prose phrase 'consistently violates constraints' is arithmetically correct. RLSF has the lowest return and lowest cost in all six tasks and the paper attributes this to overestimation in its segment-learned cost function producing overly conservative constraints (p7:2dbdcbb0f831).",
+        "scope_checks": [
+          {
+            "aspect": "outcome",
+            "assertion": "PbCRL's true cost stays just below the safety threshold on all six Safety Gymnasium tasks (HalfCheetah 4.66 < 5, Walker2d 4.62 < 5, Humanoid 4.85 < 5, Goal 18.50 < 20, Push 34.86 < 35, Button 37.51 < 40).",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p7:420535ffd916",
+              "0af0dd706055#p6:3fe5e0579a10"
+            ],
+            "explanation": "Table 1 lists exactly these PbCRL cost values against the per-task thresholds, and the text states that the true cost of PbCRL converges closely to the threshold, mirroring the oracle."
+          },
+          {
+            "aspect": "outcome",
+            "assertion": "PPO-BT exceeds the safety threshold on five of the six tasks but not on Walker2d, where its reported cost of 4.91 \u00b1 1.11 is at or below the threshold of 5.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p7:420535ffd916"
+            ],
+            "explanation": "Table 1 gives PPO-BT costs 5.58 (HalfCheetah), 4.91 (Walker2d), 5.89 (Humanoid), 26.97 (Goal), 41.85 (Push) and 50.78 (Button); the Walker2d value is below its threshold, so five of six exceed it and the claim's counterexample is accurate."
+          },
+          {
+            "aspect": "comparator",
+            "assertion": "RLSF shows the lowest return and cost of the four methods in every Table 1 task, attributed to overestimation in its learned cost function leading to overly conservative constraints.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p7:420535ffd916",
+              "0af0dd706055#p7:2dbdcbb0f831"
+            ],
+            "explanation": "RLSF's Return (2084, 2415, 4816, 5.78, 1.07, \u22122.01) and Cost (3.26, 3.66, 4.05, 8.20, 20.05, 4.26) are the lowest in every row, and p7:2dbdcbb0f831 gives the attribution the claim reports ('likely due to an overestimation issue in its cost function learned from segments, resulting in overly conservative constraints')."
+          },
+          {
+            "aspect": "other",
+            "assertion": "The paper's prose that PPO-BT 'consistently violates constraints' appears in the navigation-task training-dynamics discussion, so the Walker2d row of Table 1 qualifies a universal reading.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p7:021621b40566",
+              "0af0dd706055#p7:039f5d0520e2"
+            ],
+            "explanation": "The 'consistently violates constraints' sentence is in the Figure 2 discussion of three representative navigation tasks, and the same discussion also states that all policies' true costs converge towards a steady state; the claim's Walker2d observation is therefore a valid caution against treating the phrase as a universal statement across all six tasks."
+          },
+          {
+            "aspect": "outcome",
+            "assertion": "PbCRL achieves returns comparable to the PPO-Lag oracle on the six tasks.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p7:420535ffd916",
+              "0af0dd706055#p7:021621b40566"
+            ],
+            "explanation": "Table 1 returns are 2367 vs 2619, 2659 vs 3057, 5247 vs 5876, 23.41 vs 23.50, 3.20 vs 4.77 and 8.73 vs 8.96 against the oracle, and the paper itself characterizes PbCRL as achieving 'high returns comparable to the Oracle'; the wording is qualitative and holds most tightly on Goal/Button, with the largest gap on Push, which the claim's 'comparable' does not contradict but also does not enumerate."
+          }
+        ],
+        "scope_summary": "The result is a six-task, per-row comparison with thresholds; the claim's checkable contents are the cost-vs-threshold relations for PbCRL and PPO-BT, the RLSF ordering plus its stated attribution, and the qualitative return comparison with the oracle. The Walker2d exception the claim raises is an arithmetic property of Table 1, not a reinterpretation of it.",
+        "passage_ids": [
+          "0af0dd706055#p7:420535ffd916",
+          "0af0dd706055#p7:28e8b363ad94",
+          "0af0dd706055#p6:3fe5e0579a10",
+          "0af0dd706055#p7:021621b40566",
+          "0af0dd706055#p7:2dbdcbb0f831"
+        ]
+      },
+      {
+        "claim_id": "c11",
+        "decision": "supported",
+        "explanation": "Table 2 gives PbCRL W2 values of 16.8 (Goal), 20.3 (Push) and 44.3 (Button) versus RLSF 68.1 / 82.4 / 165.5 and PPO-BT 42.7 / 36.5 / 78.8, so PbCRL is lowest on all three tasks (p7:6e8d497c8233). The caption identifies W2 as the distance between learned and ground-truth cost distributions and Bias as the difference between converged cost and threshold (p7:306d1b06c7ae), and the text states that lower W2 distances consistently correspond to lower safety bias and that PbCRL achieves the lowest W2 across all tasks (p7:962b8d251ee9).",
+        "scope_checks": [
+          {
+            "aspect": "outcome",
+            "assertion": "PbCRL attains the lowest W2 distance on Goal, Push and Button compared with RLSF and PPO-BT.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p7:6e8d497c8233",
+              "0af0dd706055#p7:962b8d251ee9"
+            ],
+            "explanation": "PbCRL's W2 values (16.8, 20.3, 44.3) are lower than both baselines' in every task, and the text independently states PbCRL achieves the lowest W2 across all tasks."
+          },
+          {
+            "aspect": "measurement",
+            "assertion": "W2 is measured between the learned and ground-truth cost distributions, and Bias is the gap between converged cost and the safety threshold.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p7:306d1b06c7ae",
+              "0af0dd706055#p7:962b8d251ee9"
+            ],
+            "explanation": "The table caption and the accompanying text define W2 as the 2-Wasserstein distance between learned and ground-truth distributions and Bias as the bias between the converged true cost and the safety threshold."
+          },
+          {
+            "aspect": "outcome",
+            "assertion": "Lower W2 distances correspond to lower bias across the three tasks (Goal 1.5 / 6.9 / 11.8; Push 0.1 / 6.8 / 14.9; Button 2.5 / 10.78 / 35.7).",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p7:6e8d497c8233",
+              "0af0dd706055#p7:962b8d251ee9"
+            ],
+            "explanation": "Within each task the method ordering by W2 and by Bias coincides, and the text reports a 'strong correlation' between lower W2 and lower safety bias with the interpretation that this indicates better constraint alignment."
+          }
+        ],
+        "scope_summary": "Distributional result over three navigation tasks (Goal, Push, Button) with two comparators; the claim carries the tasks, the W2 measure and the bias measure it relates, so the numbers are interpretable as written.",
+        "passage_ids": [
+          "0af0dd706055#p7:6e8d497c8233",
+          "0af0dd706055#p7:306d1b06c7ae",
+          "0af0dd706055#p7:962b8d251ee9"
+        ]
+      },
+      {
+        "claim_id": "c12",
+        "decision": "supported",
+        "explanation": "The cited passages establish the two-stage procedure (offline data for initial cost-model training followed by online finetuning during policy optimization, p5:a88d94a42ede; 'The two-stage learning phase leverages offline data for pre-training\u2026 adaptive finetuning of the cost model during policy training', p5:638f7d8299d9), the fixed dead zone during pre-training ('the dead zone parameter fixed during pre-training may not optimally transfer to the online phase', p5:400d8f3d7fa9), and the adaptive calibration 'that aligns the model's safety predictions with the empirical ground truth' (p5:400d8f3d7fa9). The claim's 'predicted and empirical violation rates match' is the same mechanism stated quantitatively (predicted unsafe fraction vs empirical label-based unsafe fraction).",
+        "scope_checks": [],
+        "scope_summary": "Training-procedure description with no numerical result of its own; the cited passages supply both stages, the fixed pre-training dead zone and the adaptive calibration mechanism, whose formalization as a violation-rate matching loss appears in the same section.",
+        "passage_ids": [
+          "0af0dd706055#p5:a88d94a42ede",
+          "0af0dd706055#p5:400d8f3d7fa9",
+          "0af0dd706055#p5:638f7d8299d9"
+        ]
+      },
+      {
+        "claim_id": "c13",
+        "decision": "supported",
+        "explanation": "Table 8 reports Goal (threshold 20) PbCRL-Offline Cost 22.70 \u00b1 0.84 versus PbCRL 18.50 \u00b1 2.03, and Push (threshold 35) PbCRL-Offline Cost 37.48 \u00b1 5.00 versus PbCRL 34.86 \u00b1 3.13 (p9:aa06115dca16, p9:bf46f5aba186). PbCRL's converged costs are closer to the thresholds than PbCRL-Offline's, which exceeds both thresholds. The text states that the full PbCRL achieves converged costs closer to the safety threshold and 'This confirms that the online finetuning stage enhances the alignment of the learned constraint, thereby improving constraint satisfaction' (p9:57363426026b).",
+        "scope_checks": [
+          {
+            "aspect": "outcome",
+            "assertion": "Converged costs are closer to the safety thresholds for full PbCRL than for PbCRL-Offline on Goal (18.50 \u00b1 2.03 vs 22.70 \u00b1 0.84, threshold 20) and Push (34.86 \u00b1 3.13 vs 37.48 \u00b1 5.00, threshold 35).",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p9:aa06115dca16"
+            ],
+            "explanation": "Table 8 lists exactly these Cost values with the task thresholds, and PbCRL's values lie just below threshold while the offline variant exceeds it."
+          },
+          {
+            "aspect": "dataset",
+            "assertion": "The comparison is run on the Goal and Push tasks only.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p9:57363426026b",
+              "0af0dd706055#p9:aa06115dca16"
+            ],
+            "explanation": "The passage says PbCRL is compared against PbCRL-Offline 'in Goal and Push tasks', and Table 8 covers only those two rows; the claim does not generalize to other tasks."
+          },
+          {
+            "aspect": "assumption",
+            "assertion": "The 'confirming that the online stage improves constraint satisfaction' clause is the authors' own stated interpretation of these two-task results.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p9:57363426026b"
+            ],
+            "explanation": "The source sentence 'This confirms that the online finetuning stage enhances the alignment of the learned constraint, thereby improving constraint satisfaction' shows the claim is reporting the authors' inference, as its wording indicates."
+          }
+        ],
+        "scope_summary": "Two-task ablation result. The claim carries the tasks, the metric (converged cost vs threshold) and correctly attributes the causal 'confirming' reading to the paper rather than presenting it as an independent measurement.",
+        "passage_ids": [
+          "0af0dd706055#p9:57363426026b",
+          "0af0dd706055#p9:aa06115dca16",
+          "0af0dd706055#p9:bf46f5aba186"
+        ]
+      },
+      {
+        "claim_id": "c14",
+        "decision": "supported",
+        "explanation": "Theorem 5.2 states that under Assumptions 5.1, PbCRL with iterations (\u03c8, \u03b8, \u03bb) converges almost surely to a local optimal policy for the safe RL problem in Eq. 2 (p6:7af1cd1f0483). Assumption 5.1 comprises the continuously differentiable objective with Lipschitz-continuous gradient and positive, nonsummable, square-summable learning rates (p5:76226d9f14f3), the timescale separation lr_\u03bb(t) = o(lr_\u03b8(t)) and lr_\u03b8(t) = o(lr_\u03c8(t)) (p6:dcba41ad8692), and the stability of the fast cost-model dynamics ODE with iterates remaining almost surely in the domain of attraction (p6:9128b94fb184). The claim lists exactly these conditions and the almost-sure local-optimum conclusion.",
+        "scope_checks": [
+          {
+            "aspect": "outcome",
+            "assertion": "Theorem 5.2 guarantees almost-sure convergence to a local optimum of the safe RL problem (Eq. 2) under Assumptions 5.1.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:7af1cd1f0483",
+              "0af0dd706055#p6:c00df6f2fb9d"
+            ],
+            "explanation": "The theorem statement and the following summary sentence both give the almost-sure convergence to a local optimum result conditioned on Assumptions 5.1; the claim preserves both the condition and the 'local' qualification."
+          },
+          {
+            "aspect": "assumption",
+            "assertion": "Assumption 5.1 includes continuous differentiability of the objective with Lipschitz-continuous gradient, and positive, nonsummable, square-summable learning rates.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p5:76226d9f14f3"
+            ],
+            "explanation": "Assumption 1 and the first part of Assumption 2 in the cited passage state exactly these continuity and step-size conditions; the claim's paraphrase preserves the technical content."
+          },
+          {
+            "aspect": "assumption",
+            "assertion": "The step sizes satisfy the timescale separation lr_\u03bb(t) = o(lr_\u03b8(t)) and lr_\u03b8(t) = o(lr_\u03c8(t)).",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:dcba41ad8692"
+            ],
+            "explanation": "The passage states the separation conditions in precisely these forms, which the claim reproduces (including the ordering of the three parameter timescales)."
+          },
+          {
+            "aspect": "assumption",
+            "assertion": "Assumption 5.1 includes stability of the fast cost-model dynamics (locally asymptotically stable equilibria of the \u03c8 ODE, with iterates almost surely in their domain of attraction).",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:9128b94fb184"
+            ],
+            "explanation": "Assumption 3 states the stability of the fast dynamics exactly as the claim summarizes, including the almost-sure domain-of-attraction condition."
+          },
+          {
+            "aspect": "other",
+            "assertion": "The convergence proof is separate from the theorem statement (multi-time-scale stochastic approximation, Appendix B.4).",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:406494cb525a"
+            ],
+            "explanation": "The proof pointer confirms the claim reports stated results rather than verified derivations; the appendix is outside the supplied pages, so only the theorem and assumption statements could be inspected."
+          }
+        ],
+        "scope_summary": "Theoretical result whose scope is fixed by Assumptions 5.1 (Lipschitz gradient, step-size/timescale conditions, fast-dynamics stability) and whose conclusion is 'almost surely to a local optimum'. The claim enumerates each of those assumptions and does not upgrade the conclusion to global optimality.",
+        "passage_ids": [
+          "0af0dd706055#p5:76226d9f14f3",
+          "0af0dd706055#p6:dcba41ad8692",
+          "0af0dd706055#p6:9128b94fb184",
+          "0af0dd706055#p6:7af1cd1f0483"
+        ]
+      },
+      {
+        "claim_id": "c15",
+        "decision": "supported",
+        "explanation": "Algorithm 1, line 22, performs 'Update multiplier \u03bb by \u03bb \u2190 \u03bb + lr_\u03bb \u2207_\u03bb L(\u03c8, \u03b8, \u03bb)' inside the policy-optimization loop (p6:3e7492278405), and the method description states that policy optimization is done with the Lagrange multiplier method on the learned constraint, with multiplier \u03bb in the Lagrangian (p5:89d2bc6f31b6). The claim's inference that the reward\u2013cost trade-off weight is learned rather than fixed in advance follows directly from the online gradient update.",
+        "scope_checks": [
+          {
+            "aspect": "other",
+            "assertion": "\u03bb is updated online by gradient ascent on the Lagrangian each policy-optimization iteration rather than being a fixed hyperparameter.",
+            "decision": "supported",
+            "passage_ids": [
+              "0af0dd706055#p6:3e7492278405"
+            ],
+            "explanation": "Line 22 of Algorithm 1 updates \u03bb by \u03bb \u2190 \u03bb + lr_\u03bb \u2207_\u03bb L(\u03c8, \u03b8, \u03bb) inside the loop over n = 0, 1, 2, \u2026, N, which establishes the claim's inference that the trade-off weight is learned online."
+          }
+        ],
+        "scope_summary": "Algorithmic claim whose final clause is a direct inference from the update rule shown in Algorithm 1; no experimental or numerical scope is involved.",
+        "passage_ids": [
+          "0af0dd706055#p6:3e7492278405",
+          "0af0dd706055#p5:89d2bc6f31b6"
+        ]
+      }
+    ],
+    "coverage_checks": [
+      {
+        "target_id": "dir-001",
+        "decision": "adequate",
+        "explanation": "The record caps this prior paper at 'related' with an unassessed effect direction, and that is the correct ceiling. PbCRL is safe-RL constraint inference with a preference-learned cost model; it contains no reward-scale alignment factor, no budget-tier router, and no capacity/implementation/reasoning tiering on LoCoMo, LongMemEval or HotpotQA. The facets marked partial are partial for the right reason: the SNR loss deliberately induces cost-output variance and its weight \u03b6 is swept (10^-2, 10^-3, 10^-5, 0) with policy-learning outcomes measured (p4:8acc497176a2, p4:4a5b23326232, p8:a7f1c9e89789, p8:3348389338fb), and its stated premise \u2014 a flattened cost landscape hindering policy-gradient updates, sufficient cost variance giving a more discriminative signal \u2014 is a mechanism-level overlap with the candidate's variance-dominance rationale (p4:be0ba1325ee6, p2:063dc8113002), but the record does not upgrade this to direct coverage of an alignment-on/off intervention or of a running variance-normalization variant. Regime distinctions are right and cited: Safety Gymnasium Goal-task cost-model training with an adaptively updated Lagrange multiplier, not capacity-tiered LoCoMo at fixed \u03bb = 0.3 (p6:c3cf4dd3a318, p6:3aa75474384b, p6:3e7492278405). I searched the remaining supplied pages for omitted decisive evidence: the dead-zone parameter sweep (p8:8a6a768d159d, p8:bcf5d2399f11), the safety-threshold-offset sweep (p8:f3d8b61d6abd), the two-stage ablation (p9:aa06115dca16) and the SNR contribution statement (p2:5d2a1d1ec211) all concern cost-distribution shaping or labeling burden rather than balancing task-reward against cost-reward variance, so none changes the mapping. The one piece of context worth carrying forward is that the prior variance evidence is non-monotone (excessive induced cost variance destabilizes learning), which informs but does not cover the candidate's conditional-alignment direction.",
+        "passage_ids": [
+          "41d503b70097#p8:5f16c01114d9",
+          "0af0dd706055#p4:8acc497176a2",
+          "0af0dd706055#p4:4a5b23326232",
+          "0af0dd706055#p4:3090d97187e6",
+          "0af0dd706055#p4:be0ba1325ee6",
+          "0af0dd706055#p2:063dc8113002",
+          "0af0dd706055#p2:5d2a1d1ec211",
+          "0af0dd706055#p8:a7f1c9e89789",
+          "0af0dd706055#p8:3348389338fb",
+          "0af0dd706055#p8:8a6a768d159d",
+          "0af0dd706055#p8:bcf5d2399f11",
+          "0af0dd706055#p8:f3d8b61d6abd",
+          "0af0dd706055#p6:c3cf4dd3a318",
+          "0af0dd706055#p6:3aa75474384b",
+          "0af0dd706055#p6:3e7492278405"
+        ]
+      },
+      {
+        "target_id": "dir-001-h03",
+        "decision": "adequate",
+        "explanation": "Same ceiling as dir-001: the hypothesis predicts a monotone rise in LOW-tier selection fraction and a monotone fall in Judge score as the cost/task reward-variance ratio increases, with the alignment term disabled or held fixed, on capacity-tiered LoCoMo at \u03bb = 0.3. No supplied passage manipulates a task-versus-cost reward-variance ratio, and none measures tier-selection fractions or Judge scores. The record's partial matches correctly identify the \u03b6 sweep as the nearest manipulation of cost-side variance with downstream policy-learning outcomes on the Goal task (p8:0b62eda8a71d, p8:a7f1c9e89789, p8:3348389338fb), and correctly keep the regime facet unknown (Safety Gymnasium continuous control with return/cost metrics rather than capacity-tiered LoCoMo; p6:c3cf4dd3a318, p6:3aa75474384b). Its note on the expected-effect facet is also accurate: the prior reports a qualitative, non-monotone relation (too little induced cost variance gives a flattened landscape and slow safety convergence; excessive variance destabilizes learning), which bears on but does not test the candidate's monotonicity prediction. I found no omitted passage reporting a controlled variance-ratio manipulation, a variance-normalization variant, or tier routing; the record's honest not_assessed result is therefore appropriate rather than a missed match.",
+        "passage_ids": [
+          "0af0dd706055#p8:0b62eda8a71d",
+          "0af0dd706055#p8:a7f1c9e89789",
+          "0af0dd706055#p8:3348389338fb",
+          "0af0dd706055#p8:8a6a768d159d",
+          "0af0dd706055#p4:be0ba1325ee6",
+          "0af0dd706055#p4:8acc497176a2",
+          "0af0dd706055#p4:3090d97187e6",
+          "0af0dd706055#p2:5d2a1d1ec211",
+          "0af0dd706055#p6:c3cf4dd3a318",
+          "0af0dd706055#p6:3aa75474384b"
+        ]
+      }
+    ],
+    "summary": "All 15 record claims check out against the cited passages. The method and theoretical claims (c1, c2, c6, c12, c15) match the equations and algorithm lines verbatim in content: the Lagrangian loss L(\u03c8, \u03b8, \u03bb) = \u2212[J_R \u2212 \u03bb J_{C_\u03c8}], the SNR loss \u2212\u03b6 Var(\u0108)/H(p(\u03bc)), the Lemma 3.1 / Theorem 3.2 / Corollary 3.3 results (with Theorem 3.2's dominance confined to unsafe trajectories, the population the claim's sentence frames), the two-stage training with fixed pre-training dead zone and adaptive calibration, and the online \u03bb update. The empirical claims hold numerically: the \u03b6 = 10^-2 / 10^-5 / 0 / 10^-3 mid-training costs (c5), the six-task Table 1 thresholds with the Walker2d exception to 'consistently violates constraints' (c10), the W2 and bias table (c11), and the two-task PbCRL vs PbCRL-Offline comparison (c13); the evaluation-scope claims (c8, c9) correctly reproduce the three domains, six tasks, comparator set and 5-seed return/cost protocol, and c14 reproduces Theorem 5.2 and every assumption in 5.1, including the timescale separation. Scope summaries flag the real limits: results are single- or two-task where noted, the language-model alignment experiments are labelled preliminary, and the theoretical proofs live in appendices outside the supplied pages, so only the stated results were inspected. Both dir-001 targets are mapped at the right level: the prior paper's cost-variance material (SNR loss and its \u03b6 sweep, dead-zone tail shaping and its theory) is a genuine mechanism-adjacent overlap with the candidate's reward-scale-alignment / variance-dominance direction, yet it contains no alignment-on/off ablation for budget-tier routing, no tiering across strategy or dataset, no cost-to-task variance-ratio manipulation and no running variance-normalization variant, and its regime (Safety Gymnasium Goal task, adaptively updated Lagrange multiplier) differs from capacity-tiered LoCoMo at fixed \u03bb = 0.3. A search of the remaining supplied passages (dead-zone \u03b4 sweep, threshold-offset sweep, two-stage ablation, SNR contribution statement) found no decisive omitted evidence that would upgrade either mapping or change the unassessed effect direction."
+  },
+  "recorded_error": "review entry dir-001: unknown/wrong-paper passage IDs ['41d503b70097#p8:5f16c01114d9']",
+  "record": {
+    "claims": [
+      {
+        "claim_id": "c1",
+        "text": "PbCRL performs policy optimization with the Lagrange multiplier method, transforming the safe RL problem into a single Lagrangian loss L(\u03c8, \u03b8, \u03bb) = \u2212[J_R(\u03c0_\u03b8) \u2212 \u03bb J_{C_\u03c8}(\u03c0_\u03b8)] with cost-model parameter \u03c8, policy parameter \u03b8 and Lagrange multiplier \u03bb, using the learned constraint.",
+        "kind": "method",
+        "passage_ids": [
+          "0af0dd706055#p5:89d2bc6f31b6",
+          "0af0dd706055#p5:fdbc91ed39f0"
+        ]
+      },
+      {
+        "claim_id": "c2",
+        "text": "PbCRL adds an SNR loss term L_SNR = \u2212\u03b6 Var(\u0108(\u03c4))/H(p(\u03bc)), where \u03b6 is a weighting coefficient, Var(\u0108(\u03c4)) is the batch variance of estimated costs (used as signal power) and H(p(\u03bc)) is the entropy of the preference-label distribution (used as noise power).",
+        "kind": "method",
+        "passage_ids": [
+          "0af0dd706055#p4:8acc497176a2",
+          "0af0dd706055#p4:4a5b23326232"
+        ]
+      },
+      {
+        "claim_id": "c3",
+        "text": "The paper states that minimizing the SNR loss encourages the model to induce sufficient cost variance, thereby providing a more discriminative cost signal for policy optimization, with a stated benefit for policy exploration.",
+        "kind": "discussion",
+        "passage_ids": [
+          "0af0dd706055#p4:3090d97187e6"
+        ]
+      },
+      {
+        "claim_id": "c4",
+        "text": "The SNR design is motivated by the paper's observation that a cost model with a flattened or poorly differentiated cost landscape may hinder effective policy gradient updates, causing suboptimal performance or slow convergence, and that most prior studies evaluate cost models only on prediction accuracy without assessing their influence on policy quality.",
+        "kind": "discussion",
+        "passage_ids": [
+          "0af0dd706055#p4:be0ba1325ee6",
+          "0af0dd706055#p2:063dc8113002"
+        ]
+      },
+      {
+        "claim_id": "c5",
+        "text": "In the SNR loss weight ablation on the Goal task, an excessive SNR weight (\u03b6=10^-2) destabilized learning, evidenced by high variance in both return and cost; removing (\u03b6=0) or underweighting (\u03b6=10^-5) the SNR term gave a flattened cost landscape and slow safety convergence (mid-training cost about 24.8 at \u03b6=0 and 24.5 at \u03b6=10^-5, versus about 18.4 at \u03b6=10^-3).",
+        "kind": "result",
+        "passage_ids": [
+          "0af0dd706055#p8:3348389338fb",
+          "0af0dd706055#p8:a7f1c9e89789",
+          "0af0dd706055#p8:588e69d26e60",
+          "0af0dd706055#p8:0b62eda8a71d"
+        ]
+      },
+      {
+        "claim_id": "c6",
+        "text": "For the dead-zone safety loss L_safe^DZ the paper proves that the gradient for unsafe trajectories is strictly more negative than for the original safety loss (Lemma 3.1), that under gradient descent with the same learning rate and identical initialization the dead-zone-learned cost strictly dominates the original cost at every step t>0 (Theorem 3.2), and that the learned cost distribution has a strictly heavier right tail (Corollary 3.3).",
+        "kind": "theoretical_result",
+        "passage_ids": [
+          "0af0dd706055#p4:6f909a3f9707",
+          "0af0dd706055#p4:f7173bd3f152",
+          "0af0dd706055#p4:ae7a5699d420",
+          "0af0dd706055#p4:c5dcb80ccf14"
+        ]
+      },
+      {
+        "claim_id": "c7",
+        "text": "The paper interprets its analysis as showing that the dead-zone upper bound \u03b4 encourages the learned cost distribution to have a heavier right tail, mitigating underestimation of expected cost and thereby facilitating better constraint alignment and policy optimization in downstream safe RL tasks.",
+        "kind": "discussion",
+        "passage_ids": [
+          "0af0dd706055#p4:84b9af4615f1"
+        ]
+      },
+      {
+        "claim_id": "c8",
+        "text": "PbCRL is evaluated on three domains: robotic control in Safety Gymnasium, including locomotion tasks (HalfCheetah, Walker2d, Humanoid) with velocity constraints and navigation tasks (Goal, Push, Button) requiring target reaching while avoiding collisions; an autonomous driving simulator with blocked-road and lane-change highway tasks; and language model alignment with Llama-3.2-1B trained on the Safe RLHF dataset.",
+        "kind": "evaluation",
+        "passage_ids": [
+          "0af0dd706055#p6:c3cf4dd3a318",
+          "0af0dd706055#p6:fd49506fc6ef",
+          "0af0dd706055#p8:1b84565f702e",
+          "0af0dd706055#p8:728acf8a7214"
+        ]
+      },
+      {
+        "claim_id": "c9",
+        "text": "Performance is evaluated using average episode return and ground-truth cost over 5 random seeds, comparing PbCRL against RLSF, PPO-BT (standard BT-based cost learning) and PPO-Lag trained with ground-truth costs as an oracle upper bound.",
+        "kind": "evaluation",
+        "passage_ids": [
+          "0af0dd706055#p6:3aa75474384b"
+        ]
+      },
+      {
+        "claim_id": "c10",
+        "text": "On the six Safety Gymnasium tasks (Table 1), PbCRL's true cost converges close to the safety threshold while achieving returns comparable to the PPO-Lag oracle, and RLSF yields the lowest return and cost across the tasks, attributed to overestimation in its cost function leading to overly conservative constraints. PPO-BT has high return and exceeds the safety threshold on five of the six tasks (5.58 > 5 on HalfCheetah, 5.89 > 5 on Humanoid, 26.97 > 20 on Goal, 41.85 > 35 on Push, 50.78 > 40 on Button), but on Walker2d its reported cost of 4.91 \u00b1 1.11 is at or below the threshold of 5, so the paper's prose statement that PPO-BT 'consistently violates constraints' is not supported by Table 1 on that task.",
+        "kind": "result",
+        "passage_ids": [
+          "0af0dd706055#p7:420535ffd916",
+          "0af0dd706055#p7:28e8b363ad94",
+          "0af0dd706055#p6:3fe5e0579a10",
+          "0af0dd706055#p7:021621b40566",
+          "0af0dd706055#p7:2dbdcbb0f831"
+        ]
+      },
+      {
+        "claim_id": "c11",
+        "text": "On the Goal, Push and Button tasks, PbCRL attains the lowest 2-Wasserstein distance between learned and ground-truth cost distributions compared with RLSF and PPO-BT, and lower W2 distances consistently correspond to lower bias between the converged cost and the safety threshold (constraint alignment).",
+        "kind": "result",
+        "passage_ids": [
+          "0af0dd706055#p7:6e8d497c8233",
+          "0af0dd706055#p7:306d1b06c7ae",
+          "0af0dd706055#p7:962b8d251ee9"
+        ]
+      },
+      {
+        "claim_id": "c12",
+        "text": "PbCRL uses a two-stage training strategy: offline pre-training of the cost model on a preference dataset with a fixed dead zone, followed by online finetuning with an adaptive calibration that updates the dead zone so predicted and empirical violation rates match.",
+        "kind": "method",
+        "passage_ids": [
+          "0af0dd706055#p5:a88d94a42ede",
+          "0af0dd706055#p5:400d8f3d7fa9",
+          "0af0dd706055#p5:638f7d8299d9"
+        ]
+      },
+      {
+        "claim_id": "c13",
+        "text": "Comparing full PbCRL against PbCRL-Offline (cost model trained at the offline stage only) on Goal and Push, the paper reports that online finetuning brings converged costs closer to the safety threshold, confirming that the online stage improves constraint satisfaction.",
+        "kind": "result",
+        "passage_ids": [
+          "0af0dd706055#p9:57363426026b",
+          "0af0dd706055#p9:aa06115dca16",
+          "0af0dd706055#p9:bf46f5aba186"
+        ]
+      },
+      {
+        "claim_id": "c14",
+        "text": "Theorem 5.2 guarantees that PbCRL converges almost surely to a local optimum of the safe RL problem under Assumptions 5.1, which include Lipschitz continuity of the objective gradient, positive nonsummable and square-summable learning rates satisfying the timescale separation lr_\u03bb(t)=o(lr_\u03b8(t)) and lr_\u03b8(t)=o(lr_\u03c8(t)), and stability of the fast cost-model dynamics.",
+        "kind": "theoretical_result",
+        "passage_ids": [
+          "0af0dd706055#p5:76226d9f14f3",
+          "0af0dd706055#p6:dcba41ad8692",
+          "0af0dd706055#p6:9128b94fb184",
+          "0af0dd706055#p6:7af1cd1f0483"
+        ]
+      },
+      {
+        "claim_id": "c15",
+        "text": "In PbCRL the Lagrange multiplier \u03bb is updated online during policy optimization (\u03bb \u2190 \u03bb + lr_\u03bb \u2207_\u03bb L(\u03c8, \u03b8, \u03bb)), so the reward\u2013cost trade-off weight is learned rather than fixed in advance.",
+        "kind": "method",
+        "passage_ids": [
+          "0af0dd706055#p6:3e7492278405",
+          "0af0dd706055#p5:89d2bc6f31b6"
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "target_id": "dir-001",
+        "intervention": [
+          "c1",
+          "c2"
+        ],
+        "comparator": [
+          "c5"
+        ],
+        "conditions": [
+          "c8",
+          "c9",
+          "c15"
+        ],
+        "outcome": [
+          "c5",
+          "c10",
+          "c11",
+          "c13"
+        ],
+        "conclusion": [
+          "c3",
+          "c4",
+          "c7"
+        ],
+        "coverage": "related",
+        "result": "not_assessed",
+        "inference": null,
+        "proposal_matches": [
+          {
+            "facet_path": "/intervention/0",
+            "claim_ids": [
+              "c2",
+              "c5"
+            ],
+            "relationship_match": "unknown",
+            "explanation": "The prior paper contains no reward-scale alignment factor or alignment-on/off ablation, no modular router, and no capacity/implementation/reasoning tiering over LoCoMo, LongMemEval or HotpotQA. Its closest variance-related manipulation is the SNR loss weight \u03b6 of a cost-model objective in a single safe-RL setting, which is not a rescaling of task versus cost reward for a routing policy."
+          },
+          {
+            "facet_path": "/intervention/1",
+            "claim_ids": [
+              "c2",
+              "c5"
+            ],
+            "relationship_match": "partial",
+            "explanation": "The prior paper does manipulate cost-signal variance quantitatively: the SNR term with weight \u03b6 is explicitly designed to induce cost variance, and \u03b6 is varied (10^-2, 10^-3, 10^-5, 0). However, it does not vary the cost-to-task variance ratio of the reward objective, and its mechanism is variance-increasing rather than a running variance-normalization; no constructed variance-normalization variant is evaluated."
+          },
+          {
+            "facet_path": "/comparison/0",
+            "claim_ids": [
+              "c2",
+              "c5"
+            ],
+            "relationship_match": "partial",
+            "explanation": "The prior comparison with (\u03b6=10^-3) versus removed/underweighted (\u03b6=0, 10^-5) SNR loss is structurally an ablation of a variance-related objective term with policy-learning outcomes measured. It is not an alignment-enabled versus alignment-disabled router contrast, and the ablated term increases rather than aligns reward scales."
+          },
+          {
+            "facet_path": "/comparison/1",
+            "claim_ids": [
+              "c2",
+              "c5"
+            ],
+            "relationship_match": "partial",
+            "explanation": "The \u03b6 sweep compares graded degrees of induced cost variance across settings, which partially parallels a controlled variance manipulation against references. There are no alignment-disabled/alignment-enabled references, and no running variance-normalization variant is compared against alignment variants."
+          },
+          {
+            "facet_path": "/regime/1",
+            "claim_ids": [
+              "c8",
+              "c9",
+              "c15"
+            ],
+            "relationship_match": "unknown",
+            "explanation": "The prior regimes are Safety Gymnasium robotic control, autonomous driving, and LM alignment with return/cost metrics, not implementation/reasoning tiering on LoCoMo, LongMemEval or HotpotQA. Moreover, its \u03bb is an adaptively updated Lagrange multiplier under a timescale-separation schedule, not a fixed cost weight of 0.3."
+          },
+          {
+            "facet_path": "/expected_effect/0",
+            "claim_ids": [
+              "c3",
+              "c4",
+              "c5"
+            ],
+            "relationship_match": "partial",
+            "explanation": "The prior supplies a directional relationship between cost-signal variance/differentiation and policy-update quality (flattened landscape \u2192 slow safety convergence; sufficient cost variance \u2192 more discriminative signal; excessive variance \u2192 instability). It does not test conditionality of any alignment necessity on tiering strategy or dataset, does not track a cost-to-task variance ratio, and frames cost variance as a beneficial learning signal rather than as a dominating term requiring rescaling."
+          },
+          {
+            "facet_path": "/expected_effect/1",
+            "claim_ids": [
+              "c2"
+            ],
+            "relationship_match": "unknown",
+            "explanation": "The prior has no running variance-normalization variant; its variance-related component (SNR loss) is variance-encouraging and its dead-zone mechanism shapes the cost tail, so no evidence addresses whether a variance-normalizer would reproduce a stabilizing effect."
+          }
+        ],
+        "explanation": "The prior paper studies safe RL constraint inference (PbCRL) and its variance-related elements concern the learned cost model: an SNR loss that increases cost-output variance to give a more discriminative policy-gradient signal, and a dead-zone loss proven to induce a heavier right cost tail. The candidate instead asks whether reward-scale alignment between task and cost rewards is necessary for budget-tier routing, whether its necessity is conditional on tiering strategy/dataset, and whether a cost/task reward variance ratio drives LOW-tier collapse. The shared scientific element is that the variance/scale properties of the cost learning signal affect downstream policy optimization, which is a mechanism-level overlap, but the prior paper performs no alignment ablation, no tier routing, and no variance-ratio manipulation, and uses entirely different benchmarks and metrics. Therefore the relationship is related, and the effect direction on the candidate's prediction is not assessed."
+      },
+      {
+        "target_id": "dir-001-h03",
+        "intervention": [
+          "c2",
+          "c5"
+        ],
+        "comparator": [
+          "c5"
+        ],
+        "conditions": [
+          "c8",
+          "c9"
+        ],
+        "outcome": [
+          "c5"
+        ],
+        "conclusion": [
+          "c3",
+          "c4"
+        ],
+        "coverage": "related",
+        "result": "not_assessed",
+        "inference": null,
+        "proposal_matches": [
+          {
+            "facet_path": "/intervention/0",
+            "claim_ids": [
+              "c2",
+              "c5"
+            ],
+            "relationship_match": "partial",
+            "explanation": "The prior manipulates the SNR weight \u03b6, which controls the degree to which cost variance is induced, and measures resulting policy-learning behaviour, so it does intervene on a cost-side variance quantity. It does not vary the cost-to-task variance ratio of the reward objective, does not hold an alignment term disabled or fixed as the candidate specifies, and leaves the task-reward side untouched."
+          },
+          {
+            "facet_path": "/comparison/0",
+            "claim_ids": [
+              "c5"
+            ],
+            "relationship_match": "partial",
+            "explanation": "The prior compares graded \u03b6 settings (including removal and underweighting) against each other, which is a comparison of conditions differing in induced cost variance. It contains no constructed runs at target cost/task variance ratios and no alignment-disabled/alignment-enabled references."
+          },
+          {
+            "facet_path": "/regime/1",
+            "claim_ids": [
+              "c8",
+              "c9"
+            ],
+            "relationship_match": "unknown",
+            "explanation": "The prior's manipulation is conducted on Safety Gymnasium Goal-task cost models with return/cost metrics, not on capacity-tiered LoCoMo routing at \u03bb=0.3 with constructed training variants; the candidate's regime is absent."
+          },
+          {
+            "facet_path": "/expected_effect/0",
+            "claim_ids": [
+              "c5"
+            ],
+            "relationship_match": "partial",
+            "explanation": "The prior reports a qualitative dependence of policy learning on how much cost variance is induced: too little variance (\u03b6=0, 10^-5) gives a flattened landscape and slow safety convergence, while excessive variance (\u03b6=10^-2) destabilizes learning. This bears on the general shape of the variance\u2013policy-outcome relationship, but it reports no monotonic LOW-tier selection fraction and no Judge score, and does not test monotonicity in a cost/task variance ratio, so the specific predicted effect is not investigated."
+          }
+        ],
+        "explanation": "The prior paper's closest evidence to the hypothesis is the SNR-loss design and its \u03b6-weight ablation: an explicit manipulation of how much cost variance the learned cost signal carries, with resulting policy-learning stability and mid-training safety convergence as outcomes. That is the same broad relationship class as the candidate's claim that a cost-side variance imbalance can dominate policy updates, but the candidate's specific quantities (cost/task reward variance ratio, LOW-tier selection fraction, Judge score, alignment held disabled) and its monotonic collapse prediction are not tested, and the prior paper's stated framing treats sufficient cost variance as beneficial for exploration rather than as a dominating term that destroys tier usage. No assessed effect direction is therefore attributed."
+      }
+    ]
+  },
+  "passages": [
+    {
+      "passage_id": "0af0dd706055#p1:3d4b46946d49",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 0,
+      "end": 72,
+      "text": "# Safe Reinforcement Learning with Preference-based Constraint Inference"
+    },
+    {
+      "passage_id": "0af0dd706055#p1:4a7f87dbafd1",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 74,
+      "end": 110,
+      "text": "Chenglin Li\u00b9, Grant Ruan\u00b2, Hua Geng\u00b9"
+    },
+    {
+      "passage_id": "0af0dd706055#p1:9889d4b0cc22",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 112,
+      "end": 336,
+      "text": "\u00b9Department of Automation, Tsinghua University, Beijing, China\n\u00b2Laboratory for Information & Decision Systems, Massachusetts Institute of Technology, Cambridge, MA, USA.\nCorrespondence to: Hua Geng <genghua@tsinghua.edu.cn>."
+    },
+    {
+      "passage_id": "0af0dd706055#p1:7647c1d389e4",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 338,
+      "end": 476,
+      "text": "Proceedings of the 43rd International Conference on Machine Learning, Seoul, South Korea. PMLR 306, 2026. Copyright 2026 by the author(s)."
+    },
+    {
+      "passage_id": "0af0dd706055#p1:d030208980d8",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 478,
+      "end": 489,
+      "text": "## Abstract"
+    },
+    {
+      "passage_id": "0af0dd706055#p1:7fe8e418b7c6",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 491,
+      "end": 2227,
+      "text": "Safe reinforcement learning (RL) is a standard paradigm for safety-critical decision making. However, real-world safety constraints can be complex, subjective, and even hard to explicitly specify. Existing works on constraint inference rely on restrictive assumptions or extensive expert demonstrations, which are not realistic in many real-world applications. How to cheaply and reliably learn these constraints is the major challenge we focus on in this study. While inferring constraints from human preferences offers a data-efficient alternative, we identify popular Bradley-Terry (BT) models fail to capture the asymmetric, heavy-tailed nature of safety costs, resulting in risk underestimation. It is still rare in the literature to understand the impacts of BT models on the downstream policy learning. To address the above knowledge gaps, we propose a novel approach namely Preference-based Constrained Reinforcement Learning (PbCRL). We introduce a novel dead zone mechanism into preference modeling and theoretically prove that it encourages heavy-tailed cost distributions, thereby achieving better constraint alignment. Additionally, we incorporate a Signal-to-Noise Ratio (SNR) loss to encourage exploration by cost variances, which is found to benefit policy learning. Further, two-stage training strategy is deployed to lower online labeling burdens while adaptively enhancing constraint satisfaction. Empirical results demonstrate that PbCRL achieves superior alignment with true safety requirements and outperforms state-of-the-art baselines in terms of safety and reward. Our work explores a promising and effective way for constraint inference in Safe RL, with great potential in various safety-critical applications."
+    },
+    {
+      "passage_id": "0af0dd706055#p1:5e02271c1695",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 2229,
+      "end": 2247,
+      "text": "## 1. Introduction"
+    },
+    {
+      "passage_id": "0af0dd706055#p1:d8cb9dca0305",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 2249,
+      "end": 2638,
+      "text": "A common paradigm to integrate safety considerations in sequential decision making is through Safe Reinforcement Learning (RL) (Garc\u0131a & Fern\u00b4andez, 2015; Gu et al., 2024b). Typically formulated as a Constrained Markov Decision Process (CMDP) (Altman, 2021), Safe RL aims to maximize reward while meeting safety constraints, often expressed as bounds on the expectation of cumulative cost."
+    },
+    {
+      "passage_id": "0af0dd706055#p1:43657a25d218",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 2640,
+      "end": 3428,
+      "text": "Apart from those explicit constraints such as univariate bounds, there is a large family of implicit constraints in the real world that could be highly complicated, trajectory-based, and perhaps seldom well-specified. Many of these constraints even involve human preferences and reflect trade-offs between different criteria. In robotic navigation or autonomous driving, for example, unsafe policies causing potential collisions, uncomfortable maneuvers, and other risky outcomes are never easy to quantify or subjective to human preference (Cosner et al., 2022). Unfortunately, this is not an isolated case; even with dedicated system engineering, it is still too expensive and impractical to construct proper constraints that accurately reflect all safety requirements (Xu & Liu, 2024)."
+    },
+    {
+      "passage_id": "0af0dd706055#p1:50b47b69180b",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 3430,
+      "end": 3992,
+      "text": "Constraint inference from data has emerged as a promising alternative to manual specification. Existing approaches include Inverse Reinforcement Learning (IRL) (Ng et al., 2000; Scobee & Sastry, 2020), Control Barrier Functions (CBF) (Robey et al., 2020) and robust optimization (Xu & Liu, 2024). These methods typically rely on extensive expert demonstrations to infer the underlying constraints. However, collecting such fine-grained demonstrations from experts is often expensive, time-consuming, or even infeasible in certain scenarios (Arora & Doshi, 2021)."
+    },
+    {
+      "passage_id": "0af0dd706055#p1:71cc1b1d733a",
+      "page_id": "0af0dd706055#p1",
+      "page_sha256": "4dacf67fa80910c053b3f5614d0a7f1ca98f57232ed3fb028b690433cf994f8c",
+      "start": 3994,
+      "end": 4636,
+      "text": "A more data-efficient alternative is learning through human feedback of comparisons instead of demonstrations (Christiano et al., 2017; Wu et al., 2022). This is a typical human-in-the-loop data collection, because options are provided by the RL agent and human only need to compare and then select. Learning from these comparison datasets is not straightforward and requires redesign of the learning algorithms. In the literature, prior works often restrict the constraint function class (e.g. linear, continuous) (Sui et al., 2015; Amani et al., 2021; Wachi & Sui, 2020) or require dense state-level feedback (Bennett et al., 2023). These\n1"
+    },
+    {
+      "passage_id": "0af0dd706055#p2:89e01684eb74",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 0,
+      "end": 72,
+      "text": "# Safe Reinforcement Learning with Preference-based Constraint Inference"
+    },
+    {
+      "passage_id": "0af0dd706055#p2:1f64b8efe282",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 74,
+      "end": 166,
+      "text": "settings simplify the problem but limit the applicability to more complex scenarios as well."
+    },
+    {
+      "passage_id": "0af0dd706055#p2:f31fbca3cfe7",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 168,
+      "end": 1030,
+      "text": "A few recent works have borrowed the Bradley-Terry (BT) model (Bradley & Terry, 1952) from preference learning to infer constraints from human preference (Reddy Chirra et al., 2024; Dai et al., 2024). Typically, a binary cost function is learned in (Reddy Chirra et al., 2024) from human feedback with various granularity\u2014at trajectory level in simple tasks or state level in complex ones. Within the domain of language model alignment, works such as (Dai et al., 2024) also leverage the BT model to constrain potentially harmful behaviors in generated text responses. Details of related works are in Appendix A. Compared to densely annotated demonstrations, preference data, collected usually at trajectory level, is more coarse-grained and cheaper to obtain. This makes preference learning a more practical and data-efficient solution for constraint inference."
+    },
+    {
+      "passage_id": "0af0dd706055#p2:d80fde8d4479",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 1032,
+      "end": 2560,
+      "text": "However, we identify two major drawbacks when directly applying standard BT models for constraint inference in Safe RL. First, there is a critical misalignment between the ranking objective of BT models and the distributional requirements of Safe RL. Standard BT models are inherently designed for learning the cost rank (relative order) between trajectories, but can be biased in estimating the true distributions (need absolute values) (Bradley & Terry, 1952). Since Safe RL relies on the expected cumulative cost to formulate constraints (Altman, 2021), two different cost distributions with identical rankings may lead to different expectation values, as well as distinct constraint satisfaction outcomes. Crucially, it is found that BT models tend to infer symmetry but most true cost distributions in Safe RL are heavy-tailed (Yang et al., 2021; Li et al., 2025). This phenomenon arises from the cascading effects of unsafe events: an initial violation can trigger a sequence of subsequent failures. For instance, once a navigation robot collides with an obstacle, it is more likely to be in hazardous situations in the near future, causing the cumulative cost to grow much larger. This cascading effect results in a heavy-tailed distribution of cumulative costs over trajectories. As conceptually illustrated in Figure 1, the mismatch between the symmetric BT-inferred cost distribution and the true heavy-tailed distribution leads to underestimation of expected costs, which will result in aggressive/dangerous policies."
+    },
+    {
+      "passage_id": "0af0dd706055#p2:063dc8113002",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 2562,
+      "end": 3121,
+      "text": "Second, existing methods largely overlook the impact of the learned cost model on downstream policy optimization. Currently, most studies evaluate cost models solely based on prediction accuracy, failing to assess their influence on policy quality (Lambert et al., 2025; Wen et al., 2025). It has been found that a cost model that produces flattened outputs can hinder effective policy updates (Razin et al., 2025). Alternative designs that encourage exploration and cost diversification should be preferred to provide informative signals for policy learning."
+    },
+    {
+      "passage_id": "0af0dd706055#p2:efe01e4c2226",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 3123,
+      "end": 3544,
+      "text": "*[Figure 1: Cost distributions: (a) Ground truth: heavy-tailed with expectation (solid line) exceeding safety threshold (dashed line), indicating unsafe. (b) BT model: symmetric with underestimated expectation below the threshold, induces a Type II Error where the model falsely believes the constraint is satisfied. (c) Our model: similar heavy-tailed distribution, better approximate expectation of ground truth cost.]*"
+    },
+    {
+      "passage_id": "0af0dd706055#p2:7c64aa5d6c74",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 3546,
+      "end": 3767,
+      "text": "To address the above issues, we propose a novel Safe RL approach with preference-based constraint inference, namely Preference-based Constrained Reinforcement Learning (PbCRL). Our contributions are summarized as follows:"
+    },
+    {
+      "passage_id": "0af0dd706055#p2:5d2a1d1ec211",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 3769,
+      "end": 4673,
+      "text": "1. We develop a novel constraint inference model with dead zone designs. We theoretically prove that the dead zone encourages heavy-tailed cost distributions, which mitigates the constraint underestimation (unsafe and dangerous) with better constraint alignment.\n2. A Signal-to-Noise Ratio (SNR) loss is proposed to induce sufficient level of cost variation. This can be regarded as a regularization term to encourage informative signals for effective downstream policy learning.\n3. We establish a two-stage training strategy to lower the burden of online labeling and help improve constraint satisfaction. Furthermore, we provide a theoretical convergence guarantee for the overall PbCRL algorithm.\n4. We conduct extensive experiments on Safe RL benchmarks. Results demonstrate that PbCRL achieves superior alignment with true safety requirements and outperforms baselines in terms of safety and reward."
+    },
+    {
+      "passage_id": "0af0dd706055#p2:89f842d9430a",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 4675,
+      "end": 4700,
+      "text": "## 2. Problem Formulation"
+    },
+    {
+      "passage_id": "0af0dd706055#p2:6ed8b1c27a18",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 4702,
+      "end": 4743,
+      "text": "### 2.1. Safe RL with Unknown Constraints"
+    },
+    {
+      "passage_id": "0af0dd706055#p2:dde01c8bc658",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 4745,
+      "end": 5174,
+      "text": "Safe RL is formulated on the constrained Markov decision process (CMDP) $\\langle \\mathcal{S}, \\mathcal{A}, P, r, c, d, \\gamma \\rangle$, where $\\mathcal{S}$ denotes the state space, $\\mathcal{A}$ denotes the action space, $P(\\cdot|s, a)$ is the state transition probability function, $r(s, a)$ is the reward function, $c(s, a)$ is the cost function, $d$ is a given safety threshold, and $\\gamma \\in (0, 1)$ is the discount factor."
+    },
+    {
+      "passage_id": "0af0dd706055#p2:c9e7fff941f7",
+      "page_id": "0af0dd706055#p2",
+      "page_sha256": "821cf28aa9f082d018bd1ab321e2bd36fab9152637b53385f44aba244a039033",
+      "start": 5176,
+      "end": 5591,
+      "text": "The agent interacts with the environment at each time step $t$ by observing the current state $s_t \\in \\mathcal{S}$ and selecting an action $a_t \\in \\mathcal{A}$ from its policy $\\pi(\\cdot|s)$. Then the agent receives a reward $r(s_t, a_t)$ and a cost $c(s_t, a_t)$ from the environment. The next state $s_{t+1}$ is generated by $P(\\cdot|s_t, a_t)$. Given an initial state $s_0$, the cumulative reward is defined as"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:6bc5ed3bfa59",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 0,
+      "end": 72,
+      "text": "# Safe Reinforcement Learning with Preference-based Constraint Inference"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:f1b5f971abbd",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 74,
+      "end": 216,
+      "text": "$R(s_0, \\pi) = \\sum_{t=0}^{\\infty} \\gamma^t r(s_t, a_t)$, and the cumulative cost as $C(s_0, \\pi) = \\sum_{t=0}^{\\infty} \\gamma^t c(s_t, a_t)$."
+    },
+    {
+      "passage_id": "0af0dd706055#p3:99d6282df4bd",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 218,
+      "end": 488,
+      "text": "With the above setup, Safe RL is established to learn a policy that maximizes the expected cumulative reward $J^R(\\pi)$ while meeting safety constraints, which is usually expressed as the expected cumulative cost $J^C(\\pi)$ being below a certain threshold $d$. Formally,"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:c2a3c9eb22ed",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 490,
+      "end": 616,
+      "text": "$$\n\\max_{\\pi} J^R(\\pi) := \\mathbb{E}_{\\pi}[R(s, \\pi)] = \\mathbb{E}_{\\pi}\\left[\\sum_{t} \\gamma^t r(s_t, a_t)\\right] \\tag{1a}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:9d47dde2f680",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 618,
+      "end": 758,
+      "text": "$$\n\\text{s.t.} \\quad J^C(\\pi) := \\mathbb{E}_{\\pi}[C(s, \\pi)] = \\mathbb{E}_{\\pi}\\left[\\sum_{t} \\gamma^t c(s_t, a_t)\\right] \\leq d \\tag{1b}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:bf444875ca84",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 760,
+      "end": 1036,
+      "text": "In this paper, we consider the situation where the safety constraint is not explicitly defined and must be learned. The constraint includes both the cost function $c(s, a)$ and the threshold $d$. Therefore, we reformulate the safe RL problem in Eq. 1 with inferred constraint:"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:cfb2f4fb47e7",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 1038,
+      "end": 1134,
+      "text": "$$\n\\max_{\\pi} J^R(\\pi) = \\mathbb{E}_{\\pi}\\left[\\sum_{t} \\gamma^t r(s_t, a_t)\\right], \\tag{2a}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:cb800a5b5383",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 1136,
+      "end": 1259,
+      "text": "$$\n\\text{s.t.} \\quad J^{\\hat{C}}(\\pi) = \\mathbb{E}_{\\pi}\\left[\\sum_{t} \\gamma^t \\hat{c}(s_t, a_t)\\right] \\leq 0 \\tag{2b}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:eb167c9306af",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 1261,
+      "end": 1545,
+      "text": "where Eq. 2b is the constraint with learned cost function $\\hat{c}(s, a)$. The threshold is assigned to be 0 without loss of generality. The constraint in Eq. 2b should be functionally equivalent to the true unknown constraint in Eq. 1b, reflecting the underlying safety requirements."
+    },
+    {
+      "passage_id": "0af0dd706055#p3:a6dd1f56e3a3",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 1547,
+      "end": 1591,
+      "text": "## 2.2. Learning Constraints from Preference"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:779959fe6c18",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 1593,
+      "end": 2097,
+      "text": "Preference learning aims to learn a utility function from human preference (Christiano et al., 2017; Lee et al., 2021). Feedback is collected in the form of pairwise preferences over two trajectories $\\tau_1, \\tau_2$, where $\\tau$ denotes a sequence of state-action pairs $\\{(s_0, a_0), (s_1, a_1), \\ldots, (s_T, a_T)\\}$ of length $T$. Human annotators provide preference label $(\\mu_1, \\mu_2)$, where $\\mu_1 > \\mu_2$ indicates that $\\tau_1$ is preferred over $\\tau_2$ (denoted as $\\tau_1 \\succ \\tau_2$)."
+    },
+    {
+      "passage_id": "0af0dd706055#p3:8264003404e0",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 2099,
+      "end": 2414,
+      "text": "The standard framework assumes human preferences follow a Bradley-Terry (BT) model based on an implicit utility function. In our context, we aim to learn a cost function $\\hat{c}(s, a)$ where a lower cost implies a higher preference. Consequently, the probability of preferring $\\tau_1$ over $\\tau_2$ is modeled as:"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:be7a501a194b",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 2416,
+      "end": 2574,
+      "text": "$$\n\\hat{P}(\\tau_1 \\succ \\tau_2) = \\sigma(\\hat{C}(\\tau_2) - \\hat{C}(\\tau_1)) = \\frac{e^{\\hat{C}(\\tau_2)}}{e^{\\hat{C}(\\tau_1)} + e^{\\hat{C}(\\tau_2)}} \\tag{3}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:c144783874bb",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 2576,
+      "end": 2824,
+      "text": "where $\\hat{C}(\\tau) = \\sum_{(s_t, a_t) \\sim \\tau} \\gamma^t \\hat{c}(s_t, a_t)$ denotes trajectory cumulative cost, $\\sigma(\\cdot)$ is sigmoid function. The cost is optimized by minimizing the pairwise cross-entropy loss on a preference dataset $D$:"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:a1aba6085dc7",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 2826,
+      "end": 2965,
+      "text": "$$\nL_{\\text{pair}} = -\\mathbb{E}_D\\left[\\mu_1 \\log \\hat{P}(\\tau_1 \\succ \\tau_2) + \\mu_2 \\log \\hat{P}(\\tau_1 \\prec \\tau_2)\\right] \\tag{4}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:d2b17458abb0",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 2967,
+      "end": 3436,
+      "text": "Complementing the pairwise comparisons, binary safety label $\\epsilon$ is also collected in constraint inference works (Reddy Chirra et al., 2024; Dai et al., 2024), enabling the model to explicitly distinguish safe and unsafe trajectories. $\\epsilon = 1$ denotes safe trajectories satisfying the true constraint $C(\\tau) \\leq d$, otherwise $\\epsilon = 0$. The full preference dataset is thus defined as $D = \\{(\\tau_1, \\tau_2, \\mu_1, \\mu_2, \\epsilon_1, \\epsilon_2)\\}$."
+    },
+    {
+      "passage_id": "0af0dd706055#p3:14004f7ed887",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 3438,
+      "end": 3662,
+      "text": "Our goal is to infer the safety constraint (Eq. 2b) by learning $\\hat{c}(s, a)$ from $D$. To address the issues identified in Section 1, we propose a composite loss function for Preference-based Constrained Inference (PbCI):"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:972ca245ea98",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 3664,
+      "end": 3744,
+      "text": "$$\nL_{PbCI} = L_{\\text{pair}} + L_{\\text{safe}}^{DZ} + L_{\\text{SNR}} \\tag{5}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:c952ad8d7f57",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 3746,
+      "end": 4013,
+      "text": "where $L_{\\text{pair}}$ is the pairwise preference loss in Eq. 4, $L_{\\text{safe}}^{DZ}$ is the dead-zone augmented safety loss (detailed in Section 3), and $L_{\\text{SNR}}$ is the SNR loss (introduced in Section 4). We will elaborate these in the following sections."
+    },
+    {
+      "passage_id": "0af0dd706055#p3:17324f8fcbc6",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 4015,
+      "end": 4056,
+      "text": "## 3. Constraint Inference with Dead Zone"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:ab1cacf3c389",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 4058,
+      "end": 4089,
+      "text": "### 3.1. Cost function learning"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:f2a7b905ef1b",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 4091,
+      "end": 4432,
+      "text": "Given a preference dataset $D = \\{(\\tau_1, \\tau_2, \\mu_1, \\mu_2, \\epsilon_1, \\epsilon_2)\\}$, we leverage the BT model to learn a cost function $\\hat{c}(s, a)$. For two trajectories $\\tau_1, \\tau_2$ and pairwise preference labels $\\mu_1, \\mu_2$, the pairwise loss $L_{\\text{pair}}$ is formulated in Eq. 4 to capture the relative cost ranking."
+    },
+    {
+      "passage_id": "0af0dd706055#p3:7620f4a4cc22",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 4434,
+      "end": 4873,
+      "text": "Safety label $\\epsilon$ can be used as a special case of pairwise preference label, because it relates to a pairwise comparison made between the given trajectory $\\tau$ and a hypothetical threshold trajectory $\\tau_{th}$, which has true cost $C(\\tau_{th}) = d$ and estimated cost $\\hat{C}(\\tau_{th}) = 0$. Therefore, the probability that $\\tau$ is considered safe can be expressed as the pairwise preference between $\\tau_{th}$ and $\\tau$:"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:5ccb46a9864f",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 4875,
+      "end": 5020,
+      "text": "$$\n\\hat{P}(\\tau \\text{ is safe}) = \\hat{P}(\\tau \\succ \\tau_{th}) = \\sigma(\\hat{C}(\\tau_{th}) - \\hat{C}(\\tau)) = \\sigma(-\\hat{C}(\\tau)) \\tag{6}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:5a5b9c27f712",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 5022,
+      "end": 5178,
+      "text": "Similar to Eq. 4, the safety label $\\epsilon$ and Eq. 6 can be applied to define a safety loss, facilitating the BT model to judge the safety of trajectory."
+    },
+    {
+      "passage_id": "0af0dd706055#p3:64234e55f82a",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 5180,
+      "end": 5327,
+      "text": "$$\nL_{\\text{safe}} = -\\mathbb{E}_D\\left[\\epsilon \\log \\hat{P}(\\tau \\text{ is safe}) + (1 - \\epsilon) \\log \\hat{P}(\\tau \\text{ is unsafe})\\right]\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:7aff550c59ad",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 5329,
+      "end": 5451,
+      "text": "$$\n= -\\mathbb{E}_D\\left[\\epsilon \\log \\sigma(-\\hat{C}(\\tau)) + (1 - \\epsilon) \\log \\sigma(\\hat{C}(\\tau))\\right] \\tag{7}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p3:10fae8fe6a17",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 5453,
+      "end": 5657,
+      "text": "A well-trained BT model should perfectly rank the costs of all trajectories, and yield $\\hat{C}(\\tau) \\leq 0$ for all safe trajectories with safety label $\\epsilon = 1$, and $\\hat{C}(\\tau) > 0$ otherwise."
+    },
+    {
+      "passage_id": "0af0dd706055#p3:2fb030c4b734",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 5659,
+      "end": 5949,
+      "text": "However, such perfect ranking and classification of trajectory costs may not guarantee that the learned constraint is aligned with the true underlying constraint. As stated in Section 1, BT model is designed for rank learning and it struggles with capturing absolute values or distribution."
+    },
+    {
+      "passage_id": "0af0dd706055#p3:4384d8593009",
+      "page_id": "0af0dd706055#p3",
+      "page_sha256": "627adc36bac9d3fa6a920286e7e322d7a3e1f5aac527852c8228245d3a02ba10",
+      "start": 5951,
+      "end": 5952,
+      "text": "3"
+    },
+    {
+      "passage_id": "0af0dd706055#p4:4620af350348",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 0,
+      "end": 73,
+      "text": "## Safe Reinforcement Learning with Preference-based Constraint Inference"
+    },
+    {
+      "passage_id": "0af0dd706055#p4:1cd996f4c6c3",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 75,
+      "end": 490,
+      "text": "As shown in Figure 1, the difference between the true heavy-tailed distribution and the relatively symmetric one, learned by the BT model, may lead to an underestimation of the cost expectation. Since the constraint is modeled in the expectation form $\\mathbb{E}[C] \\leq d$, this underestimation may further loosen the safety constraint and eventually fail to guide the policy learning for true safety requirements."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:34441c2e49c1",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 492,
+      "end": 1005,
+      "text": "To address this constraint misalignment issue, we turn to use dead zone to mitigate the distribution difference. The dead zone is a region around the threshold with upper bound $\\delta > 0$. Instead of merely learning that unsafe trajectories with $\\epsilon = 0$ should have $\\hat{C} > 0$, we encourage the model to induce higher costs $\\hat{C} > \\delta$ for unsafe trajectories, pushing cost on the right side of the threshold to distribute further. With the above updates, the safety loss is refined as follows:"
+    },
+    {
+      "passage_id": "0af0dd706055#p4:a1af9c828a74",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 1007,
+      "end": 1333,
+      "text": "$$\n\\begin{aligned}\nL_{\\text{safe}}^{\\text{DZ}} &= -\\mathbb{E}_D \\left[ \\epsilon \\log \\hat{P}(\\tau \\text{ is safe}) + (1 - \\epsilon) \\log \\hat{P}(\\tau \\text{ is unsafe}) \\right] \\\\\n&= -\\mathbb{E}_D \\left[ \\epsilon \\log \\sigma(-\\hat{C}(\\tau)) + (1 - \\epsilon) \\log \\sigma(\\hat{C}(\\tau) - \\delta) \\right]\n\\end{aligned}\n\\tag{8}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p4:7008222c5fd2",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 1335,
+      "end": 1548,
+      "text": "The dead zone upper bound $\\delta$ assigns higher costs to unsafe trajectories, producing a more heavy-tailed cost distribution. This mitigates the underestimation of expected cost for better constraint alignment."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:cbdcf371e14d",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 1550,
+      "end": 1592,
+      "text": "### 3.2. Theoretical Analysis of Dead Zone"
+    },
+    {
+      "passage_id": "0af0dd706055#p4:6f909a3f9707",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 1594,
+      "end": 2056,
+      "text": "In this section, we present a theoretical analysis demonstrating how our dead-zone loss recovers the heavy-tailed cost distribution. This framework establishes a progression from micro-optimization to macro-statistics: Lemma 3.1 proves the gradient advantage of the dead-zone loss, which Theorem 3.2 propagates into multi-step dominance. Finally, Corollary 3.3 leverages this cost dominance to guarantee the recovery of the macroscopic heavy-tailed distribution."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:f7173bd3f152",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 2058,
+      "end": 2456,
+      "text": "**Lemma 3.1.** For any unsafe trajectory $\\tau$ with safety label $\\epsilon = 0$ and estimated cost $\\hat{C}(\\tau)$, the gradient provided by the Dead Zone loss $L_{\\text{safe}}^{\\text{DZ}}$ in Eq. 8 is strictly more negative than that provided by the original loss $L_{\\text{safe}}$ in Eq. 7, i.e., $\\nabla_{\\hat{C}(\\tau)} L_{\\text{safe}}^{\\text{DZ}} < \\nabla_{\\hat{C}(\\tau)} L_{\\text{safe}} < 0$."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:077cce839d12",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 2458,
+      "end": 2482,
+      "text": "Proof. See Appendix B.1."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:f7276bf545da",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 2484,
+      "end": 2641,
+      "text": "Building on the gradient difference in Lemma 3.1, we analyze the cumulative effect of multistep gradient descent over the training process of the cost model."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:ae7a5699d420",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 2643,
+      "end": 3121,
+      "text": "**Theorem 3.2.** For any unsafe trajectory $\\tau$, $\\hat{C}_t^{\\text{DZ}}(\\tau)$ and $\\hat{C}_t(\\tau)$ are the cost learned by the dead zone loss $L_{\\text{safe}}^{\\text{DZ}}$ and the original loss $L_{\\text{safe}}$ at training step $t$, respectively. Under gradient descent with the same learning rate $\\eta$ and identical initialization $\\hat{C}_0^{\\text{DZ}}(\\tau) = \\hat{C}_0(\\tau)$, for any $t > 0$, we have strict dominance $\\hat{C}_t^{\\text{DZ}}(\\tau) > \\hat{C}_t(\\tau)$."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:eb3d6eea4a61",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 3123,
+      "end": 3234,
+      "text": "Proof. We analyze the update dynamics using mathematical induction. Detailed proof is provided in Appendix B.2."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:5eccb8085b88",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 3236,
+      "end": 3349,
+      "text": "Finally, we connect this instance-level cost shift to the overall distributional change induced by the dead zone."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:c5dcb80ccf14",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 3351,
+      "end": 3679,
+      "text": "**Corollary 3.3.** The cost distribution learned by the dead zone loss $L_{\\text{safe}}^{\\text{DZ}}$ has a strictly heavier right tail than that learned by the original loss $L_{\\text{safe}}$. Specifically, for any $z > 0$ (within the support), the tail probability satisfies $P(\\hat{C}^{\\text{DZ}} \\geq z) > P(\\hat{C} \\geq z)$."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:ca506667a8d9",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 3681,
+      "end": 3705,
+      "text": "Proof. See Appendix B.3."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:84b9af4615f1",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 3707,
+      "end": 3993,
+      "text": "The above analysis shows that the dead zone upper bound $\\delta$ encourages the learned cost distribution to have a heavier right tail, mitigating the underestimation of expected cost. This will facilitate better constraint alignment and policy optimization in downstream safe RL tasks."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:211892f4c5a9",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 3995,
+      "end": 4043,
+      "text": "## 4. Loss Design based on Signal-to-Noise Ratio"
+    },
+    {
+      "passage_id": "0af0dd706055#p4:be0ba1325ee6",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 4045,
+      "end": 4524,
+      "text": "The dead zone mechanism from Section 3 is primarily designed to align the constraint with the true underlying constraint. However, there is evidence showing that a cost model with a flattened or poorly differentiated cost landscape may hinder effective policy gradient updates, leading to suboptimal performance or slow convergence (Razin et al., 2025). This section is focused on how to induce cost differentiation and send informative signals for efficient policy optimization."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:ec28e42509fa",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 4526,
+      "end": 4872,
+      "text": "Specifically, we encourage the cost model to search for better differentiation by adding a novel loss term based on Signal-to-Noise Ratio (SNR). The SNR is a well-known measure defined by the signal power relative to the noise power (Johnson, 2006). Here, we define the SNR using a batch of data $\\{(\\tau, \\mu)\\}$ from the dataset $D$ as follows:"
+    },
+    {
+      "passage_id": "0af0dd706055#p4:8acc497176a2",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 4874,
+      "end": 4948,
+      "text": "$$\nL_{\\text{SNR}} = -\\zeta \\frac{Var(\\hat{C}(\\tau))}{H(p(\\mu))}\n\\tag{9}\n$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p4:4a5b23326232",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 4950,
+      "end": 5443,
+      "text": "where $\\zeta$ is a weighting coefficient. $Var(\\hat{C}(\\tau))$ is the variance of the estimated cost of the batch, which is the signal power because it reflects the degree of differentiation in the cost outputs. $H(p(\\mu)) = -\\sum p(\\mu) \\ln p(\\mu)$ is the entropy of the preference label distribution $p(\\mu)$, which quantifies the uncertainty in the preference data and serves as the noise power, because larger entropy indicates greater disorder and less information provided by the labels."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:3090d97187e6",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 5445,
+      "end": 5685,
+      "text": "Minimizing the SNR loss encourages the model to induce sufficient cost variance. It thus provides a more discriminative cost signal for policy optimization, with a benefit of policy exploration. We will elaborate this further in Appendix C."
+    },
+    {
+      "passage_id": "0af0dd706055#p4:c1ed580cf037",
+      "page_id": "0af0dd706055#p4",
+      "page_sha256": "ad333becbb0e5203c62398a2b2b305da3875fdfa97884f87f003bf1cfc98a513",
+      "start": 5687,
+      "end": 5930,
+      "text": "Incorporating pairwise preference loss in Eq. 4, safety loss in Eq. 8 and SNR loss in Eq. 9, the overall loss function for preference-based constrained inference $L_{PbCI}$ is defined in Eq. 5. The overall loss function is optimized to learn a"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:9cd6910d27d1",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 0,
+      "end": 72,
+      "text": "# Safe Reinforcement Learning with Preference-based Constraint Inference"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:25a0c97641e1",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 74,
+      "end": 238,
+      "text": "cost function $\\hat{c}(s, a)$ that not only aligns well with the true underlying constraint but also provides informative signals for efficient policy optimization."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:6cb7d4817d0b",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 240,
+      "end": 273,
+      "text": "## 5. Two-stage Training Strategy"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:11e196a92ea1",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 275,
+      "end": 492,
+      "text": "This section will propose a two-stage training strategy for the cost model, and then present the overall Preference-based Constrained Reinforcement Learning (PbCRL) algorithm and its theoretical convergence guarantee."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:cf3b40e1af90",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 494,
+      "end": 530,
+      "text": "### 5.1. Constraint Learning Details"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:a88d94a42ede",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 532,
+      "end": 1039,
+      "text": "Most preference-based RL methods jointly optimize the cost model and the policy online (Reddy Chirra et al., 2024; Lee et al., 2021; Christiano et al., 2017). Inspired by reward model training in language model alignment (Ouyang et al., 2022), we instead propose a two-stage learning strategy. This approach leverages offline data for initial cost model training, followed by online finetuning during policy optimization, thereby lowering the burden of online labeling and enhancing constraint satisfaction."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:506cc992522e",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 1041,
+      "end": 1510,
+      "text": "**Offline Pre-training**\nStandard online approaches require annotators to continuously provide feedback throughout the entire policy training procedure, resulting in a significant labeling burden that is often expensive and time-consuming. To mitigate this, our first stage leverages an offline preference dataset $D$ collected in advance. The cost model $c_\\psi(s, a)$, parameterized by $\\psi$, is trained by the loss in Eq. 5 with fixed dead zone for stable training."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:e8afd9518364",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 1512,
+      "end": 1582,
+      "text": "$$\\psi \\leftarrow \\psi - lr_\\psi \\nabla_\\psi L_{PbCI}(\\psi) \\tag{10}$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:6e0e13433a05",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 1584,
+      "end": 1790,
+      "text": "This procedure leverages existing preference data without incurring online labeling. The offline pre-training phase aims to learn a general estimate of the cost function based on the available offline data."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:ba152f48be43",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 1792,
+      "end": 2044,
+      "text": "**Online Finetuning**\nThe pre-trained cost model is then used for policy optimization in Eq. 2. During this policy training phase, we select a comparatively small batch of generated trajectories for online labeling to finetune the cost model by Eq. 10."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:400d8f3d7fa9",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 2046,
+      "end": 2393,
+      "text": "Furthermore, the dead zone parameter fixed during pre-training may not optimally transfer to the online phase, due to the distribution shift between the offline dataset and the current policy's trajectories. To address this, we introduce an adaptive calibration mechanism that aligns the model's safety predictions with the empirical ground truth."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:029c03219917",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 2395,
+      "end": 3016,
+      "text": "For a batch of trajectories with online labels $B = \\{(\\tau, \\mu, \\epsilon)\\}$, while the ground truth cost values are unavailable, the violation rate (proportion of unsafe trajectories) provides a surrogate signal for alignment. We aim to match the predicted violation rate $\\hat{P}_{vio} = \\frac{1}{|B|} \\sum \\mathbb{I}(c_\\psi(\\tau) > 0)$ with the empirical violation rate $P_{vio} = \\frac{1}{|B|} \\sum \\mathbb{I}(\\epsilon = 0)$. A discrepancy where $\\hat{P}_{vio} > P_{vio}$ indicates an overestimation of risks, while the inverse suggests underestimation. We adaptively update the dead zone to minimize this mismatch:"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:14f2257e0769",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 3018,
+      "end": 3071,
+      "text": "$$L_\\delta = \\|\\hat{P}_{vio} - P_{vio}\\|^2 \\tag{11}$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:82e9265cb7e8",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 3073,
+      "end": 3341,
+      "text": "We perform gradient descent on $L_\\delta$ with respect to $\\delta$ to update the dead zone. This process acts as a dynamic calibration, ensuring that the learned cost model maintains a consistent interpretation of safety with preference feedback as the policy evolves."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:638f7d8299d9",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 3343,
+      "end": 3726,
+      "text": "The two-stage learning phase leverages offline data for pre-training, reducing the need for costly online labeling. The adaptive finetuning of the cost model during policy training allows it to align the pre-trained cost function with the genuine safety requirements encountered in the training environment, thereby adaptively enhancing constraint satisfaction of the learned policy."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:b6a036e92fd0",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 3728,
+      "end": 3796,
+      "text": "### 5.2. Preference-based Constrained Reinforcement Learning (PbCRL)"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:89d2bc6f31b6",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 3798,
+      "end": 4422,
+      "text": "Based on these, we present the proposed algorithm, namely Preference-based Constrained Reinforcement Learning (PbCRL). PbCRL leverages an extended BT model to estimate safety constraint from preference. Policy optimization is then performed based on this learned constraint. In this work, we conduct policy optimization using the Lagrange multiplier method, a widely adopted approach in safe RL literature (Ray et al., 2019; Yang et al., 2021; Li et al., 2025). The safe RL problem in Eq. 2 is transformed into a Lagrangian loss, with cost model parameter $\\psi$, policy parameter $\\theta$ and Lagrange multiplier $\\lambda$:"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:fdbc91ed39f0",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 4424,
+      "end": 4528,
+      "text": "$$L(\\psi, \\theta, \\lambda) = -\\left[ J_R(\\pi_\\theta) - \\lambda J_{C_\\psi}(\\pi_\\theta) \\right] \\tag{12}$$"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:c589016b2276",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 4530,
+      "end": 4603,
+      "text": "The overall algorithm of the proposed PbCRL is summarized in Algorithm 1."
+    },
+    {
+      "passage_id": "0af0dd706055#p5:51fe31d488a2",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 4605,
+      "end": 4643,
+      "text": "### 5.3. Convergence Analysis of PbCRL"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:ac08f239711f",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 4645,
+      "end": 4799,
+      "text": "**Assumption 5.1.** The following conditions are adopted as standard assumptions in Safe RL literature (Borkar, 2008; Chow et al., 2018; Li et al., 2025):"
+    },
+    {
+      "passage_id": "0af0dd706055#p5:76226d9f14f3",
+      "page_id": "0af0dd706055#p5",
+      "page_sha256": "c60682c1670f5cca179a28bb9b7da19d319e2d9969de817b47b66dec257518d9",
+      "start": 4801,
+      "end": 5227,
+      "text": "1. **Continuous:** The objective $L(\\psi, \\theta, \\lambda)$ in Eq. 12 is continuously differentiable w.r.t. $\\theta$, and its gradient $\\nabla_\\theta L(\\psi, \\theta, \\lambda)$ is Lipschitz continuous w.r.t. $\\psi$, $\\theta$ and $\\lambda$.\n2. **Step Sizes and Timescale Separation:** The learning rates $lr_\\psi$, $lr_\\theta$ and $lr_\\lambda$ are positive, nonsummable, and square-summable. Additionally, they satisfy timescale"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:fc27a2e1e7b1",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 0,
+      "end": 72,
+      "text": "# Safe Reinforcement Learning with Preference-based Constraint Inference"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:0795cf7a45d8",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 74,
+      "end": 148,
+      "text": "## Algorithm 1 Preference-based Constrained Reinforcement Learning (PbCRL)"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:db301bba58bf",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 150,
+      "end": 208,
+      "text": "**Require:** Preference dataset $D$, finetune interval $K$"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:3e7492278405",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 210,
+      "end": 1379,
+      "text": "1: **Cost Model Pre-training:**\n2: Initialize cost model $c_\\psi(s, a)$, dead zone $\\delta$\n3: **for** each epoch **do**\n4: &emsp;Sample a batch of preference data from $D$\n5: &emsp;Update cost model parameter $\\psi$ by Eq. 10\n6: **end for**\n7:\n8: **Policy Optimization:**\n9: Initialize policy $\\pi_\\theta$, Lagrange multiplier $\\lambda$\n10: **for** $n = 0, 1, 2, \\ldots, N$ **do**\n11: &emsp;Collect trajectories using current policy $\\pi_\\theta$\n12: &emsp;**if** $n \\bmod K = 0$ **then**\n13: &emsp;&emsp;**Cost Model Finetuning:**\n14: &emsp;&emsp;Sample a small batch of online data $B$, update $D$\n15: &emsp;&emsp;Update dead zone $\\delta$ by Eq. 11\n16: &emsp;&emsp;**for** each epoch **do**\n17: &emsp;&emsp;&emsp;Sample a batch of preference data from $D$\n18: &emsp;&emsp;&emsp;Update cost model parameter $\\psi$ by Eq. 10\n19: &emsp;&emsp;**end for**\n20: &emsp;**end if**\n21: &emsp;Update policy $\\pi_\\theta$ by $\\theta \\leftarrow \\theta - \\mathrm{lr}_\\theta \\nabla_\\theta \\mathcal{L}(\\psi, \\theta, \\lambda)$\n22: &emsp;Update multiplier $\\lambda$ by $\\lambda \\leftarrow \\lambda + \\mathrm{lr}_\\lambda \\nabla_\\lambda \\mathcal{L}(\\psi, \\theta, \\lambda)$\n23: **end for**"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:dcba41ad8692",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 1381,
+      "end": 1506,
+      "text": "separation conditions: $\\mathrm{lr}_\\lambda(t) = o(\\mathrm{lr}_\\theta(t))$, $\\mathrm{lr}_\\theta(t) = o(\\mathrm{lr}_\\psi(t))$."
+    },
+    {
+      "passage_id": "0af0dd706055#p6:9128b94fb184",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 1508,
+      "end": 1866,
+      "text": "**3. Stability of Fast Dynamics:** For any fixed $\\theta$ and $\\lambda$, the Ordinary Differential Equation (ODE) governing the cost model finetuning $\\dot{\\psi} = -\\nabla_\\psi L_{\\mathrm{PbCI}}(\\psi)$ possesses a set of locally asymptotically stable equilibria, and the iterates $\\{\\psi_k\\}$ remain almost surely within the domain of attraction of this set."
+    },
+    {
+      "passage_id": "0af0dd706055#p6:c0af11776732",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 1868,
+      "end": 1947,
+      "text": "With these assumptions, we present the convergence theorem of PbCRL as follows:"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:7af1cd1f0483",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 1949,
+      "end": 2120,
+      "text": "**Theorem 5.2.** Under Assumptions 5.1, PbCRL with iterations $(\\psi, \\theta, \\lambda)$ converges almost surely to a local optimal policy for the safe RL problem in Eq. 2."
+    },
+    {
+      "passage_id": "0af0dd706055#p6:406494cb525a",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 2122,
+      "end": 2238,
+      "text": "*Proof.* We utilize multi-time scale stochastic approximation to prove the convergence. Details are in Appendix B.4."
+    },
+    {
+      "passage_id": "0af0dd706055#p6:c00df6f2fb9d",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 2240,
+      "end": 2381,
+      "text": "Theorem 5.2 shows that under standard assumptions, the proposed PbCRL algorithm converges to a local optimum of the safe RL problem in Eq. 2."
+    },
+    {
+      "passage_id": "0af0dd706055#p6:977c896e0aef",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 2383,
+      "end": 2400,
+      "text": "## 6. Experiments"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:8462619a6683",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 2402,
+      "end": 2528,
+      "text": "In this section, we empirically evaluate the proposed PbCRL on multiple benchmarks to answer the following research questions:"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:030d2c1bb28a",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 2530,
+      "end": 2678,
+      "text": "**Q1:** Can PbCRL effectively learn safety constraints from preference data and achieve superior performance compared to state-of-the-art baselines?"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:fed35cfd7cd1",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 2680,
+      "end": 2787,
+      "text": "**Q2:** Why does PbCRL work? How do the proposed techniques contribute to the overall performance of PbCRL?"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:d44bbafb9248",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 2789,
+      "end": 2844,
+      "text": "**Q3:** Can PbCRL generalize to more complex scenarios?"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:c3cf4dd3a318",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 2846,
+      "end": 3116,
+      "text": "**Benchmarks** We evaluate PbCRL on three distinct domains with varied safety challenges: (1) Robotic control in Safety Gymnasium (Ji et al., 2023); (2) Autonomous driving; (3) Language Model alignment. Details for each domain are provided in the respective subsections."
+    },
+    {
+      "passage_id": "0af0dd706055#p6:94f281300b18",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 3118,
+      "end": 3970,
+      "text": "**Baselines and Metrics** We compare PbCRL against state-of-the-art baselines in Safe RL with constraint learned from preference. RLSF (Reddy Chirra et al., 2024) estimates a binary cost function using a BT model trained from segment-level human feedback. Safe RLHF (Dai et al., 2024), originally for language model alignment, is adapted for our continuous control tasks using its standard BT-based cost learning. We refer to this baseline as PPO-BT to highlight its reliance on the standard BT model. Additionally, we include PPO-Lag (Ray et al., 2019) trained with ground-truth costs as an oracle upper bound. A safe RL approach with well-aligned constraints should approach the performance of PPO-Lag. Performance is evaluated using average episode return and ground-truth cost over 5 random seeds. Implementation details are provided in Appendix D."
+    },
+    {
+      "passage_id": "0af0dd706055#p6:3aa75474384b",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 3972,
+      "end": 4014,
+      "text": "### 6.1. Robotic tasks in Safety Gymnasium"
+    },
+    {
+      "passage_id": "0af0dd706055#p6:fd49506fc6ef",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 4016,
+      "end": 4482,
+      "text": "**Environment Setup** We evaluate PbCRL on robotic control tasks in Safety Gymnasium (Ji et al., 2023), a standard safe RL benchmark. Locomotion tasks (HalfCheetah, Walker2d, Humanoid) involve velocity constraints, while the more challenging navigation tasks (Goal, Push, Button) require reaching targets while avoiding collisions with obstacles. Cost thresholds are scaled with task difficulty following standard Safe RL protocols. Full details are in Appendix D.1."
+    },
+    {
+      "passage_id": "0af0dd706055#p6:3fe5e0579a10",
+      "page_id": "0af0dd706055#p6",
+      "page_sha256": "90a0c18a18b498bcf9c85f51ddcc31fa6190b9af771914e38f5c5138f57568cb",
+      "start": 4484,
+      "end": 5055,
+      "text": "**Overall Performance** To answer Q1 regarding the effectiveness and superiority of our approach, we first present a holistic evaluation across six Safety Gymnasium tasks in Table 1. PbCRL demonstrates superior results by effectively balancing return and safety, outperforming other preference-based baselines. Crucially, the true cost of PbCRL converges closely to the safety threshold, mirroring the behavior of the Oracle (PPO-Lag). This empirically validates that the constraint learned by PbCRL functions as a reliable surrogate for the underlying safety constraint."
+    },
+    {
+      "passage_id": "0af0dd706055#p7:0362b2a94d6b",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 0,
+      "end": 72,
+      "text": "# Safe Reinforcement Learning with Preference-based Constraint Inference"
+    },
+    {
+      "passage_id": "0af0dd706055#p7:28e8b363ad94",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 74,
+      "end": 193,
+      "text": "Table 1. Empirical results on Safety Gymnasium tasks. The best method using learned constraints is highlighted in bold."
+    },
+    {
+      "passage_id": "0af0dd706055#p7:420535ffd916",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 195,
+      "end": 1194,
+      "text": "| Tasks (Threshold) | Metrics | PPO-Lag (Oracle) | PbCRL (Ours) | RLSF | PPO-BT |\n|---|---|---|---|---|---|\n| HalfCheetah (5) | Return | 2619 \u00b1 124 | 2367 \u00b1 138 | 2084 \u00b1 126 | 2494 \u00b1 195 |\n| | Cost | 4.82 \u00b1 0.91 | 4.66 \u00b1 1.03 | 3.26 \u00b1 0.78 | 5.58 \u00b1 2.14 |\n| Walker2d (5) | Return | 3057 \u00b1 142 | 2659 \u00b1 133 | 2415 \u00b1 120 | 2807 \u00b1 156 |\n| | Cost | 4.88 \u00b1 1.02 | 4.62 \u00b1 0.97 | 3.66 \u00b1 0.85 | 4.91 \u00b1 1.11 |\n| Humanoid (5) | Return | 5876 \u00b1 210 | 5247 \u00b1 149 | 4816 \u00b1 180 | 5948 \u00b1 225 |\n| | Cost | 5.03 \u00b1 1.93 | 4.85 \u00b1 1.21 | 4.05 \u00b1 1.12 | 5.89 \u00b1 2.05 |\n| Goal (20) | Return | 23.50 \u00b1 1.14 | 23.41 \u00b1 1.08 | 5.78 \u00b1 1.07 | 24.26 \u00b1 0.99 |\n| | Cost | 20.70 \u00b1 1.91 | 18.50 \u00b1 2.03 | 8.20 \u00b1 2.21 | 26.97 \u00b1 2.62 |\n| Push (35) | Return | 4.77 \u00b1 0.67 | 3.20 \u00b1 0.38 | 1.07 \u00b1 0.35 | 4.09 \u00b1 0.57 |\n| | Cost | 36.17 \u00b1 5.00 | 34.86 \u00b1 3.13 | 20.05 \u00b1 3.56 | 41.85 \u00b1 5.65 |\n| Button (40) | Return | 8.96 \u00b1 1.06 | 8.73 \u00b1 0.78 | \u22122.01 \u00b1 0.37 | 9.01 \u00b1 1.51 |\n| | Cost | 38.25 \u00b1 5.20 | 37.51 \u00b1 5.65 | 4.26 \u00b1 3.33 | 50.78 \u00b1 8.10 |"
+    },
+    {
+      "passage_id": "0af0dd706055#p7:cdfd134b855b",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 1196,
+      "end": 1325,
+      "text": "*[Figure 2: Average episode return and cost of four algorithms on robotic navigation tasks. Dashed lines are safety thresholds.]*"
+    },
+    {
+      "passage_id": "0af0dd706055#p7:039f5d0520e2",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 1327,
+      "end": 1686,
+      "text": "To provide deeper insight into how these results are achieved, Figure 2 illustrates the training dynamics on three representative navigation tasks. We observe that the true cost (Row 2) of all algorithms converges towards a steady state, indicating all policies satisfy their safety constraints, either learned (PbCRL, RLSF, PPO-BT) or ground truth (PPO-Lag)."
+    },
+    {
+      "passage_id": "0af0dd706055#p7:2dbdcbb0f831",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 1688,
+      "end": 2130,
+      "text": "PPO-Lag (red), the oracle with ground-truth costs, establishes a performance upper bound with high returns and satisfied constraints. In contrast, RLSF (orange) yields the lowest return and cost across all methods. This behavior is likely due to an overestimation issue in its cost function learned from segments, resulting in overly conservative constraints that sacrifice return performance for excessive safety (Reddy Chirra et al., 2024)."
+    },
+    {
+      "passage_id": "0af0dd706055#p7:021621b40566",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 2132,
+      "end": 2828,
+      "text": "Comparing PbCRL (blue) with PPO-BT (green), PbCRL achieves high returns comparable to the Oracle PPO-Lag (red) while maintaining costs just below the safety threshold (black dashed line). This balance between return and safety, similar to PPO-Lag, demonstrates that the learned constraint successfully aligns with the genuine safety requirements. Conversely, PPO-BT, despite its high return, consistently violates constraints with costs exceeding the threshold. As analyzed in Section 3, this failure is attributed to the standard BT model's tendency to infer symmetric cost distributions rather than heavy-tailed ones, causing underestimation of the expected cost and overly aggressive policies."
+    },
+    {
+      "passage_id": "0af0dd706055#p7:5fecc9f51c0b",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 2830,
+      "end": 3422,
+      "text": "**Cost Distribution Analysis** Addressing Q2 on why PbCRL works, we delve into the characteristics of the learned cost distributions to explain the performance disparity. As illustrated in Figure 1, an accurate representation of the underlying cost distribution, especially its heavy-tailed nature, is vital for learning a reliable constraint that aligns with the true constraint $\\mathbb{E}[C] < d$. We quantify the fidelity of learned cost distributions using the 2-Wasserstein (W2) distance against the ground truth, a lower W2 distance implies higher similarity between two distributions."
+    },
+    {
+      "passage_id": "0af0dd706055#p7:306d1b06c7ae",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 3424,
+      "end": 3481,
+      "text": "Table 2. W2 and Bias between converged cost and threshold"
+    },
+    {
+      "passage_id": "0af0dd706055#p7:6e8d497c8233",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 3483,
+      "end": 3751,
+      "text": "| Tasks | PbCRL (Ours) | | RLSF | | PPO-BT | |\n|---|---|---|---|---|---|---|\n| | W2 | Bias | W2 | Bias | W2 | Bias |\n| Goal | 16.8 | 1.5 | 68.1 | 11.8 | 42.7 | 6.9 |\n| Push | 20.3 | 0.1 | 82.4 | 14.9 | 36.5 | 6.8 |\n| Button | 44.3 | 2.5 | 165.5 | 35.7 | 78.8 | 10.78 |"
+    },
+    {
+      "passage_id": "0af0dd706055#p7:962b8d251ee9",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 3753,
+      "end": 4294,
+      "text": "Table 2 summarizes W2 distances and the bias between the converged true cost and the safety threshold. The results reveal a strong correlation: lower W2 distances consistently correspond to lower safety bias, indicating better constraint alignment. PbCRL achieves the lowest W2 across all tasks, confirming that the dead zone mechanism successfully encourages heavy-tailed characteristics. This distributional alignment directly explains the superior constraint satisfaction observed in Table 1. Further analysis is provided in Appendix F.2."
+    },
+    {
+      "passage_id": "0af0dd706055#p7:c5359edfc2d0",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 4296,
+      "end": 4339,
+      "text": "## 6.2. Generalization to Complex Scenarios"
+    },
+    {
+      "passage_id": "0af0dd706055#p7:9f936690df4a",
+      "page_id": "0af0dd706055#p7",
+      "page_sha256": "e54eb9e977b901bb28801c98f8a1055bae51fb0d8802e168c98fe9306333bd38",
+      "start": 4341,
+      "end": 4508,
+      "text": "To address Q3 regarding whether PbCRL can generalize to more complex and diverse domains, we extend our evaluation to two distinct settings: autonomous driving (highly"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:e4df36a679c5",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 0,
+      "end": 21,
+      "text": "## Autonomous Driving"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:1b84565f702e",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 23,
+      "end": 552,
+      "text": "We utilize an autonomous driving simulator (Erdem et al., 2020) featuring two highway tasks: blocked road and lane change. These tasks require the agent to navigate dynamic traffic while avoiding collisions in highly interactive and uncertain environments. As shown in Table 3, PbCRL mirrors the Oracle's (PPO-Lag) performance, achieving high returns while strictly maintaining costs within the safety threshold. Conversely, PPO-BT consistently exceeds the safety threshold, while RLSF falls into conservatism with lower returns."
+    },
+    {
+      "passage_id": "0af0dd706055#p8:4cb1c82acaf7",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 554,
+      "end": 615,
+      "text": "**Table 3.** Results on driving scenarios, R: Return, C: Cost"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:7587db2684ce",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 617,
+      "end": 988,
+      "text": "| Task (Threshold) | M | PPO-Lag (Oracle) | PbCRL (Ours) | RLSF | PPO-BT |\n|---|---|---|---|---|---|\n| Block (0.1) | R | 39.1 \u00b1 0.1 | 36.4 \u00b1 0.3 | 31.8 \u00b1 0.3 | 38.5 \u00b1 0.6 |\n| | C | 0.05 \u00b1 0.01 | 0.07 \u00b1 0.01 | 0.05 \u00b1 0.01 | 0.12 \u00b1 0.02 |\n| Lane (0.1) | R | 51.6 \u00b1 0.9 | 51.4 \u00b1 0.5 | 44.9 \u00b1 0.8 | 51.5 \u00b1 0.8 |\n| | C | 0.01 \u00b1 0.01 | 0.08 \u00b1 0.01 | 0.06 \u00b1 0.01 | 0.14 \u00b1 0.02 |"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:7ce70059e024",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 990,
+      "end": 1017,
+      "text": "## Language Model Alignment"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:728acf8a7214",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 1019,
+      "end": 1549,
+      "text": "While our primary focus remains on safety-critical continuous control, we conduct preliminary experiments in language model alignment to evaluate the generality of PbCRL in high-dimensional, discrete action spaces. Llama-3.2-1B is employed as base model and trained on Safe RLHF dataset (Dai et al., 2024). We utilize Gemini 2.5 Flash as an impartial judge to compute win rates, using consistent reward and cost models across all baselines. Results in Table 4 confirm PbCRL's potential to generalize to higher-dimensional domains."
+    },
+    {
+      "passage_id": "0af0dd706055#p8:30ad51bbe0f2",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 1551,
+      "end": 1599,
+      "text": "**Table 4.** Results on Language Model Alignment"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:f618d9c7bf69",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 1601,
+      "end": 1871,
+      "text": "| Metric | PPO | RLSF | Safe RLHF | PbCRL (Ours) |\n|---|---|---|---|---|\n| Win Rate (Helpful) \u2191 | 72.5% | 60.4% | 79.4% | 80.7% |\n| Win Rate (Harmless) \u2191 | 60.7% | 54.2% | 76.5% | 82.1% |\n| Reward \u2191 | 2.78 | 1.31 | 4.05 | 4.22 |\n| Cost \u2193 | \u22120.57 | 1.10 | \u22122.97 | \u22123.03 |"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:47c3bd0012ec",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 1873,
+      "end": 1895,
+      "text": "## 6.3. Ablation Study"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:47042e7abe3a",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 1897,
+      "end": 1920,
+      "text": "### Dead Zone Parameter"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:7b25e824b01d",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 1922,
+      "end": 2066,
+      "text": "We investigate the sensitivity of the dead zone parameter $\\delta$ during the cost model pre-training phase, with results summarized in Table 5."
+    },
+    {
+      "passage_id": "0af0dd706055#p8:dee070170010",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 2068,
+      "end": 2127,
+      "text": "**Table 5.** Ablation study on dead zone parameter $\\delta$"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:8a6a768d159d",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 2129,
+      "end": 2592,
+      "text": "| Tasks | M | $\\delta = 0$ | $\\delta = 0.1$ | $\\delta = 1$ | $\\delta = 2$ |\n|---|---|---|---|---|---|\n| Goal (20) | W2 | 38.9 | 33.5 | 16.8 | 29.1 |\n| | R | 24.55 \u00b1 1.01 | 24.79 \u00b1 1.18 | 23.41 \u00b1 1.08 | 22.51 \u00b1 1.05 |\n| | C | 28.05 \u00b1 2.55 | 27.46 \u00b1 1.89 | 18.50 \u00b1 2.03 | 16.49 \u00b1 2.18 |\n| Push (35) | W2 | 36.1 | 35.8 | 20.3 | 23.6 |\n| | R | 4.15 \u00b1 0.55 | 3.81 \u00b1 0.21 | 3.20 \u00b1 0.38 | 2.96 \u00b1 0.35 |\n| | C | 42.50 \u00b1 5.50 | 40.26 \u00b1 2.15 | 34.86 \u00b1 3.13 | 30.91 \u00b1 1.78 |"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:bcf5d2399f11",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 2594,
+      "end": 3164,
+      "text": "Setting $\\delta = 0$ reverts to the standard BT model. As discussed in Section 3, this induces a symmetric distribution that underestimates tail risks and yields high W2 distances. A small offset ($\\delta = 0.1$) marginally improves results, but remains insufficient. Conversely, a large dead zone ($\\delta = 2$) over-corrects the distribution, leading to over-conservatism and distributional distortion (increased W2 distances). A moderate $\\delta = 1$ achieves the lowest W2 and best reward-safety trade-off by accurately recovering the heavy-tailed cost distribution."
+    },
+    {
+      "passage_id": "0af0dd706055#p8:faa0305652c8",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 3166,
+      "end": 3194,
+      "text": "### Safety Threshold Offsets"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:a34e53879ef3",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 3196,
+      "end": 3459,
+      "text": "A potential heuristic to address the risk underestimation of standard BT is manually lowering its safety threshold $d$. To evaluate this, we train PPO-BT on the Goal task (true threshold $d = 20$) with various stricter training targets $d \\in \\{20, 18, 15, 10\\}$."
+    },
+    {
+      "passage_id": "0af0dd706055#p8:eac21f83a5d4",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 3461,
+      "end": 3524,
+      "text": "**Table 6.** Ablation study on varying safety threshold offsets"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:f3d8b61d6abd",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 3526,
+      "end": 3806,
+      "text": "| M | PbCRL | PPO-BT (varying $d$) | | | |\n|---|---|---|---|---|---|\n| | | $d = 20$ | $d = 18$ | $d = 15$ | $d = 10$ |\n| R | 23.41 \u00b1 1.08 | 24.26 \u00b1 0.99 | 23.86 \u00b1 1.21 | 23.15 \u00b1 1.05 | 18.27 \u00b1 1.13 |\n| C | 18.50 \u00b1 2.03 | 26.97 \u00b1 2.62 | 24.08 \u00b1 2.87 | 20.82 \u00b1 2.05 | 14.02 \u00b1 1.95 |"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:b320b0166777",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 3808,
+      "end": 4544,
+      "text": "As summarized in Table 6, while manually lowering the threshold indeed reduces PPO-BT's actual cost, it yields a suboptimal reward-safety trade-off compared to PbCRL. Crucially, this heuristic may not be a viable solution in real-world deployment. Under preference-based settings, the true safety limit is implicitly embedded within the collected preference labels, rather than explicitly provided. Mathematically, simply shifting the threshold acts as a mere linear translation of a structurally biased, symmetric distribution. In contrast, PbCRL fundamentally resolves this mismatch by dynamically shaping the distribution to recover the heavy tail, achieving constraint satisfaction without sensitive, task-specific threshold tuning."
+    },
+    {
+      "passage_id": "0af0dd706055#p8:1970264ae99c",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 4546,
+      "end": 4564,
+      "text": "### SNR-based Loss"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:0b62eda8a71d",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 4566,
+      "end": 4816,
+      "text": "The SNR-based loss (Section 4) is designed to induce sufficient cost variance for efficient policy optimization. We conduct a sensitivity analysis on the SNR loss weight $\\zeta$ in Goal task, summarizing mid-training and final performance in Table 7."
+    },
+    {
+      "passage_id": "0af0dd706055#p8:588e69d26e60",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 4818,
+      "end": 4872,
+      "text": "**Table 7.** Ablation study on SNR loss weight $\\zeta$"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:a7f1c9e89789",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 4874,
+      "end": 5258,
+      "text": "| Metrics | $\\zeta = 10^{-2}$ | $\\zeta = 10^{-3}$ (Ours) | $\\zeta = 10^{-5}$ | $\\zeta = 0$ |\n|---|---|---|---|---|\n| Return (Mid) | 3.8 \u00b1 2.2 | 22.9 \u00b1 1.5 | 22.5 \u00b1 1.3 | 22.1 \u00b1 1.1 |\n| Cost (Mid) | 17.9 \u00b1 8.1 | 18.4 \u00b1 2.3 | 24.5 \u00b1 2.5 | 24.8 \u00b1 2.8 |\n| Return (End) | 6.5 \u00b1 1.8 | 23.4 \u00b1 1.1 | 20.6 \u00b1 1.6 | 20.7 \u00b1 1.4 |\n| Cost (End) | 21.9 \u00b1 5.9 | 18.5 \u00b1 2.0 | 19.2 \u00b1 2.2 | 18.4 \u00b1 2.6 |"
+    },
+    {
+      "passage_id": "0af0dd706055#p8:3348389338fb",
+      "page_id": "0af0dd706055#p8",
+      "page_sha256": "c010725280a2f3c2c3edcc8c6a80631ebafe92c711878566b9a75b652543ca7d",
+      "start": 5260,
+      "end": 5624,
+      "text": "Results show that an excessive SNR weight ($10^{-2}$) destabilizes the learning process, evidenced by high variance in both return and cost. Conversely, removing (0) or underweighting ($10^{-5}$) the SNR term leads to a flattened cost landscape, resulting in slow safety convergence (higher costs at mid-training). A balanced $\\zeta$ ($10^{-3}$) induces sufficient"
+    },
+    {
+      "passage_id": "0af0dd706055#p9:ac0f89027e20",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 0,
+      "end": 30,
+      "text": "## Two-stage Training Strategy"
+    },
+    {
+      "passage_id": "0af0dd706055#p9:57363426026b",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 32,
+      "end": 451,
+      "text": "We compare PbCRL against PbCRL-Offline (cost model trained at offline stage only) in Goal and Push tasks, summarized in Table 8. While both methods leverage offline dataset and reduce online labeling burden, the full PbCRL achieves converged costs closer to the safety threshold. This confirms that the online finetuning stage enhances the alignment of the learned constraint, thereby improving constraint satisfaction."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:bf46f5aba186",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 453,
+      "end": 507,
+      "text": "Table 8. Ablation study on two-stage training strategy"
+    },
+    {
+      "passage_id": "0af0dd706055#p9:aa06115dca16",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 509,
+      "end": 756,
+      "text": "| Tasks | Metrics | PbCRL-Offline | PbCRL |\n|---|---|---|---|\n| Goal (20) | Return | 24.79 \u00b1 1.75 | 23.41 \u00b1 1.08 |\n| | Cost | 22.70 \u00b1 0.84 | 18.50 \u00b1 2.03 |\n| Push (35) | Return | 3.77 \u00b1 0.67 | 3.20 \u00b1 0.38 |\n| | Cost | 37.48 \u00b1 5.00 | 34.86 \u00b1 3.13 |"
+    },
+    {
+      "passage_id": "0af0dd706055#p9:48e0dfdc100b",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 758,
+      "end": 827,
+      "text": "Further experimental results and analyses are provided in Appendix F."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:f7ec4124f1fc",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 829,
+      "end": 845,
+      "text": "## 7. Conclusion"
+    },
+    {
+      "passage_id": "0af0dd706055#p9:3da54fbad165",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 847,
+      "end": 2184,
+      "text": "In this paper, we addressed the significant challenge of learning complex, implicit safety constraints in real-world Safe Reinforcement Learning applications. We proposed Preference-based Constrained Reinforcement Learning (PbCRL), a novel framework that learns safety constraints from human preference over trajectories. Our technical contributions include extending the Bradley-Terry model with dead zone to better align the learned cost distribution with the true underlying heavy-tailed costs and mitigate constraint underestimation. We introduced a novel SNR-based loss to promote cost variation, providing a more informative signal for efficient policy optimization. Additionally, our two-stage training strategy effectively reduces the reliance on costly online labeling by leveraging offline data, while adaptive online finetuning enhances constraint satisfaction in the deployment environment. Experimental results demonstrated that our method achieved superior alignment with genuine safety requirements and outperformed state-of-the-art baselines. Despite these advances, our work has certain limitations. For instance, the current framework assumes that the human feedback is free from noise or inconsistencies. Future work could explore enhancing the robustness of PbCRL against noisy human judgments or adversarial attacks."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:a928ed6e468f",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 2186,
+      "end": 2205,
+      "text": "## Impact Statement"
+    },
+    {
+      "passage_id": "0af0dd706055#p9:2a8415e19e58",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 2207,
+      "end": 2408,
+      "text": "This paper presents work whose goal is to advance the field of machine learning. There are many potential societal consequences of our work, none of which we feel must be specifically highlighted here."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:0029881f0f12",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 2410,
+      "end": 2423,
+      "text": "## References"
+    },
+    {
+      "passage_id": "0af0dd706055#p9:42f3155192c4",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 2425,
+      "end": 2579,
+      "text": "Achiam, J., Held, D., Tamar, A., and Abbeel, P. Constrained policy optimization. In *International conference on machine learning*, pp. 22\u201331. PMLR, 2017."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:be1bc943af8a",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 2581,
+      "end": 2649,
+      "text": "Altman, E. *Constrained Markov decision processes*. Routledge, 2021."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:d385d625755b",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 2651,
+      "end": 2833,
+      "text": "Amani, S., Thrampoulidis, C., and Yang, L. Safe reinforcement learning with linear function approximation. In *International Conference on Machine Learning*, pp. 243\u2013253. PMLR, 2021."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:f5ae2c1f2483",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 2835,
+      "end": 2981,
+      "text": "Arora, S. and Doshi, P. A survey of inverse reinforcement learning: Challenges, methods and progress. *Artificial Intelligence*, 297:103500, 2021."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:2c291ac74a67",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 2983,
+      "end": 3182,
+      "text": "Bennett, A., Misra, D., and Kallus, N. Provable safe reinforcement learning with binary feedback. In *International Conference on Artificial Intelligence and Statistics*, pp. 10871\u201310900. PMLR, 2023."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:b36dbf52caad",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 3184,
+      "end": 3282,
+      "text": "Borkar, V. S. *Stochastic approximation: a dynamical systems viewpoint*, volume 9. Springer, 2008."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:4aaea4c50d7b",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 3284,
+      "end": 3432,
+      "text": "Bradley, R. A. and Terry, M. E. Rank analysis of incomplete block designs: I. the method of paired comparisons. *Biometrika*, 39(3/4):324\u2013345, 1952."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:dbf0ff1953fd",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 3434,
+      "end": 3618,
+      "text": "Chow, Y., Ghavamzadeh, M., Janson, L., and Pavone, M. Risk-constrained reinforcement learning with percentile risk criteria. *Journal of Machine Learning Research*, 18(167):1\u201351, 2018."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:7dc870d7da14",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 3620,
+      "end": 3812,
+      "text": "Christiano, P. F., Leike, J., Brown, T., Martic, M., Legg, S., and Amodei, D. Deep reinforcement learning from human preferences. *Advances in neural information processing systems*, 30, 2017."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:d05706164ea4",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 3814,
+      "end": 4073,
+      "text": "Cosner, R., Tucker, M., Taylor, A., Li, K., Molnar, T., Ubelacker, W., Alan, A., Orosz, G., Yue, Y., and Ames, A. Safety-aware preference-based learning for safety-critical control. In *Learning for Dynamics and Control Conference*, pp. 1020\u20131033. PMLR, 2022."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:7c42c1ef41ef",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 4075,
+      "end": 4286,
+      "text": "Dai, J., Pan, X., Sun, R., Ji, J., Xu, X., Liu, M., Wang, Y., and Yang, Y. Safe rlhf: Safe reinforcement learning from human feedback. In *The Twelfth International Conference on Learning Representations*, 2024."
+    },
+    {
+      "passage_id": "0af0dd706055#p9:35b868f0ab42",
+      "page_id": "0af0dd706055#p9",
+      "page_sha256": "2e8452923b257103298bd1cc57743901c6f6ee4b9e0e12d64c5c1d2ccfa24919",
+      "start": 4288,
+      "end": 4496,
+      "text": "Ding, D., Zhang, K., Basar, T., and Jovanovic, M. Natural policy gradient primal-dual method for constrained markov decision processes. *Advances in Neural Information Processing Systems*, 33:8378\u20138390, 2020."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:5edb45bc1101",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 0,
+      "end": 208,
+      "text": "Erdem, B., Palan, M., Landolfi, N. C., Losey, D. P., Sadigh, D., et al. Asking easy questions: A user-friendly approach to active reward learning. In *Conference on Robot Learning*, pp. 1177\u20131190. PMLR, 2020."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:1381e38cb4f6",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 210,
+      "end": 356,
+      "text": "Garc\u00eda, J. and Fern\u00e1ndez, F. A comprehensive survey on safe reinforcement learning. *Journal of Machine Learning Research*, 16(1):1437\u20131480, 2015."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:08530e541db8",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 358,
+      "end": 585,
+      "text": "Gu, S., Shi, L., Ding, Y., Knoll, A., Spanos, C., Wierman, A., and Jin, M. Enhancing efficiency of safe reinforcement learning via sample manipulation. *Advances in Neural Information Processing Systems*, 37:17247\u201317285, 2024a."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:4544b811d774",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 587,
+      "end": 808,
+      "text": "Gu, S., Yang, L., Du, Y., Chen, G., Walter, F., Wang, J., and Knoll, A. A review of safe reinforcement learning: Methods, theories and applications. *IEEE Transactions on Pattern Analysis and Machine Intelligence*, 2024b."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:af3ff8f97092",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 810,
+      "end": 1052,
+      "text": "Ji, J., Zhang, B., Zhou, J., Pan, X., Huang, W., Sun, R., Geng, Y., Zhong, Y., Dai, J., and Yang, Y. Safety gymnasium: A unified safe reinforcement learning benchmark. *Advances in Neural Information Processing Systems*, 36:18964\u201318993, 2023."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:b5d2878d7975",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 1054,
+      "end": 1125,
+      "text": "Johnson, D. H. Signal-to-noise ratio. *Scholarpedia*, 1(12):2088, 2006."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:715b023eadc3",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 1127,
+      "end": 1416,
+      "text": "Lambert, N., Pyatkin, V., Morrison, J., Miranda, L. J. V., Lin, B. Y., Chandu, K., Dziri, N., Kumar, S., Zick, T., Choi, Y., et al. Rewardbench: Evaluating reward models for language modeling. In *Findings of the Association for Computational Linguistics: NAACL 2025*, pp. 1755\u20131797, 2025."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:372c228160b9",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 1418,
+      "end": 1659,
+      "text": "Lee, K., Smith, L., Dragan, A., Abbeel, P., et al. B-pref: Benchmarking preference-based reinforcement learning. In *35th Conference on Neural Information Processing Systems (NeurIPS)*. Neural Information Processing Systems Foundation, 2021."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:271924f5ba72",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 1661,
+      "end": 1875,
+      "text": "Li, C., Ruan, G., and Geng, H. Tilted quantile gradient updates for quantile-constrained reinforcement learning. In *Proceedings of the AAAI Conference on Artificial Intelligence*, volume 39, pp. 18236\u201318243, 2025."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:7e1bfd679c4c",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 1877,
+      "end": 2046,
+      "text": "Malik, S., Anwar, U., Aghasi, A., and Ahmed, A. Inverse constrained reinforcement learning. In *International conference on machine learning*, pp. 7390\u20137399. PMLR, 2021."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:448cc85fe8cc",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 2048,
+      "end": 2159,
+      "text": "Ng, A. Y., Russell, S., et al. Algorithms for inverse reinforcement learning. In *Icml*, volume 1, pp. 2, 2000."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:113567e564a4",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 2161,
+      "end": 2428,
+      "text": "Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., et al. Training language models to follow instructions with human feedback. *Advances in neural information processing systems*, 35:27730\u201327744, 2022."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:2df0462e7d81",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 2430,
+      "end": 2533,
+      "text": "Ray, A., Achiam, J., and Amodei, D. Benchmarking safe exploration in deep reinforcement learning. 2019."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:b94a90565dc4",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 2535,
+      "end": 2736,
+      "text": "Razin, N., Wang, Z., Strauss, H., Wei, S., Lee, J. D., and Arora, S. What makes a reward model a good teacher? an optimization perspective. In *Advances in Neural Information Processing Systems*, 2025."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:b54775684b66",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 2738,
+      "end": 2910,
+      "text": "Reddy Chirra, S., Varakantham, P., and Paruchuri, P. Safety through feedback in constrained rl. *Advances in Neural Information Processing Systems*, 37:139938\u2013139967, 2024."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:3266032c0964",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 2912,
+      "end": 3150,
+      "text": "Robey, A., Hu, H., Lindemann, L., Zhang, H., Dimarogonas, D. V., Tu, S., and Matni, N. Learning control barrier functions from expert demonstrations. In *2020 59th IEEE Conference on Decision and Control (CDC)*, pp. 3717\u20133724. Ieee, 2020."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:de6c476d5023",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 3152,
+      "end": 3301,
+      "text": "Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and Klimov, O. Proximal policy optimization algorithms. *arXiv preprint arXiv:1707.06347*, 2017."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:5f317ce2d070",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 3303,
+      "end": 3475,
+      "text": "Scobee, D. R. and Sastry, S. S. Maximum likelihood constraint inference for inverse reinforcement learning. In *International Conference on Learning Representations*, 2020."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:a13d773dae66",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 3477,
+      "end": 3662,
+      "text": "Sui, Y., Gotovos, A., Burdick, J., and Krause, A. Safe exploration for optimization with gaussian processes. In *International conference on machine learning*, pp. 997\u20131005. PMLR, 2015."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:338fda472d3c",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 3664,
+      "end": 3833,
+      "text": "Wachi, A. and Sui, Y. Safe reinforcement learning in constrained markov decision processes. In *International Conference on Machine Learning*, pp. 9797\u20139806. PMLR, 2020."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:6e0d82233d1d",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 3835,
+      "end": 4075,
+      "text": "Wen, X., Lou, J., Lu, Y., Lin, H., Yu, X., Lu, X., He, B., Han, X., Zhang, D., and Sun, L. Rethinking reward model evaluation: Are we barking up the wrong tree? In *The Thirteenth International Conference on Learning Representations*, 2025."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:e0f75b80c789",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 4077,
+      "end": 4242,
+      "text": "Wu, X., Xiao, L., Sun, Y., Zhang, J., Ma, T., and He, L. A survey of human-in-the-loop for machine learning. *Future Generation Computer Systems*, 135:364\u2013381, 2022."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:3dabea19cbda",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 4244,
+      "end": 4425,
+      "text": "Xu, S. and Liu, G. Uncertainty-aware constraint inference in inverse constrained reinforcement learning. In *The Twelfth International Conference on Learning Representations*, 2023."
+    },
+    {
+      "passage_id": "0af0dd706055#p10:c3c962abc583",
+      "page_id": "0af0dd706055#p10",
+      "page_sha256": "c3ec58be17814492d5c7cc1643b702ff2d9f8e92006e01852262e3dc1c300a96",
+      "start": 4427,
+      "end": 4594,
+      "text": "Xu, S. and Liu, G. Robust inverse constrained reinforcement learning under model misspecification. In *Forty-first International Conference on Machine Learning*, 2024."
+    }
+  ]
+}

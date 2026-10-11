@@ -15,7 +15,8 @@ block is what takes effect ({P} is OPENAI, GEMINI, DEEPSEEK, or DEEPINFRA):
 
     {P}_API_KEY       api key (required)
     {P}_MODEL         default model
-    {P}_MAX_TOKENS    default max output tokens (chat and respond)
+    {P}_MAX_TOKENS    default output allowance (chat and respond)
+    {P}_OUTPUT_TOKEN_LIMIT optional provider hard output cap, applied to requests
     {P}_TEMPERATURE   default sampling temperature
     {P}_BASE_URL      override the API endpoint
 
@@ -49,13 +50,17 @@ Async usage (concurrency-limited):
 
 import asyncio
 import os
+import ssl
 from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI, OpenAI, DefaultHttpxClient, DefaultAsyncHttpxClient
 
 from . import usage
+from .progress import request_progress
+from .sizing import fit_context, reduce_after_context_error
+from .structured import structured_request, complete_text
 
 
 @dataclass(frozen=True)
@@ -69,7 +74,7 @@ class ChatResult:
 
     @property
     def truncated(self) -> bool:
-        return self.finish_reason == "length"
+        return self.finish_reason in ("length", "incomplete")
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -91,12 +96,17 @@ def _provider_config(name: str) -> dict:
     prefix = name.upper()
     max_tokens = os.environ.get(f"{prefix}_MAX_TOKENS")
     temperature = os.environ.get(f"{prefix}_TEMPERATURE")
+    output_limit = os.environ.get(f"{prefix}_OUTPUT_TOKEN_LIMIT")
+    if output_limit is not None and int(output_limit) < 1:
+        raise ValueError(f"{prefix}_OUTPUT_TOKEN_LIMIT must be positive")
     return {
         "env_key": f"{prefix}_API_KEY",
         "base_url": os.environ.get(f"{prefix}_BASE_URL") or defaults["base_url"],
         "default_model": os.environ.get(f"{prefix}_MODEL")
                          or defaults["default_model"],
         "max_tokens": int(max_tokens) if max_tokens else None,
+        "output_token_limit": int(output_limit) if output_limit is not None else None,
+        "context_token_limit": int(os.environ[f"{prefix}_CONTEXT_TOKEN_LIMIT"]) if os.environ.get(f"{prefix}_CONTEXT_TOKEN_LIMIT") else None,
         "temperature": float(temperature) if temperature else None,
     }
 
@@ -117,7 +127,7 @@ def _finish_reason(response) -> str | None:
     if status == "incomplete":
         details = getattr(response, "incomplete_details", None)
         reason = getattr(details, "reason", None)
-        return "length" if reason == "max_output_tokens" else (reason or status)
+        return "length" if reason == "max_output_tokens" else status
     return status
 
 
@@ -149,6 +159,13 @@ def _resolve(provider: str | None, api_key: str | None) -> tuple[str, dict, str]
     return provider, config, api_key
 
 
+def _cap_output(params: dict, key: str, config: dict) -> None:
+    """Application allowances cannot exceed a configured provider output maximum."""
+    limit = config.get("output_token_limit")
+    if limit is not None and params.get(key) is not None:
+        params[key] = min(params[key], limit)
+
+
 def _chat_params(prompt, messages, model, config, system,
                  temperature, max_tokens, kwargs) -> dict:
     if (prompt is None) == (messages is None):
@@ -170,6 +187,8 @@ def _chat_params(prompt, messages, model, config, system,
     if max_tokens is not None:
         params["max_tokens"] = max_tokens
     params.update(kwargs)
+    _cap_output(params, "max_tokens", config)
+    fit_context(params, config)
     return params
 
 
@@ -179,11 +198,15 @@ def _response_params(input, model, config, instructions,
         max_output_tokens = config["max_tokens"]
 
     params = {"model": model or config["default_model"], "input": input}
+    if config.get("temperature") is not None:
+        params["temperature"] = config["temperature"]
     if instructions is not None:
         params["instructions"] = instructions
     if max_output_tokens is not None:
         params["max_output_tokens"] = max_output_tokens
     params.update(kwargs)
+    _cap_output(params, "max_output_tokens", config)
+    fit_context(params, config, "max_output_tokens")
     return params
 
 
@@ -198,6 +221,7 @@ class LLMClient:
         self.default_model = config["default_model"]
         self.last_finish_reason: str | None = None
         self._client = OpenAI(
+            http_client=DefaultHttpxClient(verify=ssl.create_default_context()),
             api_key=api_key, base_url=config["base_url"],
             timeout=DEFAULT_TIMEOUT if timeout is None else timeout,
             max_retries=DEFAULT_MAX_RETRIES if max_retries is None else max_retries)
@@ -234,23 +258,29 @@ class LLMClient:
                           finish_reason=finish,
                           model=getattr(response, "model", None) or params["model"])
 
-    def respond(self, input, *,
-                model: str | None = None,
-                instructions: str | None = None,
-                max_output_tokens: int | None = None,
-                **kwargs) -> str:
-        """Responses API (OpenAI's newer endpoint). `input` is a string or a
-        structured input list; returns the response text.
+    def respond(self, input, **kwargs) -> str:
+        """Responses API text; endpoint support depends on configured provider."""
+        return self.respond_result(input, **kwargs).text
 
-        Note: only OpenAI supports this endpoint. Gemini and DeepSeek will
-        reject it; use chat() with those providers.
-        """
+    def respond_result(self, input, *, model=None, instructions=None,
+                       max_output_tokens=None, **kwargs) -> ChatResult:
         params = _response_params(input, model, self.config,
                                   instructions, max_output_tokens, kwargs)
         response = self._client.responses.create(**params)
         usage.record(response, params["model"])
-        self.last_finish_reason = _finish_reason(response)
-        return response.output_text
+        finish = _finish_reason(response)
+        self.last_finish_reason = finish
+        return ChatResult(response.output_text or "", finish,
+                          getattr(response, "model", None) or params["model"])
+
+    def structured_result(self, prompt=None, *, messages=None, system=None,
+                          schema, model=None, max_tokens=None) -> ChatResult:
+        request = structured_request(prompt, messages=messages, system=system, schema=schema)
+        result = self.respond_result(model=model, max_output_tokens=max_tokens, **request)
+        return result
+
+    def structured(self, prompt=None, **kwargs) -> str:
+        return complete_text(self.structured_result(prompt, **kwargs))
 
     @property
     def raw(self) -> OpenAI:
@@ -280,6 +310,7 @@ class AsyncLLMClient:
         # whichever finished most recently, so treat it as diagnostic only.
         self.last_finish_reason: str | None = None
         self._client = AsyncOpenAI(
+            http_client=DefaultAsyncHttpxClient(verify=ssl.create_default_context()),
             api_key=api_key, base_url=config["base_url"],
             timeout=DEFAULT_TIMEOUT if timeout is None else timeout,
             max_retries=DEFAULT_MAX_RETRIES if max_retries is None else max_retries)
@@ -309,7 +340,13 @@ class AsyncLLMClient:
         params = _chat_params(prompt, messages, model, self.config,
                               system, temperature, max_tokens, kwargs)
         async with self._semaphore:
-            response = await self._client.chat.completions.create(**params)
+            with request_progress():
+                try:
+                    response = await self._client.chat.completions.create(**params)
+                except Exception as exc:
+                    if not reduce_after_context_error(exc, params):
+                        raise
+                    response = await self._client.chat.completions.create(**params)
         usage.record(response, params["model"])
         finish = _finish_reason(response)
         self.last_finish_reason = finish
@@ -317,20 +354,36 @@ class AsyncLLMClient:
                           finish_reason=finish,
                           model=getattr(response, "model", None) or params["model"])
 
-    async def respond(self, input, *,
-                      model: str | None = None,
-                      instructions: str | None = None,
-                      max_output_tokens: int | None = None,
-                      **kwargs) -> str:
-        """Async version of LLMClient.respond (OpenAI Responses API);
-        respects the concurrency limit."""
+    async def respond(self, input, **kwargs) -> str:
+        """Responses API text; endpoint support depends on configured provider."""
+        return (await self.respond_result(input, **kwargs)).text
+
+    async def respond_result(self, input, *, model=None, instructions=None,
+                             max_output_tokens=None, **kwargs) -> ChatResult:
         params = _response_params(input, model, self.config,
                                   instructions, max_output_tokens, kwargs)
         async with self._semaphore:
-            response = await self._client.responses.create(**params)
+            with request_progress():
+                try:
+                    response = await self._client.responses.create(**params)
+                except Exception as exc:
+                    if not reduce_after_context_error(exc, params, 'max_output_tokens'):
+                        raise
+                    response = await self._client.responses.create(**params)
         usage.record(response, params["model"])
-        self.last_finish_reason = _finish_reason(response)
-        return response.output_text
+        finish = _finish_reason(response)
+        self.last_finish_reason = finish
+        return ChatResult(response.output_text or "", finish,
+                          getattr(response, "model", None) or params["model"])
+
+    async def structured_result(self, prompt=None, *, messages=None, system=None,
+                                schema, model=None, max_tokens=None) -> ChatResult:
+        request = structured_request(prompt, messages=messages, system=system, schema=schema)
+        result = await self.respond_result(model=model, max_output_tokens=max_tokens, **request)
+        return result
+
+    async def structured(self, prompt=None, **kwargs) -> str:
+        return complete_text(await self.structured_result(prompt, **kwargs))
 
     async def chat_many(self, prompts: list[str],
                         return_exceptions: bool = False,

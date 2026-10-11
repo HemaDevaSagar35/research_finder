@@ -28,7 +28,7 @@ def test_happy_path_accepts_findings_observations_tensions(corpus):
     S.CrossPaperReasoning.model_validate(out.model_dump())          # output contract holds
     assert out.findings and out.tensions
     assert out.coverage.threads["completed"] == 6
-    assert out.coverage.calls == {"draft": 6, "review": 6, "total": 12, "budget": 300}
+    assert out.coverage.calls == {"draft": 6, "review": 6, "total": 12, "budget": None}
     assert out.diagnostics == []
     f = out.findings[0]
     assert f.verification == "verified"
@@ -109,7 +109,7 @@ def test_structural_draft_error_fails_thread_after_repair(corpus):
     out = run(make_reasoner(root, FakeChat(draft_fn=stance_mismatch)), land)
     assert out.coverage.threads["failed"] == 6
     assert _by_reason(out) == {"draft_invalid": 6}
-    assert out.coverage.calls == {"draft": 6, "repair": 6, "total": 12, "budget": 300}
+    assert out.coverage.calls == {"draft": 6, "repair": 6, "total": 12, "budget": None}
 
 
 def test_tension_with_one_paper_is_no_valid_evidence_not_observation(corpus):
@@ -156,7 +156,7 @@ def test_verify_none_accepts_nothing(corpus):
     out = run(make_reasoner(root, FakeChat(), verify="none"), land)
     assert out.findings == [] and out.observations == [] and out.tensions == []
     assert set(_by_reason(out)) == {"verification_skipped"}
-    assert out.coverage.calls == {"draft": 6, "total": 6, "budget": 300}
+    assert out.coverage.calls == {"draft": 6, "total": 6, "budget": None}
     assert out.run.verify_mode == "none"
 
 
@@ -260,7 +260,7 @@ def test_malformed_json_repairs_once_then_fails(corpus):
     chat = FakeChat(raw_text=lambda p: "not json at all" if p["task"] == "draft" else None)
     out = run(make_reasoner(root, chat), land)
     assert out.coverage.threads["failed"] == 6
-    assert out.coverage.calls == {"draft": 6, "repair": 6, "total": 12, "budget": 300}
+    assert out.coverage.calls == {"draft": 6, "repair": 6, "total": 12, "budget": None}
 
 
 def test_failed_call_consumes_attempt_and_thread_fails(corpus):
@@ -385,7 +385,7 @@ def test_insufficient_evidence_outcome_is_a_valid_answer(corpus):
               land)
     assert out.coverage.threads["insufficient"] == 6
     assert _by_reason(out) == {"insufficient_evidence": 6}
-    assert out.coverage.calls == {"draft": 6, "total": 6, "budget": 300}
+    assert out.coverage.calls == {"draft": 6, "total": 6, "budget": None}
 
 
 def test_output_json_roundtrip(corpus, tmp_path):

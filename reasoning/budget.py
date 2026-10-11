@@ -36,8 +36,8 @@ class BudgetExhausted(RuntimeError):
 
 @dataclass
 class AttemptBudget:
-    """Atomic reservation counter shared by all concurrent threads."""
-    max_calls: int
+    """Atomic reservation counter; None disables the limit but retains accounting."""
+    max_calls: int | None = None
     counts: dict[str, int] = field(default_factory=dict)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
@@ -46,18 +46,18 @@ class AttemptBudget:
         return sum(self.counts.values())
 
     @property
-    def remaining(self) -> int:
-        return self.max_calls - self.used
+    def remaining(self) -> int | None:
+        return None if self.max_calls is None else self.max_calls - self.used
 
     async def reserve(self, kind: str) -> bool:
         """Take one slot for a request of `kind` (draft / repair / review /
         redraft). Returns False, without reserving, when the budget is spent."""
         async with self._lock:
-            if self.used >= self.max_calls:
+            if self.max_calls is not None and self.used >= self.max_calls:
                 return False
             self.counts[kind] = self.counts.get(kind, 0) + 1
             return True
 
-    def snapshot(self) -> dict[str, int]:
+    def snapshot(self) -> dict[str, int | None]:
         return {**{k: v for k, v in sorted(self.counts.items())},
                 "total": self.used, "budget": self.max_calls}

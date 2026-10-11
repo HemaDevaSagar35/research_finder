@@ -477,8 +477,27 @@ If there is no abstract on these pages, return {"abstract": ""}.
 Page text:
 """
 
-# Providers whose OpenAI-compatible endpoint honours response_format=json_object.
-JSON_MODE_PROVIDERS = {"openai", "deepseek"}
+# Typed output contracts are sent separately through Responses text.format.
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+
+class AbstractOutput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    abstract: str
+
+class ResearchAreaOutput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    area: str
+    relevance: Literal['PRIMARY', 'SECONDARY']
+    confidence: float = Field(ge=0, le=1)
+
+class ClassificationOutput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    label: Literal['ML', 'NON_ML']
+    confidence: float = Field(ge=0, le=1)
+    primary_topic: str
+    research_areas: list[ResearchAreaOutput]
+    reason: str
 
 # How many leading pages to look at for the abstract; it is on page 1 for
 # nearly every venue, occasionally page 2 (title-page-only layouts).
@@ -490,12 +509,6 @@ SAVE_INTERVAL_S = 30
 
 
 # ------------------------------------------------------------------ helpers
-
-def _json_kwargs(client: AsyncLLMClient) -> dict:
-    if client.provider in JSON_MODE_PROVIDERS:
-        return {"response_format": {"type": "json_object"}}
-    return {}
-
 
 def _extract_json(raw: str) -> dict | None:
     """Pull the first JSON object out of a model reply, tolerating code
@@ -656,9 +669,9 @@ async def extract_abstract(client: AsyncLLMClient, pdf_path: Path, *,
     """Locate the abstract page and have the LLM return the abstract
     verbatim. Empty string when the paper has none / extraction fails."""
     text = await asyncio.to_thread(_abstract_page_text, pdf_path)
-    raw = await client.chat(ABSTRACT_PROMPT + text, model=model,
-                            **_json_kwargs(client))
-    obj = _extract_json(raw) or {}
+    raw = await client.structured(ABSTRACT_PROMPT + text, model=model,
+                                  schema=AbstractOutput)
+    obj = AbstractOutput.model_validate_json(raw).model_dump()
     return re.sub(r"\s+", " ", str(obj.get("abstract", ""))).strip()
 
 
@@ -673,7 +686,8 @@ async def classify(client: AsyncLLMClient, title: str, abstract: str,
     last_error = "empty response"
     for _ in range(retries + 1):
         try:
-            raw = await client.chat(prompt, model=model, **_json_kwargs(client))
+            raw = await client.structured(prompt, model=model, schema=ClassificationOutput)
+            ClassificationOutput.model_validate_json(raw)
         except Exception as e:  # noqa: BLE001 — surfaced in the record
             last_error = f"{type(e).__name__}: {e}"
             continue

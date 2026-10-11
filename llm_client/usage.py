@@ -20,6 +20,8 @@ Columns:
 """
 
 import threading
+from contextlib import contextmanager
+from contextvars import ContextVar
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -48,6 +50,19 @@ class Usage:
 
 _lock = threading.Lock()
 _by_model: dict[str, Usage] = defaultdict(Usage)
+_scoped: ContextVar[dict | None] = ContextVar("llm_usage_scope", default=None)
+
+
+@contextmanager
+def scoped():
+    """Request-local accounting inherited by async child tasks; global totals persist."""
+    totals = defaultdict(Usage)
+    token = _scoped.set(totals)
+    try:
+        yield totals
+    finally:
+        _scoped.reset(token)
+
 
 
 def _int(x) -> int:
@@ -91,6 +106,10 @@ def record(response, model: str | None = None) -> None:
         m.completion += completion
         m.reasoning += reasoning
         m.truncated += int(truncated)
+        local = _scoped.get()
+        if local is not None:
+            local[model].add(Usage(calls=1, prompt=prompt, cached=cached,
+                completion=completion, reasoning=reasoning, truncated=int(truncated)))
 
 
 def snapshot() -> dict[str, Usage]:

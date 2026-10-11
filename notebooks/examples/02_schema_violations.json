@@ -1,0 +1,1461 @@
+{
+  "provenance": {
+    "run": "cost_aware_agent_rl_20261011T034213Z",
+    "checkpoint": "comparison.json",
+    "checkpoint_sha256": "9fb5f6b9ffc43d14a7e1b606e9a5cb29e6f3f237a2ef2285c56b1338bea35c67",
+    "direction_id": "dir-001",
+    "paper_id": "088e1f601b1e",
+    "authenticity": "actual saved failed review response; may be an intermediate attempt",
+    "source_pointer": "/result/candidates/0/papers/2/evidence_reviews/0/format_repairs/0"
+  },
+  "invalid_output": "{\n  \"claim_checks\": [\n    {\n      \"claim_id\": \"c1\",\n      \"decision\": \"revise\",\n      \"explanation\": \"The reward formalization is exactly supported by the attached passages: IoI and IoR quantify guidance effectiveness, CTR quantifies path feasibility, and Eq. (1) defines R_path = alpha*IoI + beta*IoR + gamma*CTR as a weighted sum (p3:34bdace1297e, p3:c3c07b0cd236). The final clause \u2014 that a policy pi_theta is learned to generate high-reward paths via policy-gradient reinforcement learning \u2014 is not stated in either attached passage; it is established only in the unattached Section 2.1 passages (policy pi_theta(.|S_u, i_T) with objective J(theta) optimized by gradient ascent and a standard policy-gradient estimator). That is a citation repair: attach those passages; the claim wording itself does not need to change, but the claim cannot be marked supported while part of its content relies on evidence outside its attached passage set.\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"result\",\n          \"assertion\": \"Path quality is formalized as the scalar reward R_path = alpha*IoI + beta*IoR + gamma*CTR, a weighted sum of guidance-effectiveness metrics (IoI, IoR) and a path-feasibility metric (CTR).\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p3:34bdace1297e\",\n            \"088e1f601b1e#p3:c3c07b0cd236\"\n          ],\n          \"explanation\": \"The attached text states that IoI and IoR quantify Guidance Effectiveness and CTR quantifies Path Feasibility, then gives the weighted-sum reward equation (Eq. 1); the claim's metric roles and weighted-sum form match.\"\n        },\n        {\n          \"aspect\": \"model\",\n          \"assertion\": \"A policy pi_theta is learned to generate high-reward paths via policy-gradient reinforcement learning.\",\n          \"decision\": \"missing_citation\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p3:da11861f7cfe\",\n            \"088e1f601b1e#p3:d2d7529283b8\"\n          ],\n          \"explanation\": \"These unattached Section 2.1 passages state the learning formulation (goal of learning pi_theta, objective J(theta) with KL regularization, policy-gradient estimation), but they are not attached to c1, whose attached passages only define the reward. Attaching them repairs the citation; the claim text is not otherwise wrong.\"\n        }\n      ],\n      \"scope_summary\": \"Method claim. Two scoped assertions: the reward definition (supported by attached evidence) and the policy-gradient learning procedure (supported only in unattached Section 2.1 passages, hence a citation repair without any change of claim wording). Decision: revise.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p3:34bdace1297e\",\n        \"088e1f601b1e#p3:c3c07b0cd236\",\n        \"088e1f601b1e#p3:da11861f7cfe\",\n        \"088e1f601b1e#p3:d2d7529283b8\"\n      ]\n    },\n    {\n      \"claim_id\": \"c2\",\n      \"decision\": \"supported\",\n      \"explanation\": \"Both attached passages carry the claim. The first states that any reward function mapping a path to a scalar admits a natural decomposition into step-level increments; the second states the coupling: if the expected step reward is non-zero, the expected path reward becomes directly dependent on path length. The claim's conditional framing ('if the expected step reward is non-zero') preserves the source's qualification.\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"result\",\n          \"assertion\": \"Any reward function mapping a path to a scalar admits a step-level decomposition R(i_1,...,i_L) = sum_t r_t with step increments r_t = R(i_1,...,i_t) - R(i_1,...,i_{t-1}).\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p4:e5819ac8ae49\"\n          ],\n          \"explanation\": \"The attached text states the structural property that any scalar-valued path reward admits a natural decomposition into step-level increments; the increment definition given in the claim is the telescoping form of that decomposition.\"\n        },\n        {\n          \"aspect\": \"assumption\",\n          \"assertion\": \"The length coupling requires the expected step reward to be non-zero (E[r_t] != 0).\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p4:e91eb7db3db3\"\n          ],\n          \"explanation\": \"The attached text states exactly this conditional: 'if the expected step reward is non-zero, then the expected path reward becomes directly dependent on path length'.\"\n        },\n        {\n          \"aspect\": \"outcome\",\n          \"assertion\": \"Under a non-zero expected step reward, the expected path reward depends directly on path length (the paper's 'length shortcut').\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p4:e91eb7db3db3\"\n          ],\n          \"explanation\": \"The attached passage states this dependence as a critical coupling; no additional dataset, model or measurement scope is involved in the structural argument.\"\n        }\n      ],\n      \"scope_summary\": \"Theoretical/structural claim about any scalar path reward, so no dataset, model or measurement scope applies. The only assumption is a non-zero expected step reward, which the claim states explicitly; the statement is the paper's own derivation rather than speculation.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p4:e5819ac8ae49\",\n        \"088e1f601b1e#p4:e91eb7db3db3\"\n      ]\n    },\n    {\n      \"claim_id\": \"c3\",\n      \"decision\": \"supported\",\n      \"explanation\": \"Every clause is in the attached passages: the setup (L_max = 10; three separate policies with CTR, IoI, or IoR as the sole reward; each pretraining+RL pipeline repeated five times) and the empirical observation (path length rises rapidly toward the maximum while diversity collapses toward nearly zero within a few hundred steps, on MovieLens-1M and Amazon-Book, regardless of which reward component is used).\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"regime\",\n          \"assertion\": \"Standard policy-gradient optimization with L_max = 10, three separate policies trained with CTR, IoI, or IoR as the sole reward, and the whole pipeline repeated five times.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p4:7aa21fc8903e\"\n          ],\n          \"explanation\": \"The attached Experimental Setup passage states L_max = 10, the three sole-reward configurations, and five repetitions of the full pipeline.\"\n        },\n        {\n          \"aspect\": \"dataset\",\n          \"assertion\": \"The reported training dynamics are on MovieLens-1M and Amazon-Book.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p4:574633f5f8f1\"\n          ],\n          \"explanation\": \"The attached Empirical Observation passage explicitly names Figure 2 (top row) training dynamics on MovieLens-1M and Amazon-Book.\"\n        },\n        {\n          \"aspect\": \"outcome\",\n          \"assertion\": \"Path length increases rapidly toward the maximum while path diversity collapses toward nearly zero within a few hundred steps, degenerating into nearly identical maximum-length paths.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p4:574633f5f8f1\"\n          ],\n          \"explanation\": \"The attached passage describes exactly this pattern and the few-hundred-step timescale.\"\n        },\n        {\n          \"aspect\": \"comparator\",\n          \"assertion\": \"The degeneration occurs regardless of which reward component (CTR, IoI, or IoR) is used as the sole reward.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p4:574633f5f8f1\"\n          ],\n          \"explanation\": \"The attached passage states the degeneration is common and occurs regardless of which reward component is used.\"\n        }\n      ],\n      \"scope_summary\": \"Result under a specific diagnostic setting: sole-reward policies, L_max = 10, five repetitions, two datasets. The claim states each of these conditions and the 'regardless of reward component' generalization, so no outcome or condition needed for interpretation is missing.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p4:7aa21fc8903e\",\n        \"088e1f601b1e#p4:574633f5f8f1\"\n      ]\n    },\n    {\n      \"claim_id\": \"c4\",\n      \"decision\": \"supported\",\n      \"explanation\": \"The attached passages give the motivation (components have different scales), the normalization formula with weights, per-component means and standard deviations, the estimation regime (rollouts during a warm-up epoch, avoiding drift from co-evolving statistics), and the stated rationale (centering each component and rescaling to comparable magnitudes, enabling multi-objective optimization).\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"result\",\n          \"assertion\": \"Because the K path-level reward components have different scales, centering is extended to per-component normalization r_tilde_t = sum_i w_i * (r_t^(i) - mu^(i)) / sigma^(i).\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p5:0c9966e7d303\",\n            \"088e1f601b1e#p5:877bab00bad1\"\n          ],\n          \"explanation\": \"The attached text motivates normalization by differing component scales and states the formula with weights w_i.\"\n        },\n        {\n          \"aspect\": \"assumption\",\n          \"assertion\": \"mu^(i) and sigma^(i) are estimated from rollouts during a warm-up epoch, avoiding drift that would arise from co-evolving mu, sigma and pi.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p5:d06fe8f8a76b\"\n          ],\n          \"explanation\": \"The attached formula explanation states the warm-up-epoch estimation and the explicit rationale of avoiding drift from co-evolving statistics.\"\n        },\n        {\n          \"aspect\": \"outcome\",\n          \"assertion\": \"The authors state that the normalization centers each component and rescales components to comparable magnitudes, enabling multi-objective optimization.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p5:d06fe8f8a76b\"\n          ],\n          \"explanation\": \"The attached passage states this conclusion in the same terms.\"\n        }\n      ],\n      \"scope_summary\": \"Method claim. Scoped content is the normalization formula, the statistic definitions, and the estimation regime. The warm-up/frozen character of mu and sigma is material because the candidate uncertainty concerns a *running* variance normalization, and the source's normalization uses fixed warm-up statistics rather than online/co-evolving estimates.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p5:0c9966e7d303\",\n        \"088e1f601b1e#p5:877bab00bad1\",\n        \"088e1f601b1e#p5:d06fe8f8a76b\"\n      ]\n    },\n    {\n      \"claim_id\": \"c5\",\n      \"decision\": \"supported\",\n      \"explanation\": \"The attached passages establish the centering construction: r_bar is the global expected step reward, E[r_tilde_t] = 0 for all steps, E[sum_t r_tilde_t] is independent of path length, the length shortcut is said to be eliminated so that improvement must come from path quality, and r_bar is estimated by online accumulation over rollouts of the first training epoch and then frozen.\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"assumption\",\n          \"assertion\": \"The centered step reward uses a single global expected step reward r_bar, so that E[r_tilde_t] = 0 for all t.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p5:9e4883c99c9c\",\n            \"088e1f601b1e#p5:3b4629671fcc\"\n          ],\n          \"explanation\": \"The attached text states that r_bar is the global expected step reward, that E[r_tilde_t] = 0 by construction, and that the design breaks the coupling between expected return and path length.\"\n        },\n        {\n          \"aspect\": \"outcome\",\n          \"assertion\": \"The expected centered path reward is independent of path length, which the authors present as eliminating the length shortcut and redirecting optimization toward path quality.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p5:9e4883c99c9c\"\n          ],\n          \"explanation\": \"The attached passage states the length-independence, the elimination of the length shortcut, and the redirection toward exploring path quality.\"\n        },\n        {\n          \"aspect\": \"regime\",\n          \"assertion\": \"r_bar is estimated by online accumulation over rollouts of the first training epoch and frozen for all subsequent epochs.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p5:9e4883c99c9c\"\n          ],\n          \"explanation\": \"The attached passage states this estimation schedule explicitly.\"\n        }\n      ],\n      \"scope_summary\": \"Method claim about centering with a single global statistic. The reported guarantee concerns expected returns under the centered reward, and the estimation regime (first-epoch online accumulation, then frozen) is carried in the claim. This is not a running/co-evolving estimate, which matters when comparing against a candidate that proposes running variance normalization.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p5:3b4629671fcc\",\n        \"088e1f601b1e#p5:9e4883c99c9c\"\n      ]\n    },\n    {\n      \"claim_id\": \"c6\",\n      \"decision\": \"supported\",\n      \"explanation\": \"The attached Dataset passage names MovieLens-1M, Steam and Amazon-Book, and the attached Metrics passage states that IoI and IoR measure guidance effectiveness, CTR (i.e., HitRate) measures path feasibility, and Coherence measures semantic consistency between consecutive items in the path. The claim's grouping of Coherence together with CTR as feasibility measures matches the paper's own summary phrasing elsewhere in its results section; it changes no reported fact.\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"dataset\",\n          \"assertion\": \"Evaluation is conducted on MovieLens-1M, Steam, and Amazon-Book (user-level 8:1:1 split).\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p6:3c77cbb153d5\"\n          ],\n          \"explanation\": \"The attached Datasets passage names exactly these three benchmarks and the split.\"\n        },\n        {\n          \"aspect\": \"measurement\",\n          \"assertion\": \"IoI and IoR measure guidance effectiveness; CTR (=HitRate) measures path feasibility; Coherence measures semantic consistency between consecutive items in the path.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p6:7aec1d71be66\"\n          ],\n          \"explanation\": \"The attached Metrics passage gives these definitions verbatim in substance; the paper's own results summary also treats CTR and Coherence jointly as path-feasibility measures, so the claim's grouping is consistent with the source's usage.\"\n        }\n      ],\n      \"scope_summary\": \"Evaluation claim. Scoped assertions are the three datasets and the roles of the four metrics; both are supported. The only nuance is that Coherence is defined as semantic consistency between consecutive items while the paper groups it with CTR as a path-feasibility measure in its results discussion, which does not alter the claim's content.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p6:3c77cbb153d5\",\n        \"088e1f601b1e#p6:7aec1d71be66\"\n      ]\n    },\n    {\n      \"claim_id\": \"c7\",\n      \"decision\": \"supported\",\n      \"explanation\": \"The attached results passage states that ProRL consistently achieves superior performance across all datasets, outperforming both traditional and state-of-the-art proactive recommendation methods, and that it achieves the highest guidance effectiveness (IoI and IoR) and path feasibility (CTR and Coherence). The baseline-family enumeration in the claim corresponds to the paper's own baseline taxonomy (sequential recommenders; supervised, heuristic, and LLM-based proactive methods), which is the content of the attached 'traditional and state-of-the-art' statement at the same assertion level.\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"outcome\",\n          \"assertion\": \"ProRL attains the highest guidance effectiveness (IoI and IoR) and path feasibility (CTR and Coherence).\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p6:1305a3abc3ac\"\n          ],\n          \"explanation\": \"The attached passage states this highest-performance result in these terms.\"\n        },\n        {\n          \"aspect\": \"dataset\",\n          \"assertion\": \"The best-performance pattern holds across all three datasets (MovieLens-1M, Steam, Amazon-Book).\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p6:1305a3abc3ac\"\n          ],\n          \"explanation\": \"The attached passage states that the superiority is consistent across all datasets; the accompanying Table 1 in the supplied pages shows ProRL as the best value in every dataset/column.\"\n        },\n        {\n          \"aspect\": \"comparator\",\n          \"assertion\": \"The comparison set spans sequential recommender baselines and supervised, heuristic, and LLM-based proactive recommendation baselines.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p6:1305a3abc3ac\"\n          ],\n          \"explanation\": \"The attached passage states outperformance over both traditional and state-of-the-art proactive recommendation methods, which encompasses the four baseline families named in the claim (the family names come from the paper's Baselines paragraph, inspected in the supplied pages).\"\n        }\n      ],\n      \"scope_summary\": \"Result claim scoped by outcome (highest IoI/IoR/CTR/Coherence), dataset (all three), and comparator set (baselines in four families). All three scope conditions are supported; the reported-best values for all datasets/columns are corroborated by the supplied Table 1.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p6:1305a3abc3ac\"\n      ]\n    },\n    {\n      \"claim_id\": \"c8\",\n      \"decision\": \"supported\",\n      \"explanation\": \"The ablation text and Table 3 support the claim: without SRC, CTR on MovieLens-1M (0.9731 vs 0.8543) and Steam (0.9432 vs 0.5625) exceeds full ProRL while IoI and IoR drop severely, and the authors attribute this to the CTR-based reward having a positive mean, so that without centering the optimization is dominated by dense positive click feedback and over-optimizes short-term click probability at the expense of sparse guidance signals.\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"outcome\",\n          \"assertion\": \"Removing SRC raises CTR above full ProRL on MovieLens-1M (0.9731 vs 0.8543) and Steam (0.9432 vs 0.5625).\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p7:bb93e4b99857\",\n            \"088e1f601b1e#p7:188e56e38c79\"\n          ],\n          \"explanation\": \"The ablation text states the CTR anomaly on MovieLens-1M and Steam ('even exceeding the full ProRL model'), and the Table 3 rows give the matching values.\"\n        },\n        {\n          \"aspect\": \"dataset\",\n          \"assertion\": \"The CTR elevation (above full ProRL) applies to MovieLens-1M and Steam only; on Amazon-Book, w/o SRC CTR is 0.8361 versus 0.8568 for full ProRL.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p7:188e56e38c79\"\n          ],\n          \"explanation\": \"The Table 3 row for Amazon-Book shows w/o SRC CTR 0.8361 below full ProRL 0.8568. The claim itself carries this dataset condition in its parenthetical ('even above full ProRL on MovieLens-1M and Steam'), so the unqualified phrase 'raises CTR' must be read together with that stated scoping; no unstated qualification is being supplied by this check.\"\n        },\n        {\n          \"aspect\": \"outcome\",\n          \"assertion\": \"IoI and IoR drop severely without SRC on all three datasets.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p7:bb93e4b99857\",\n            \"088e1f601b1e#p7:188e56e38c79\"\n          ],\n          \"explanation\": \"MovieLens-1M 1.2373/649.96, Steam 0.3217/198.30, Amazon-Book 1.8825/1002.46 versus full ProRL 2.8504/728.18, 1.1188/340.18, 2.9812/1383.41; the text states the severe drops in guidance metrics.\"\n        },\n        {\n          \"aspect\": \"assumption\",\n          \"assertion\": \"The authors attribute the anomaly to the CTR-based reward having a positive mean, so without centering the optimization is dominated by dense positive click feedback and over-optimizes short-term click probability instead of sparse guidance signals.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p7:bb93e4b99857\"\n          ],\n          \"explanation\": \"The attached ablation passage gives exactly this causal account, including the positive-mean CTR reward and the SRC remedy.\"\n        }\n      ],\n      \"scope_summary\": \"Result claim scoped to the w/o-SRC ablation of Table 3. The CTR comparison is dataset-scoped in the claim itself (MovieLens-1M and Steam), with Amazon-Book CTR marginally below full ProRL, while the guidance-metric drops hold on all three datasets; the attribution to positive-mean CTR dominance is the authors' stated explanation.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p7:bb93e4b99857\",\n        \"088e1f601b1e#p7:188e56e38c79\"\n      ]\n    },\n    {\n      \"claim_id\": \"c9\",\n      \"decision\": \"supported\",\n      \"explanation\": \"The attached passage states that five gradient estimators are compared under identical reward normalization (Eq. 6) to isolate the effect of the advantage method, and names the five estimators (REINFORCE/RF, reward-to-go/RTG, GRPO path-level baseline, A2C, and ProRL). Every element of the claim is present.\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"comparator\",\n          \"assertion\": \"Five gradient estimators are compared: REINFORCE (RF), reward-to-go (RTG), GRPO (path-level baseline), A2C, and ProRL.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p8:2f3676fef4b0\"\n          ],\n          \"explanation\": \"The attached passage enumerates exactly these five estimators.\"\n        },\n        {\n          \"aspect\": \"assumption\",\n          \"assertion\": \"All five estimators use identical reward normalization (Eq. 6), isolating the advantage method rather than reward normalization.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p8:2f3676fef4b0\"\n          ],\n          \"explanation\": \"The attached passage states the identical-reward-normalization control and the purpose of isolating the advantage method.\"\n        }\n      ],\n      \"scope_summary\": \"Evaluation claim about the comparison design; it asserts no dataset or outcome, so no dataset/result scoping is required. The accompanying table (Table 5) reports MovieLens-1M results, which the claim does not assert and therefore does not need to scope.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p8:2f3676fef4b0\"\n      ]\n    },\n    {\n      \"claim_id\": \"c10\",\n      \"decision\": \"supported\",\n      \"explanation\": \"The conclusion passage states both components attributed to the authors: the two rectifications yield policy gradients that align with target path quality, enabling effective optimization of both feasibility and effectiveness, and cross-evaluator analysis validates that the learned guidance strategy generalizes beyond the training reward model. The claim attributes these conclusions rather than asserting them independently, matching the source.\",\n      \"scope_checks\": [\n        {\n          \"aspect\": \"outcome\",\n          \"assertion\": \"The authors conclude that Stepwise Reward Centering and Position-Specific Advantage Estimation together yield policy gradients aligned with target path quality, enabling effective optimization of feasibility and effectiveness.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p9:7729274e2db2\"\n          ],\n          \"explanation\": \"The attached Conclusion passage states this conclusion in these terms.\"\n        },\n        {\n          \"aspect\": \"outcome\",\n          \"assertion\": \"The authors conclude that cross-evaluator analysis validates generalization beyond the training reward model.\",\n          \"decision\": \"supported\",\n          \"passage_ids\": [\n            \"088e1f601b1e#p9:7729274e2db2\"\n          ],\n          \"explanation\": \"The attached Conclusion passage states this generalization validation; it is an attributed author conclusion, and the underlying cross-evaluator table appears in the supplied results section.\"\n        }\n      ],\n      \"scope_summary\": \"Discussion/conclusion claim reporting the authors' own stated conclusions; no numerical result or bound is asserted, so no dataset/measurement scoping is required. The claim preserves the attributive framing ('the authors conclude'), which matches the source rather than asserting the conclusion as an independent finding.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p9:7729274e2db2\"\n      ]\n    }\n  ],\n  \"coverage_checks\": [\n    {\n      \"target_id\": \"dir-001-h04\",\n      \"decision\": \"adequate\",\n      \"explanation\": \"The record's mapping to 'related / not_assessed' is faithful to the inspected prior passages. Overlap: ProRL standardizes each reward component in a multi-objective policy-gradient objective, motivated by differing component scales (p5:0c9966e7d303), using per-component means and standard deviations estimated in a warm-up epoch and frozen to avoid drift from co-evolving statistics (p5:d06fe8f8a76b); its w/o-SRC ablation shows that without a balancing term one positively biased component dominates optimization at the expense of other objectives (p7:bb93e4b99857, p7:188e56e38c79) \u2014 the closest prior analogue to the candidate's premise that an unaligned cost term can dominate. Gap: none of the four proposal facet paths is covered \u2014 there is no router, no LOW/MID/HIGH tiering, no cost weight lambda, no performance-cost frontier, no Judge measure, and no alignment-disabled vs alignment-enabled toggle; ProRL's comparisons are an ablation of SRC/PSAE and an estimator comparison under fixed Eq. (6) normalization (p8:2f3676fef4b0), so /intervention/0 and /comparison/0 are at most mechanism-level partial (correctly labeled), and /regime/1 and /expected_effect/0 remain unmapped (p6:3c77cbb153d5, p6:7aec1d71be66). Omitted evidence inspected but not changing the mapping: Table 5 and its caption (p8:217a268a96e9, p8:eb10bde42577) hold reward normalization fixed across five estimators and show RF still collapsing to length 1.5 with weak guidance metrics, which bears on whether normalization alone suffices but varies the advantage estimator, not normalization, so it is not a controlled test of the candidate's contrast; and the warm-up/frozen statistic choice (p5:d06fe8f8a76b) is a mechanism difference relevant to a *running* variance-normalization router. Absence of a reported routing/budget-tier experiment is not asserted as absence in the prior paper's unextracted material; only supplied main-text pages 1-10 were available, with appendices (A.1, A.4, A.5, E, F) unavailable. The record's summary, distinctions and stated limitations are therefore an honest representation, and coverage 'adequate' concerns fidelity of this record, not exhaustive literature coverage.\",\n      \"passage_ids\": [\n        \"088e1f601b1e#p5:0c9966e7d303\",\n        \"088e1f601b1e#p5:877bab00bad1\",\n        \"088e1f601b1e#p5:d06fe8f8a76b\",\n        \"088e1f601b1e#p5:9e4883c99c9c\",\n        \"088e1f601b1e#p7:bb93e4b99857\",\n        \"088e1f601b1e#p7:188e56e38c79\",\n        \"088e1f601b1e#p8:2f3676fef4b0\",\n        \"088e1f601b1e#p8:eb10bde42577\",\n        \"088e1f601b1e#p8:217a268a96e9\",\n        \"088e1f601b1e#p6:3c77cbb153d5\",\n        \"088e1f601b1e#p6:7aec1d71be66\",\n        \"088e1f601b1e#p4:574633f5f8f1\"\n      ]\n    }\n  ],\n  \"summary\": \"Nine of ten record claims are supported as written against the inspected prior passages. c1 needs a citation repair: the reward formalization (R_path = alpha*IoI + beta*IoR + gamma*CTR) is exactly supported, but the claim's policy-gradient learning clause is established only in unattached Section 2.1 passages. c2 (telescoping decomposition plus the non-zero-expected-step-reward coupling), c3 (sole-reward policy-gradient degeneration on MovieLens-1M and Amazon-Book with L_max = 10 and five repeats), c4 (per-component normalization with warm-up-estimated, frozen statistics), c5 (global-statistic reward centering with first-epoch online accumulation then freezing), c6 (three datasets; IoI/IoR as guidance effectiveness, CTR as feasibility), c7 (best IoI/IoR/CTR/Coherence on all three datasets against four baseline families), c8 (w/o SRC CTR anomaly on MovieLens-1M and Steam with severe guidance drops and the positive-mean attribution), c9 (five estimators under identical Eq. (6) normalization) and c10 (attributed conclusions) are each supported by attached evidence with their operative conditions stated. Coverage for dir-001-h04 is adequate: the prior paper supplies a genuine but partial mechanism overlap \u2014 variance-based standardization of reward components in multi-objective policy-gradient RL, with the w/o-SRC ablation showing one positively biased component dominating optimization \u2014 while providing no router, tiering, cost weight, alignment toggle, LOW-tier selection fraction or Judge outcome; additional inspected evidence (Table 5 under fixed normalization; warm-up versus running statistics) nuances but does not change the 'related / not assessed' mapping, and no decisive omitted overlap was found within the supplied pages.\",\n  \"type\": \"json_object\"\n}",
+  "recorded_error": "1 validation error for EvidenceReport\ntype\n  Extra inputs are not permitted [type=extra_forbidden, input_value='json_object', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden",
+  "record": {
+    "claims": [
+      {
+        "claim_id": "c1",
+        "text": "ProRL formalizes proactive recommendation (PRS) path quality as a scalar reward that is a weighted sum R_path = alpha*IoI + beta*IoR + gamma*CTR of guidance-effectiveness metrics (IoI, IoR) and a path-feasibility metric (CTR), and learns a policy pi_theta to generate high-reward paths via policy-gradient reinforcement learning.",
+        "kind": "method",
+        "passage_ids": [
+          "088e1f601b1e#p3:34bdace1297e",
+          "088e1f601b1e#p3:c3c07b0cd236"
+        ]
+      },
+      {
+        "claim_id": "c2",
+        "text": "The paper shows that any reward function mapping a path to a scalar admits a step-level decomposition R(i_1,...,i_L) = sum_t r_t with r_t = R(i_1,...,i_t) - R(i_1,...,i_{t-1}), so that if the expected step reward is non-zero the expected path reward depends directly on path length (termed the length shortcut).",
+        "kind": "theoretical_result",
+        "passage_ids": [
+          "088e1f601b1e#p4:e5819ac8ae49",
+          "088e1f601b1e#p4:e91eb7db3db3"
+        ]
+      },
+      {
+        "claim_id": "c3",
+        "text": "Under standard policy-gradient optimization of PRS (L_max = 10; three separate policies trained with CTR, IoI, or IoR as the sole reward; each pipeline repeated five times), path length rises toward the maximum while path diversity collapses toward nearly zero within a few hundred steps, on MovieLens-1M and Amazon-Book, and this pattern occurs regardless of which reward component is used.",
+        "kind": "result",
+        "passage_ids": [
+          "088e1f601b1e#p4:7aa21fc8903e",
+          "088e1f601b1e#p4:574633f5f8f1"
+        ]
+      },
+      {
+        "claim_id": "c4",
+        "text": "Because the K path-level reward components have different scales, ProRL extends centering to per-component normalization, r_tilde_t = sum_i w_i * (r_t^(i) - mu^(i)) / sigma^(i), where mu^(i) and sigma^(i) are the component mean and standard deviation estimated from rollouts during a warm-up epoch (chosen to avoid drift from co-evolving statistics); the authors state that this normalization centers each component and rescales the components to comparable magnitudes, enabling multi-objective optimization.",
+        "kind": "method",
+        "passage_ids": [
+          "088e1f601b1e#p5:0c9966e7d303",
+          "088e1f601b1e#p5:877bab00bad1",
+          "088e1f601b1e#p5:d06fe8f8a76b"
+        ]
+      },
+      {
+        "claim_id": "c5",
+        "text": "Stepwise Reward Centering subtracts a global expected step reward (r_tilde_t = r_t - r_bar, with r_bar estimated online over the first training epoch and frozen afterwards), so that the expected centered path reward is independent of path length, which the authors present as eliminating the length shortcut and redirecting optimization toward path quality.",
+        "kind": "method",
+        "passage_ids": [
+          "088e1f601b1e#p5:3b4629671fcc",
+          "088e1f601b1e#p5:9e4883c99c9c"
+        ]
+      },
+      {
+        "claim_id": "c6",
+        "text": "ProRL is evaluated on MovieLens-1M, Steam, and Amazon-Book, using CTR (HitRate) and Coherence to characterize path feasibility and IoI and IoR to characterize guidance effectiveness.",
+        "kind": "evaluation",
+        "passage_ids": [
+          "088e1f601b1e#p6:3c77cbb153d5",
+          "088e1f601b1e#p6:7aec1d71be66"
+        ]
+      },
+      {
+        "claim_id": "c7",
+        "text": "ProRL is reported to achieve the highest CTR, Coherence, IoI, and IoR on all three datasets (MovieLens-1M, Steam, Amazon-Book), outperforming sequential, supervised-proactive, heuristic-proactive, and LLM-based proactive baselines.",
+        "kind": "result",
+        "passage_ids": [
+          "088e1f601b1e#p6:1305a3abc3ac"
+        ]
+      },
+      {
+        "claim_id": "c8",
+        "text": "In the ablation, removing Stepwise Reward Centering raises CTR (even above full ProRL on MovieLens-1M and Steam) while severely reducing IoI and IoR; the authors attribute this to the CTR-based reward having a positive mean, so that without centering the optimization is dominated by dense positive click feedback and over-optimizes short-term click probability instead of the sparse guidance signals.",
+        "kind": "result",
+        "passage_ids": [
+          "088e1f601b1e#p7:bb93e4b99857",
+          "088e1f601b1e#p7:c3b6f0d111ce",
+          "088e1f601b1e#p7:188e56e38c79"
+        ]
+      },
+      {
+        "claim_id": "c9",
+        "text": "To validate the advantage estimator, five gradient estimators (REINFORCE, reward-to-go, GRPO, A2C, ProRL) are compared under identical reward normalization (Eq. 6), isolating the effect of the advantage method rather than of reward normalization.",
+        "kind": "evaluation",
+        "passage_ids": [
+          "088e1f601b1e#p8:2f3676fef4b0"
+        ]
+      },
+      {
+        "claim_id": "c10",
+        "text": "The authors conclude that the two rectifications (Stepwise Reward Centering and Position-Specific Advantage Estimation) yield policy gradients aligned with target path quality, enabling effective optimization of both feasibility and effectiveness, and that cross-evaluator analysis validates generalization beyond the training reward model.",
+        "kind": "discussion",
+        "passage_ids": [
+          "088e1f601b1e#p9:7729274e2db2"
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "target_id": "dir-001-h04",
+        "intervention": [
+          "c4",
+          "c5"
+        ],
+        "comparator": [
+          "c8",
+          "c9"
+        ],
+        "conditions": [
+          "c1",
+          "c6"
+        ],
+        "outcome": [
+          "c7",
+          "c8"
+        ],
+        "conclusion": [
+          "c10"
+        ],
+        "coverage": "related",
+        "result": "not_assessed",
+        "inference": null,
+        "proposal_matches": [
+          {
+            "facet_path": "/intervention/0",
+            "claim_ids": [
+              "c4",
+              "c5"
+            ],
+            "relationship_match": "partial",
+            "explanation": "ProRL's intervention is a reward-component normalization/centering scheme for multi-objective policy-gradient RL: it standardizes each reward component by its own mean and standard deviation (c4) and subtracts expected step reward (c5). This overlaps the candidate's mechanism (normalizing reward-component variability so one term does not dominate policy updates) but is not a router intervention and has no alignment-disabled/alignment-enabled contrast; the candidate's intervention is a running variance-normalization router evaluated in a routing-collapse regime, which the cited claims do not establish."
+          },
+          {
+            "facet_path": "/comparison/0",
+            "claim_ids": [
+              "c8",
+              "c9"
+            ],
+            "relationship_match": "partial",
+            "explanation": "The nearest prior comparisons remove a balancing mechanism (ablation without Stepwise Reward Centering, c8) or hold reward normalization fixed and vary the advantage estimator (c9). Neither compares a variance-normalization variant against explicit reward-scale alignment toggles, so the specific contrast of the candidate is only partially reflected at the level of 'with vs. without a reward-balancing term'."
+          },
+          {
+            "facet_path": "/regime/1",
+            "claim_ids": [
+              "c6"
+            ],
+            "relationship_match": "unknown",
+            "explanation": "The prior evidence's conditions are proactive-recommendation path generation on MovieLens-1M, Steam, and Amazon-Book (c6); the candidate's stated regime (capacity tiering on LoCoMo at lambda=0.3, with LOW/MID/HIGH tier routing) is not represented in the cited claims. Dataset change alone would not make a relationship different, so this is recorded as unknown rather than as evidence of a distinct relationship."
+          },
+          {
+            "facet_path": "/expected_effect/0",
+            "claim_ids": [
+              "c7",
+              "c8"
+            ],
+            "relationship_match": "unknown",
+            "explanation": "Prior outcomes are IoI/IoR/CTR effects for PRS path generation (c7) and the effect of removing centering on those metrics (c8); they do not measure LOW-tier selection fraction, Judge score, or a performance-cost frontier in budget-tier routing. The candidate's predicted effect (variance normalization reducing LOW-tier collapse and improving Judge toward the alignment-enabled level) is therefore not assessed by these claims."
+          }
+        ],
+        "explanation": "ProRL investigates a different target relationship: it diagnoses length-shortcut and high-variance failures of standard policy-gradient estimation in proactive recommendation (c2, c3) and rectifies them with Stepwise Reward Centering (c5) and per-component reward normalization by component mean and standard deviation (c4). The scientific commonality with the candidate is a shared mechanism: in multi-objective policy-gradient RL, reward components with different scales/variances are centered and rescaled so that a single high-variance or positively biased component does not dominate policy updates, and the prior ablation shows that removing the balancing term lets one reward component dominate optimization at the expense of other objectives (c8). That is the closest prior evidence to the candidate's premise that without reward-scale alignment the cost term can dominate and produce degenerate routing. However, the candidate's relationship is a variance-normalization router compared against alignment-disabled and alignment-enabled routers in a capacity-tiering collapse regime, with LOW-tier selection fraction and Judge score as decision signals; the cited claims establish no router, no tiering collapse, no alignment toggle, and no such outcome measures, and they do not draw the downstream prediction that variance normalization can substitute for reward-scale alignment (c1, c4, c6, c7, c8, c9). The relationship is thus 'related' (a shared reward-balancing mechanism without the candidate's downstream prediction), and because the shared mechanism is not tested for the candidate's prediction the effect on that prediction is not assessed. Limitations of this evidence: the prior passages available here are main-text pages 1-10; the paper defers implementation and further experiments to appendices (e.g., A.1, A.4, A.5, E, F), so no additional prior detail is available within the supplied scope, and absence of reported routing experiments is not treated as evidence about the prior paper's unextracted content."
+      }
+    ]
+  },
+  "passages": [
+    {
+      "passage_id": "088e1f601b1e#p1:f65875f65594",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 0,
+      "end": 111,
+      "text": "# ProRL: Effective Reinforcement Learning for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p1:b0f97aa5a7ba",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 113,
+      "end": 219,
+      "text": "Hongru Hou\\*\u00b9 Tiehua Mei\\*\u00b9 Denghui Geng\u00b9 Jinhui Huang\u00b9\nAo Xu\u00b9 Hengrui Chen\u00b9 Jiaqing Liang\u00b9 Deqing Yang^B\u00b9"
+    },
+    {
+      "passage_id": "088e1f601b1e#p1:0f5b3dcab36d",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 221,
+      "end": 232,
+      "text": "## Abstract"
+    },
+    {
+      "passage_id": "088e1f601b1e#p1:836c134ee320",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 234,
+      "end": 1736,
+      "text": "Proactive Recommender Systems (PRSs) aim to guide user preference shift toward target items by generating paths of intermediate recommendations. Reinforcement learning (RL) provides a principled framework for optimizing such sequential decision tasks, as path rewards can naturally capture both short-term acceptance and long-term guidance effectiveness. However, naively applying policy gradients to PRS results in deficient gradient estimation. We identify two deficiencies: (1) path-level rewards decompose into step-level rewards with positive mean, creating a length-dependent bias that causes gradients to favor path extension over meaningful exploration; (2) weighting each step by the entire path-level reward ignores the decomposition structure, leading to high gradient variance. To rectify these two deficiencies, we propose an effective RL framework ProRL with two novel mechanisms for proactive recommendation. First, Stepwise Reward Centering subtracts expected rewards to neutralize length-dependent bias, ensuring that path extension yields zero expected gradient signal. Second, Position-Specific Advantage Estimation leverages the reward decomposition structure to compute step-dependent baselines, reducing gradient variance. Together, these mechanisms yield policy gradients that precisely target path quality. Our experiments on three real-world datasets demonstrate that ProRL significantly outperforms state-of-the-art PRSs. Our code is available at github.com/hongruhou89/ProRL."
+    },
+    {
+      "passage_id": "088e1f601b1e#p1:95232d0fe1d5",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 1738,
+      "end": 1876,
+      "text": "\\*Equal contribution \u00b9School of Data Science, Fudan University, Shanghai, China. Correspondence to: Deqing Yang <yangdeqing@fudan.edu.cn>."
+    },
+    {
+      "passage_id": "088e1f601b1e#p1:f634c5ab6a7a",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 1878,
+      "end": 2016,
+      "text": "Proceedings of the 43rd International Conference on Machine Learning, Seoul, South Korea. PMLR 306, 2026. Copyright 2026 by the author(s)."
+    },
+    {
+      "passage_id": "088e1f601b1e#p1:6dd9a383d5b3",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 2018,
+      "end": 2274,
+      "text": "*[Figure 1: A toy example of proactive recommendation. By progressively blending genre (shown via pie charts), each intermediate item in the guidance path maintains the user's engagement while gradually shifting his/her preferences from Sci-Fi to Comedy.]*"
+    },
+    {
+      "passage_id": "088e1f601b1e#p1:6ab8be514c0c",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 2276,
+      "end": 2294,
+      "text": "## 1. Introduction"
+    },
+    {
+      "passage_id": "088e1f601b1e#p1:8b4a58877388",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 2296,
+      "end": 3049,
+      "text": "Recommender systems excel at reflecting what users already like (Zhou et al., 2018; Zhai et al., 2024; Hou et al., 2025a; Mei et al., 2025), but platforms are rarely satisfied with merely mirroring past behavior (Liu et al., 2021; Xiang et al., 2025). A streaming service that has just acquired an exclusive jazz catalogue, or an e-commerce site launching a new line of tech accessories, needs users to step beyond their established habits. However, when unfamiliar items are pushed directly into the feed, they are often ignored, lowering acceptance probability (Zheng et al., 2018; Cheng et al., 2016). It exposes a fundamental tension: platforms need certain items to be discovered, while users are anchored in familiar preferences (Li et al., 2019)."
+    },
+    {
+      "passage_id": "088e1f601b1e#p1:d211a3b30400",
+      "page_id": "088e1f601b1e#p1",
+      "page_sha256": "6dcfcc4caa5b3dd0df9948d093517e07c4f797c06b124e01a7016fb155def56e",
+      "start": 3051,
+      "end": 3965,
+      "text": "This tension motivates a different paradigm of recommendation: rather than abruptly presenting unfamiliar items, a recommender system can gradually shift user preferences toward them through carefully designed paths. Proactive Recommendation Systems (PRSs) (Zhu et al., 2023; Lian et al., 2025; Wang et al., 2025b) are then proposed to implement this progressive guidance strategy. Given a user's interaction history and a platform-specified target item that the user has not yet engaged with, a PRS constructs a path of intermediate items bridging current user preference to the target item. The system then sequentially recommends items along this path, maintaining acceptance probability at each step while shifting preferences toward the target item. As illustrated in Figure 1, to guide a Sci-Fi fan toward a comedy movie, the system might recommend WALL-E (Sci-Fi + Animation) \u2192 Zootopia (Animation + Comedy)"
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:2de33ccf44d5",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 0,
+      "end": 91,
+      "text": "# ProRL: Effective RL for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:9953db3f09e5",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 93,
+      "end": 1036,
+      "text": "\u2192The Secret Life of Walter Mitty (Comedy). Each intermediate item remains acceptable to the user, yet the path as a whole cultivates interests for previously unexplored genre. Designing such paths requires satisfying two objectives simultaneously (Bi et al., 2024). The first is **Path Feasibility**: every intermediate item along the path must achieve high acceptance probability to maintain user engagement. The second is **Guidance Effectiveness**: the complete path must significantly increase the probability that the user eventually accepts the target item. In practice (Zhu et al., 2023; Wang et al., 2025b), these probabilities are estimated by a user simulator, i.e., a recommender system (e.g., SAS-Rec) trained on historical interactions (Section 2). Crucially, these two objectives must be optimized jointly, as locally feasible choices do not guarantee globally effective paths without foresight into their long-term consequences."
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:fa9cc36f852b",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 1038,
+      "end": 1796,
+      "text": "Existing PRS research has explored various strategies. Heuristic methods (Bi et al., 2024; Lian et al., 2025) rely on predefined rules to greedily select items at each step, but such local search often yields globally suboptimal paths. LLM-based methods (Wang et al., 2025a;b) plan paths with large language models (LLMs), but are impractical for industrial deployment due to prohibitive costs. Supervised methods (Zhu et al., 2023) treat historical interaction sequences as reference paths which are used to train compact Sequence-to-Sequence models (e.g., T5 (Raffel et al., 2020)). While such lightweight models are attractive for deployment, their reliance on imitating historical data hinders discovering superior paths beyond the training distribution."
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:bb53b97f6fb2",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 1798,
+      "end": 2652,
+      "text": "In this paper, we employ the lightweight transformer framework of prior work (Zhu et al., 2023), but seek to move beyond imitation of historical interactions. We formalize Path Feasibility and Guidance Effectiveness as quantitative metrics over which proactive recommendation is cast as a reward maximization problem. Reinforcement learning (RL) with policy gradient (Sutton et al., 1999; Mei et al., 2026) handles this problem directly (Section 2.1): the model samples candidate paths, receives reward computed by these metrics, and learns to produce higher-reward paths via gradient-based updates. This exploration-driven paradigm should theoretically enable discovery of effective paths beyond the training distribution. However, preliminary empirical studies (Section 2.2) reveal that standard policy-gradient RL exhibits severe failure modes in PRS."
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:c7ad0c9c326c",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 2654,
+      "end": 3037,
+      "text": "**Policy Gradient Estimation Deficiencies.** Through empirical studies of applying standard policy-gradient RL to a PRS, we found that it rapidly degenerates into generating nearly identical overlong paths (Section 2.2), preventing it from discovering effective, user-specific guidance paths. We trace this failure to two deficiencies in standard policy gradient estimation as below."
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:64f9c730998e",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 3039,
+      "end": 3448,
+      "text": "**Deficiency 1: Length Shortcut.** We show that path-level rewards in PRS decompose into step-level rewards with a positive mean per step. Thus, longer paths yield higher expected rewards. In standard policy-gradient estimation, variation in sampled path lengths naturally arises, causing length to dominate the gradient signal. This biases the model toward extending paths rather than exploring diverse ones."
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:f43528bfd9fb",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 3450,
+      "end": 3726,
+      "text": "**Deficiency 2: High Gradient Variance.** Standard estimation weights each step's gradient by the entire path-level reward. Given the decomposition structure above, this uniform treatment ignores that each step only affects future rewards, resulting in high gradient variance."
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:0c2115797f19",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 3728,
+      "end": 4541,
+      "text": "**ProRL: Rectified Policy Gradients for PRS.** To address these deficiencies, we propose ProRL, an RL framework that rectifies policy gradient estimation for proactive recommendation. Specifically, **Stepwise Reward Centering** eliminates the length shortcut by subtracting the per-step mean at each position, rectifying the gradient away from spurious length manipulation toward effective path exploration. **Position-Specific Advantage Estimation** reduces gradient variance by exploiting the decomposition structure of path rewards to define a low-variance advantage estimator, rectifying gradient estimates toward their expected values. These two rectifications together yield policy gradient estimates that precisely target path quality, enabling effective optimization of both feasibility and effectiveness."
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:f0e2885e40d6",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 4543,
+      "end": 4600,
+      "text": "In summary, the main contributions of this paper include:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:0e0bfe86cc1c",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 4602,
+      "end": 5430,
+      "text": "1. We identify two gradient estimation deficiencies specific to proactive recommendation, the length shortcut and high gradient variance, that cause standard policy gradients to fail in Proactivate Recommendation System.\n2. We propose ProRL, which rectifies these deficiencies through two task-specialized mechanisms. Stepwise Reward Centering adapts classical reward centering to the positive-mean step reward structure of PRS, and Position-Specific Advantage Estimation leverages PRS reward decomposition to compute step-adapted baselines without a learned critic.\n3. Extensive experiments on three real-world datasets demonstrate that ProRL significantly outperforms state-of-the-art methods. Ablation studies and cross-evaluator analysis validate each component's contribution and the generalizability of the learned policy."
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:cab7653ff8a0",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 5432,
+      "end": 5451,
+      "text": "## 2. Preliminaries"
+    },
+    {
+      "passage_id": "088e1f601b1e#p2:361d16501f90",
+      "page_id": "088e1f601b1e#p2",
+      "page_sha256": "de4345c99dabf1c07e818bb3722b45cb7d408c7876a7571f62a7133b2df81c1c",
+      "start": 5453,
+      "end": 5662,
+      "text": "This section formalizes the proactive recommendation task within a reinforcement learning framework (Section 2.1), and then analyzes why standard policy gradient estimation fails in this setting (Section 2.2)."
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:5f4fd0c66abd",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 0,
+      "end": 91,
+      "text": "# ProRL: Effective RL for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:4f37d5a8c0b1",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 93,
+      "end": 572,
+      "text": "*[Figure 2: Standard policy gradient estimation degenerates into generating nearly identical overlong paths. (Top row) Training dynamics under three reward configurations (CTR, IoI, IoR). Each subplot shows path length (solid) and diversity (dashed) for MovieLens-1M (red) and Amazon-Book (green). (Bottom row) Expected step-level reward E[rt] for each component on MovieLens-1M (red) and Amazon-Book (green). All components exhibit positive mean, enabling the length shortcut.]*"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:3a86781e7bfb",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 574,
+      "end": 597,
+      "text": "## 2.1. Basic Framework"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:e18da0d5ed40",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 599,
+      "end": 972,
+      "text": "As introduced in Section 1, proactive recommendation bridges a user's existing preferences to a platform-specified target item via a path of intermediate recommendations. Formally, given a user's interaction history $S_u$ (sequence of interacted items) and a target item $i_T$, the system generates a recommendation path $L_u = (i_1, \\ldots, i_L)$, where $L \\leq L_{\\max}$."
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:0402bc15185a",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 974,
+      "end": 1443,
+      "text": "Following standard practice (Zhu et al., 2023; Bi et al., 2024), we employ a user simulator to estimate acceptance probabilities. The simulator is a recommender model (e.g., SASRec (Kang & McAuley, 2018)) trained on real-world interaction data. It provides estimated probability $P(i \\mid S)$ that a user would accept item $i$ given the user's interaction sequence $S$ (representing his/her current preferences). This enables reward computation without online feedback."
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:619bcce6f894",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 1445,
+      "end": 1930,
+      "text": "Path quality is measured along two dimensions: Guidance Effectiveness captures how much the path increases predicted interest in the target, while Path Feasibility captures whether users would accept items along the path. To quantify these dimensions, we adopt three standard metrics (Zhu et al., 2023; Bi et al., 2024). Let $\\oplus$ denote sequence concatenation and $\\mathrm{Rank}(i \\mid S)$ denote the ranking position of item $i$ given by the simulator. The metrics are defined as:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:aabdcee61023",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 1932,
+      "end": 2007,
+      "text": "$$\n\\text{IoI} := \\log P(i_T \\mid S_u \\oplus L_u) - \\log P(i_T \\mid S_u),\n$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:91a1b596258d",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 2009,
+      "end": 2098,
+      "text": "$$\n\\text{IoR} := \\mathrm{Rank}(i_T \\mid S_u) - \\mathrm{Rank}(i_T \\mid S_u \\oplus L_u),\n$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:53ef2c35c5be",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 2100,
+      "end": 2198,
+      "text": "$$\n\\text{CTR} := \\frac{1}{|L_u|} \\sum_{k=1}^{|L_u|} P\\left(i_k \\mid S_u \\oplus L_u^{<k}\\right).\n$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:34bdace1297e",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 2200,
+      "end": 2478,
+      "text": "Here IoI (Increment of Interest) and IoR (Increment of Rank) quantify Guidance Effectiveness, while CTR (Click-Through Rate) quantifies Path Feasibility. Effective paths must optimize both dimensions. This naturally motivates a reward defined as a weighted sum of these metrics:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:c3c07b0cd236",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 2480,
+      "end": 2587,
+      "text": "$$\nR_{\\text{path}} = \\alpha \\cdot \\text{IoI} + \\beta \\cdot \\text{IoR} + \\gamma \\cdot \\text{CTR}. \\tag{1}\n$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:da11861f7cfe",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 2589,
+      "end": 3019,
+      "text": "With path quality explicitly quantified via the reward in Eq. (1), the goal becomes learning a policy (model) $\\pi_\\theta(\\cdot \\mid S_u, i_T)$ that generates high-reward paths. This is naturally framed as an exploration problem: the policy must search a combinatorially large space of candidate paths to discover those with high rewards. RL with policy gradient provides a principled framework for this reward-driven exploration."
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:d6e6707d2ac1",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 3021,
+      "end": 3313,
+      "text": "Specifically, we initialize $\\pi_\\theta$ with a policy $\\pi_0$ pretrained via supervised learning on historical paths (see Appendix E.3 for details). We then update this policy by iteratively sampling paths from $\\pi_\\theta$ and optimize via policy gradient ascent on the following objective:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:d2d7529283b8",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 3315,
+      "end": 3494,
+      "text": "$$\nJ(\\theta) = \\mathbb{E}_{L_u \\sim \\pi_\\theta(\\cdot \\mid S_u, i_T)} \\left[ R_{\\text{path}} \\right] - \\lambda \\cdot D_{\\mathrm{KL}}\\left(\\pi_\\theta \\,\\|\\, \\pi_0\\right). \\tag{2}\n$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:02976858a21f",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 3496,
+      "end": 3921,
+      "text": "The gradient of $J(\\theta)$ consists of two parts: the reward term and the KL term. The KL term can be computed analytically given policy distributions, so we focus on estimating the reward term $\\nabla_\\theta \\mathbb{E}_{\\pi_\\theta}[R]$. By the policy gradient theorem (Sutton et al., 1999), given $n$ inputs and $m$ sampled paths per input, the standard gradient estimator for $\\nabla_\\theta \\mathbb{E}_{\\pi_\\theta}[R]$ is:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:682d6049c429",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 3923,
+      "end": 4097,
+      "text": "$$\n\\hat{g}_{\\text{std}} = \\frac{1}{nm} \\sum_{i=1}^{n} \\sum_{j=1}^{m} \\left[ \\sum_{t=1}^{L^{(i,j)}} \\nabla_\\theta \\log \\pi_\\theta^{(i,j,t)} \\cdot R^{(i,j)} \\right], \\tag{3}\n$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p3:88a10c7e2c5e",
+      "page_id": "088e1f601b1e#p3",
+      "page_sha256": "212da7c322c10f08a6b98d10081f3175f5b914c18019206d2de712fa36c71d77",
+      "start": 4099,
+      "end": 4251,
+      "text": "where $L^{(i,j)}$ is the path length, $R^{(i,j)}$ is the path reward, and $\\pi_\\theta^{(i,j,t)}$ denotes the probability. In theory, the policy progres-"
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:c4d0119df49c",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 0,
+      "end": 91,
+      "text": "# ProRL: Effective RL for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:9b7e0eafe969",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 93,
+      "end": 330,
+      "text": "sively learns to generate higher-quality paths, moving beyond mere imitation of historical data toward reward-guided discovery. However, as we show next, this standard gradient estimation exhibits severe deficiencies when applied to PRS."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:8a4d58f735bf",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 332,
+      "end": 359,
+      "text": "## 2.2. The Length Shortcut"
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:7058e12542ef",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 361,
+      "end": 619,
+      "text": "Having established the RL formulation, a natural approach is to directly optimize Eq. (2) with the standard estimator $\\hat{g}_{\\text{std}}$ (Eq. (3)). However, preliminary experiments reveal that this fails systematically across datasets and reward designs."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:7aa21fc8903e",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 621,
+      "end": 1285,
+      "text": "**Experimental Setup.** Following Section 2.1, we initialize the policy $\\pi_\\theta$ with a pretrained model $\\pi_0$ and apply standard policy gradient optimization with $L_{\\max} = 10$. To isolate the effect of each reward component, we train three separate policies using CTR, IoI, and IoR as the sole reward signal respectively. For each configuration, we repeat the entire pipeline (pretraining + RL) five times and report averaged results. At each training step of RL, we compute two quantities over all rollouts across inputs in the batch: (1) path length, the average number of generated items; (2) path diversity, item-level Jaccard Similarity among paths."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:574633f5f8f1",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 1287,
+      "end": 1857,
+      "text": "**Empirical Observation.** Figure 2 (top row) shows the training dynamics on MovieLens-1M and Amazon-Book. Across all reward configurations, we observe a consistent pattern: path length rapidly increases toward the maximum, while path diversity collapses toward nearly zero. Within a few hundred steps, the policy degenerates into generating nearly identical, maximum-length paths for all inputs. This degeneration is common: it occurs regardless of which reward component is used, suggesting a fundamental issue with standard policy gradient estimation in this setting."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:e5819ac8ae49",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 1859,
+      "end": 2093,
+      "text": "**Root Cause: Length-Reward Coupling.** We trace this failure to a structural property of path rewards. We show that any reward function $R$ that maps a path to a scalar value admits a natural decomposition into step-level increments:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:b74ab2101543",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 2095,
+      "end": 2224,
+      "text": "$$\nR(i_1, \\ldots, i_L) = \\sum_{t=1}^{L} r_t, \\quad \\text{where } r_t := R(i_1, \\ldots, i_t) - R(i_1, \\ldots, i_{t-1}). \\tag{4}\n$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:e91eb7db3db3",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 2226,
+      "end": 2410,
+      "text": "This decomposition reveals a critical coupling: if the expected step reward $\\mathbb{E}_\\pi[r_t]$\u00b9 is non-zero, then the expected path reward becomes directly dependent on path length."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:6daba50738b8",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 2412,
+      "end": 2882,
+      "text": "Figure 2 (bottom row) empirically validates this. We compute $\\mathbb{E}_\\pi[r_t]$ by averaging step-level rewards across all rollouts collected during the experiments above. Across both datasets and all three reward components, we observe that step-level rewards exhibit consistently positive mean. While IoR shows a slow decreasing trend, it remains positive throughout. This positive bias creates a systematic incentive: on average, longer paths yield higher rewards."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:042cf8e78826",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 2884,
+      "end": 3693,
+      "text": "One might argue that if longer paths yield higher rewards, the optimal policy should indeed produce long paths. While the global optimum may well correspond to high-quality long paths, the issue lies in the optimization trajectory, not the optimum itself. In early training, the model encounters length variation far more frequently than quality variation among sampled paths. This enables rapid reward improvement through path extension without exploring diverse, high-quality paths. The model thus converges to a local optimum of lengthy but low-quality paths, never reaching the global optimum. Our ablation study (Section 4.3.1) confirms this: removing the length bias yields better final performance with more reasonable path length, demonstrating that the shortcut impedes rather than aids optimization."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:e1d4fe34c592",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 3695,
+      "end": 4352,
+      "text": "**Theoretical Understanding.** Figure 2 (top row) reveals a striking pattern: path length converges to $L_{\\max}$ within a few hundred updates, long before the model learns effective item selection. This suggests that early gradients primarily shape the \"continue or stop\" decision, leaving \"which item\" to be learned later. To isolate the length mechanism, we consider a simplified model where $\\pi_\\theta$ stops at each step with a position-independent probability $p = \\sigma(\\theta)$. The total return $G = \\sum_{t=1}^{\\tau} r_t$ satisfies $\\mathbb{E}[r_t | \\tau \\geq t] \\geq \\mu_{\\min} > 0$ for all $t$, where $\\tau \\leq L_{\\max}$ is the stopping time."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:496395e20b21",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 4354,
+      "end": 4624,
+      "text": "**Theorem 2.1 (Length Collapse Rate; informal).** Under this setting, let $p(s)$ denote the stop probability under continuous-time gradient flow at training time $s$. Then $p(s) \\to 0$ monotonically at rate $O(1/s)$, and the expected path length converges to $L_{\\max}$."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:7dda8b3bd293",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 4626,
+      "end": 4924,
+      "text": "Formal proof is in Appendix A.1. The $O(1/s)$ decay shows that when $\\mathbb{E}[r_t | \\tau \\geq t] \\geq \\mu_{\\min} > 0$, gradient updates systematically reduce stopping probability $p$, making length collapse a structural consequence rather than a tuning artifact. We term this the length shortcut."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:47658fee4ecc",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 4926,
+      "end": 5194,
+      "text": "**Implication.** The analysis suggests a principle for rectifying policy gradient in PRS: path extension should yield zero expected gain. Under such condition, the length shortcut disappears and gradients must come from path quality. Section 3 introduces our approach."
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:e231b8d02b34",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 5196,
+      "end": 5213,
+      "text": "## 3. Methodology"
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:ff1427483004",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 5215,
+      "end": 5232,
+      "text": "### 3.1. Overview"
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:b78895c6be8e",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 5234,
+      "end": 5523,
+      "text": "Section 2.2 shows that standard policy gradient estimation fails in PRS due to the length shortcut: path-level rewards decompose into step-level rewards with positive mean, causing length to dominate the gradient signal. Beyond this, the decomposition structure suggests an opportunity for"
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:8d0ade5af60d",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 5525,
+      "end": 5528,
+      "text": "---"
+    },
+    {
+      "passage_id": "088e1f601b1e#p4:2a2be1abc3d1",
+      "page_id": "088e1f601b1e#p4",
+      "page_sha256": "32dda2985730f1074c08fe43eabc9f9407cb94fbfd223c611f047932e7486110",
+      "start": 5530,
+      "end": 5779,
+      "text": "\u00b9By expected step reward we actually mean $\\mathbb{E}_\\pi[r_t | L \\geq t]$, since $r_t$ is only defined when the path reaches step $t$. For brevity, we write $\\mathbb{E}_\\pi[r_t]$ to denote $\\mathbb{E}_\\pi[r_t | L \\geq t]$ when the context is clear."
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:7017b06e247f",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 0,
+      "end": 91,
+      "text": "# ProRL: Effective RL for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:e2a5d15ad86f",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 93,
+      "end": 770,
+      "text": "*[Figure 3: Overview of our proposed ProRL. (Left) Standard policy gradient estimation suffers from the length shortcut. Since step-level rewards accumulate with positive mean ($\\sum_{t=1}^{L} \\mathbb{E}[r_t] \\propto L$), the Sequence-level Advantage (SAdv) and gradient signal are dominated by length variation, causing the model to extend paths rather than explore diverse alternatives. (Right) ProRL rectifies gradient estimation through two mechanisms. Stepwise Reward Centering ($\\tilde{r}_t = r_t - \\bar{r}$) ensures that path extension yields zero expected gain. Position-Specific Advantage Estimation (PAdv) computes step-adapted baselines for effective optimization.]*"
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:225455fa56dd",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 772,
+      "end": 1104,
+      "text": "improvement: standard estimation incurs high gradient variance by weighting each step with the entire path reward, which can be reduced through task-specific adaptation to the per-step reward structure. To address both issues, we propose ProRL with the following two mechanisms, which effectively rectify policy gradient estimation."
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:28488d9cc301",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 1106,
+      "end": 1384,
+      "text": "**Stepwise Reward Centering (Section 3.2)** eliminates the length shortcut: by subtracting the expected reward at each step, we ensure that path extension yields zero expected gain, redirecting gradient estimation toward path quality exploration rather than length manipulation."
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:5e4308bfecfd",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 1386,
+      "end": 1614,
+      "text": "**Position-Specific Advantage Estimation (Section 3.3)** reduces gradient variance: by computing step-adapted baselines that leverage the decomposition structure of path rewards, we obtain gradient estimates with lower variance."
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:9c0a96be5fa0",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 1616,
+      "end": 1760,
+      "text": "Together, these rectifications yield policy gradient estimation that achieves effective RL for PRS. Figure 3 illustrates the complete framework."
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:35c8a4d459a5",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 1762,
+      "end": 1795,
+      "text": "## 3.2. Stepwise Reward Centering"
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:3b4629671fcc",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 1797,
+      "end": 2111,
+      "text": "By Eq. (4), path-level rewards in PRS decompose as $R = \\sum_{t=1}^{L} r_t$, where step-level rewards $r_t$ exhibit positive mean $\\mathbb{E}_\\pi[r_t]$. This couples expected return with path length, causing the length shortcut. Our design is to break this coupling: path extension should yield zero expected gain."
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:2df4535ac4da",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 2113,
+      "end": 2405,
+      "text": "We achieve this through reward centering. Empirically, we observe that $\\mathbb{E}_\\pi[r_t]$ remains relatively stable for many rewards (e.g., IoI; see Figure 2). For simplicity, we use a single global statistic $\\bar{r}$ rather than step-specific estimates. We define the centered reward as:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:866cbfdffadf",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 2407,
+      "end": 2504,
+      "text": "$$\\tilde{r}_t = r_t - \\bar{r}, \\quad \\text{where} \\quad \\bar{r} = \\mathbb{E}_\\pi [r_*]. \\tag{5}$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:9e4883c99c9c",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 2506,
+      "end": 3119,
+      "text": "Here $\\bar{r}$ is the global expected step reward, where the subscript \"$*$\" denotes any step. By construction, $\\mathbb{E}_\\pi[\\tilde{r}_t] = 0$ for all $t$. Therefore, $\\mathbb{E}\\left[\\sum_{t=1}^{L} \\tilde{r}_t\\right]$ is independent on path length $L$. The length shortcut is eliminated: the model cannot improve rewards by extending paths, and must instead explore deeply into path quality. In practice, we estimate $\\bar{r}$ via online accumulation over rollouts of the first training epoch and freeze it for all subsequent epochs. We discuss alternatives to eliminating the length shortcut in Appendix F.5."
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:0c9966e7d303",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 3121,
+      "end": 3442,
+      "text": "**Multi-Objective Reward.** Path quality in PRS involves multiple objectives. To handle this, suppose we have $K$ separate path-level rewards $\\{R^{(i)}\\}_{i=1}^{K}$, each decomposing into step-level rewards $R^{(i)} = \\sum_t r_t^{(i)}$. Since these components have different scales, we extend centering to normalization:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:877bab00bad1",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 3444,
+      "end": 3538,
+      "text": "$$\\tilde{r}_t = \\sum_{i=1}^{K} w_i \\cdot \\frac{r_t^{(i)} - \\mu^{(i)}}{\\sigma^{(i)}}, \\tag{6}$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:d06fe8f8a76b",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 3540,
+      "end": 3958,
+      "text": "where $\\mu^{(i)} = \\mathbb{E}_\\pi\\left[r_*^{(i)}\\right]$ and $\\sigma^{(i)} = \\sqrt{\\text{Var}_\\pi\\left(r_*^{(i)}\\right)}$ are estimated from rollouts during a warm-up epoch, avoiding the drift that would otherwise arise from co-evolving $\\mu, \\sigma$ and $\\pi$ as the policy improves. The resulting normalization centers each component and rescales them to comparable magnitudes, enabling multi-objective optimization."
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:a14ba2b98988",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 3960,
+      "end": 4006,
+      "text": "## 3.3. Position-Specific Advantage Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p5:a2f8cadd5805",
+      "page_id": "088e1f601b1e#p5",
+      "page_sha256": "cdfb4113abbd8967bde67d3a44b998e62318196c0c0ed65b8a18793b648e7442",
+      "start": 4008,
+      "end": 4442,
+      "text": "Stepwise Reward Centering eliminates the length shortcut, but effective training also requires low-variance gradient estimates. Recall from Section 2.1 that the standard gradient estimator $\\hat{g}_{\\text{std}}$ (Eq. (3)) weights each step's gradient by the total path reward $R^{(i,j)}$. However, the item at step $t$ only affects rewards from $t$ onward; including earlier rewards $r_1, \\ldots, r_{t-1}$ introduces irrelevant noise."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:e63a5e7fce50",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 0,
+      "end": 91,
+      "text": "# ProRL: Effective RL for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:7456ddd0c391",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 93,
+      "end": 424,
+      "text": "We leverage the structural property that path-level rewards decompose into step-level rewards. For step $t$, we define the reward-to-go $G^{(i,j)}_t = \\sum_{\\ell=t}^{L^{(i,j)}} r^{(i,j)}_\\ell$ as the cumulative reward from $t$ onward. Replacing $R^{(i,j)}$ with $G^{(i,j)}_t$ excludes past rewards unaffected by the current action:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:f6de4c3328fd",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 426,
+      "end": 600,
+      "text": "$$\\hat{g}_{\\text{rtg}} = \\frac{1}{nm} \\sum_{i=1}^{n} \\sum_{j=1}^{m} \\left[ \\sum_{t=1}^{L^{(i,j)}} \\nabla_\\theta \\log \\pi^{(i,j,t)}_\\theta \\cdot G^{(i,j)}_t \\right]. \\tag{7}$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:1c5005da7ae1",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 602,
+      "end": 1013,
+      "text": "Variance can be reduced further by centering $G_t$ around its expected value. According to classical RL results (Williams, 1992), subtracting a baseline from the reward-to-go yields an advantage, which is an unbiased and lower-variance estimate that measures relative quality rather than absolute return. Traditionally, this requires training an auxiliary critic model, adding complexity and computational cost."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:9a374d61f7f2",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 1015,
+      "end": 1390,
+      "text": "Recent work on LLM alignment, notably GRPO (Shao et al., 2024), avoids the critic by using group Monte Carlo estimation: the baseline is simply the mean path reward across rollouts from the same input, $\\bar{R}_i = \\frac{1}{m} \\sum_{j=1}^{m} R^{(i,j)}$. However, this path-level baseline is shared across all steps, ignoring that the expected reward-to-go varies by position."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:6032d9ce3fb5",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 1392,
+      "end": 1646,
+      "text": "Inspired by GRPO, we use the per-step reward structure of PRS to compute position-specific baseline $\\bar{G}_{i,t}$, the average reward-to-go at step $t$ across all paths from the $i$-th input that reach step $t$. The position-specific advantage is then:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:568007578dd5",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 1648,
+      "end": 1822,
+      "text": "$$\\bar{G}_{i,t} = \\frac{\\sum_{j: L^{(i,j)} \\geq t} G^{(i,j)}_t}{\\sum_{j=1}^{m} \\mathbb{I}[L^{(i,j)} \\geq t]}, \\quad \\hat{A}^{(i,j)}_t = G^{(i,j)}_t - \\bar{G}_{i,t}. \\tag{8}$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:acf243c45d1c",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 1824,
+      "end": 2008,
+      "text": "Unlike GRPO's uniform baseline, each step $t$ has its own reference point $\\bar{G}_{i,t}$, adapting to the expected future return at that position. Our rectified gradient estimator is:"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:6e5fcdad0f9d",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 2010,
+      "end": 2191,
+      "text": "$$\\hat{g}_{\\text{rect}} = \\frac{1}{nm} \\sum_{i=1}^{n} \\sum_{j=1}^{m} \\left[ \\sum_{t=1}^{L^{(i,j)}} \\nabla_\\theta \\log \\pi^{(i,j,t)}_\\theta \\cdot \\hat{A}^{(i,j)}_t \\right]. \\tag{9}$$"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:6e54295cbd5a",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 2193,
+      "end": 2880,
+      "text": "This design reduces variance via two well-established mechanisms from classical policy gradient literature (Williams, 1992; Sutton et al., 1999). First, reward-to-go excludes past rewards $r_1, \\ldots, r_{t-1}$ that are unaffected by the action at step $t$, removing irrelevant noise from the gradient signal. Second, the position-specific baseline $\\bar{G}_{i,t}$ adapts to the expected future return at each position, providing a tighter reference than a path-level baseline. Both techniques are known to preserve unbiasedness while reducing gradient variance (Greensmith et al., 2001). Ablation study (Section 4.3.3) empirically validates the effectiveness of $\\hat{g}_{\\text{rect}}$."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:9c14632210da",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 2882,
+      "end": 2899,
+      "text": "## 4. Experiments"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:ac1efcbc8ac1",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 2901,
+      "end": 2928,
+      "text": "### 4.1. Experimental Setup"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:3c77cbb153d5",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 2930,
+      "end": 3208,
+      "text": "**Datasets.** We conduct experiments on MovieLens-1M (Harper & Konstan, 2015), Steam (Kang & McAuley, 2018), and Amazon-Book (Ni et al., 2019). We construct training data via splitting the raw data by user into training/validation/test sets (8:1:1). Details are in Appendix B.3."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:759e738a2084",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 3210,
+      "end": 3687,
+      "text": "**Baselines.** We compare with four categories of methods, including sequential recommendation method GRU4Rec (Hidasi et al., 2015), BERT4Rec (Sun et al., 2019), LightSANs (Fan et al., 2021), and FEARec (Du et al., 2023); the supervised proactive method IRN (Zhu et al., 2023); heuristic proactive methods IPG (Bi et al., 2024) and ITMPRec (Lian et al., 2025); LLM-based proactive methods LLM-IPP (Wang et al., 2025a) and T-PRA (Wang et al., 2025b). See Appendix D for details."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:7aec1d71be66",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 3689,
+      "end": 4043,
+      "text": "**Metrics.** Following prior work (Bi et al., 2024; Wang et al., 2025a;b), we adopt Increment of Interest (IoI) and Increment of Rank (IoR) to measure the guidance effectiveness, and CTR (i.e., HitRate) to measure the path feasibility. Coherence measures the semantic consistency between consecutive items in the path. Details are provided in Appendix C."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:2c555d6434d4",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 4045,
+      "end": 4150,
+      "text": "**Implementation.** The detailed implementation process and hyperparameters are introduced in Appendix E."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:2faa9cbb27f4",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 4152,
+      "end": 4180,
+      "text": "### 4.2. Overall Performance"
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:1305a3abc3ac",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 4182,
+      "end": 4754,
+      "text": "Table 1 shows that ProRL consistently achieves superior performance across all datasets, outperforming both traditional and state-of-the-art proactive recommendation methods. ProRL achieves the highest guidance effectiveness (IoI and IoR) and path feasibility (CTR and Coherence). Unlike heuristic or LLM-based methods that greedily optimize local objectives and often get trapped in local optima, ProRL directly optimizes the cumulative multi-objective reward over the entire path via rectified policy gradients, achieving both local feasibility and global effectiveness."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:0701fcd69964",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 4756,
+      "end": 5019,
+      "text": "Notably, Coherence is not part of the reward function, yet ProRL substantially outperforms all baselines on this unrewarded metric, providing additional evidence that ProRL learns genuinely high-quality paths rather than overfitting to the training reward signal."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:4fb85a6a7a42",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 5021,
+      "end": 5416,
+      "text": "A common risk in RL is that the agent exploits specific patterns in the training environment, failing to generalize elsewhere. To verify that ProRL learns a generalized strategy rather than overfitting to the specific reward model (SASRec), we conduct a cross-evaluator analysis. To test this, we use three different recommendation models (GRU4Rec, LightSANs, and BERT4Rec) as unseen evaluators."
+    },
+    {
+      "passage_id": "088e1f601b1e#p6:64827e0c1beb",
+      "page_id": "088e1f601b1e#p6",
+      "page_sha256": "ebfb9a772bf5249572979a35e13bf3efdfed26700b87f579e20eb5cfa493cf48",
+      "start": 5418,
+      "end": 5475,
+      "text": "As shown in Table 2, the RL policy significantly improves"
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:cd03ce37a5d2",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 0,
+      "end": 91,
+      "text": "# ProRL: Effective RL for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:d1a0ab07bf7d",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 93,
+      "end": 448,
+      "text": "Table 1. Proactive Recommendation performance of all models on different datasets (SASRec as evaluator) in terms of CTR (i.e., HitRate), Coherence, IoI, and IoR. The best performances are highlighted in bold, and the second-best are underlined. The superscript * indicates the Improvement is statistically significant, where the p-value is less than 0.05."
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:94f4c70428e7",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 450,
+      "end": 1923,
+      "text": "| Dataset | MovieLens-1M | | | | Steam | | | | Amazon-Book | | | |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| **Model** | **CTR** | **Coherence** | **IoI** | **IoR** | **CTR** | **Coherence** | **IoI** | **IoR** | **CTR** | **Coherence** | **IoI** | **IoR** |\n| GRU4Rec | 0.5143 | 0.3717 | 1.6345 | 77.08 | 0.4312 | 0.7026 | -0.0239 | 15.40 | 0.5544 | 0.5838 | 0.0926 | 83.76 |\n| Bert4Rec | 0.5522 | 0.3889 | 1.3402 | 56.03 | 0.4617 | 0.7390 | -0.0055 | 22.00 | 0.5653 | 0.5591 | 0.1042 | 79.34 |\n| LightSANs | 0.5211 | 0.3957 | 1.6092 | 85.70 | 0.4215 | 0.7150 | -0.0204 | 21.64 | 0.5626 | 0.5934 | 0.2105 | 148.92 |\n| FEARec | 0.5159 | 0.3964 | 1.8770 | 139.85 | 0.4333 | 0.7177 | -0.0216 | 22.93 | 0.5536 | 0.6020 | 0.3671 | 211.36 |\n| IRN | 0.8398 | 0.4706 | 1.7277 | 443.29 | 0.3524 | 0.6698 | -0.0481 | 29.66 | 0.4994 | 0.5477 | 0.3111 | 170.73 |\n| IPG | 0.4463 | 0.3725 | 2.2537 | 169.28 | 0.2371 | 0.6740 | 0.1758 | 36.26 | 0.5015 | 0.5531 | 1.1067 | 469.68 |\n| ITMPRec | 0.4452 | 0.3714 | 2.2719 | 163.80 | 0.2381 | 0.6725 | 0.1804 | 34.50 | 0.5018 | 0.5540 | 1.0980 | 472.50 |\n| LLM-IPP | 0.6141 | 0.6288 | 2.4680 | 662.52 | 0.3108 | 0.8022 | 0.0682 | 11.06 | 0.5714 | 0.5132 | 1.6651 | 429.32 |\n| T-PRA | 0.4889 | 0.3415 | 2.4867 | 355.16 | 0.2713 | 0.7399 | 0.3339 | 62.04 | 0.5521 | 0.4418 | 1.7261 | 476.93 |\n| ProRL (Ours) | 0.8543\u2217 | 0.8422\u2217 | 2.8504\u2217 | 728.18\u2217 | 0.5625\u2217 | 0.8707\u2217 | 1.1188\u2217 | 340.18\u2217 | 0.8568\u2217 | 0.6775\u2217 | 2.9812\u2217 | 1383.41\u2217 |"
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:32e9e84c06cf",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 1925,
+      "end": 2195,
+      "text": "Table 2. Cross-evaluator analysis evaluated by the unseen Evaluator GRU4Rec. The best performances are highlighted in bold, and the second-best are underlined. The superscript * indicates the Improvement is statistically significant, where the p-value is less than 0.05."
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:6847e4b6f594",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 2197,
+      "end": 3549,
+      "text": "| Dataset | MovieLens-1M | | | | Steam | | | | Amazon-Book | | | |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n| **Model** | **CTR** | **Coherence** | **IoI** | **IoR** | **CTR** | **Coherence** | **IoI** | **IoR** | **CTR** | **Coherence** | **IoI** | **IoR** |\n| Bert4Rec | 0.6112 | 0.3889 | 2.1632 | 50.18 | 0.5847 | 0.7390 | -0.2425 | 13.46 | 0.5921 | 0.5591 | 0.5643 | 82.85 |\n| LightSANs | 0.5771 | 0.3957 | 2.1908 | 67.18 | 0.5616 | 0.7150 | -0.2705 | 12.17 | 0.5817 | 0.5934 | 0.5815 | 124.93 |\n| FEARec | 0.5585 | 0.3964 | 2.2509 | 83.90 | 0.5596 | 0.7177 | -0.3271 | 10.89 | 0.5659 | 0.6020 | 0.6102 | 140.87 |\n| IRN | 0.7612 | 0.4706 | 2.2012 | 76.12 | 0.4890 | 0.6698 | -0.2773 | 8.59 | 0.5529 | 0.5477 | 0.6637 | 82.36 |\n| IPG | 0.4276 | 0.3725 | 2.2409 | 96.24 | 0.3240 | 0.6740 | -0.1084 | 31.44 | 0.5570 | 0.5531 | 0.6524 | 158.01 |\n| ITMPRec | 0.4425 | 0.3714 | 2.3068 | 104.35 | 0.3242 | 0.6725 | -0.1044 | 33.93 | 0.5648 | 0.5540 | 0.6733 | 165.25 |\n| LLM-IPP | 0.8331 | 0.6288 | 2.3693 | 553.01 | 0.4543 | 0.8022 | -0.0675 | 41.05 | 0.6012 | 0.5132 | 0.7921 | 239.78 |\n| T-PRA | 0.4762 | 0.3415 | 2.3167 | 210.24 | 0.4217 | 0.7399 | 0.0523 | 65.98 | 0.6172 | 0.4418 | 1.0762 | 207.89 |\n| ProRL (Ours) | 0.8460\u2217 | 0.8422\u2217 | 2.4560\u2217 | 649.26\u2217 | 0.6328\u2217 | 0.8707\u2217 | 0.2013\u2217 | 83.70\u2217 | 0.8832\u2217 | 0.6775\u2217 | 1.7650\u2217 | 1001.27\u2217 |"
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:65936ffb446b",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 3551,
+      "end": 3968,
+      "text": "both IoI and IoR. This gain is consistent not only on the original SASRec evaluator, but also on the unseen GRU4Rec evaluator. The consistent gains confirm that the performance boost is not due to overfitting or reward hacking, but rather that ProRL has learned generalizable principles of guidance that transfer across different user behavior models. Full results for additional evaluators are shown in Appendix F.4."
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:b70061e56d93",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 3970,
+      "end": 3992,
+      "text": "## 4.3. Ablation Study"
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:f4c905439f3a",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 3994,
+      "end": 4038,
+      "text": "### 4.3.1. ABLATION ON RECTIFICATION MODULES"
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:bb93e4b99857",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 4040,
+      "end": 4891,
+      "text": "ProRL introduces Stepwise Reward Centering (SRC) and Position-Specific Advantage Estimation (PSAE) to rectify policy gradient estimation. Table 3 presents the ablation results. A notable pattern emerges when SRC is removed (w/o SRC). The CTR on MovieLens-1M and Steam appears unusually high, even exceeding the full ProRL model, but at the cost of severe drops in guidance metrics (IoI, IoR). This anomaly arises because the CTR-based reward has a positive mean. Consequently, without centering, the optimization process is dominated by dense positive click feedback. As a result, the model over-optimizes short-term click probability while failing to capture the sparse, higher-order signals needed for effective guidance. SRC alleviates this bias by enforcing zero expected gain from path extension, thereby balancing optimization across objectives."
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:c3b6f0d111ce",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 4893,
+      "end": 4927,
+      "text": "Table 3. Ablation Studies on ProRL"
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:188e56e38c79",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 4929,
+      "end": 5388,
+      "text": "| Dataset | Model | CTR | IoI | IoR |\n|---|---|---|---|---|\n| MovieLens-1M | w/o SRC | 0.9731 | 1.2373 | 649.96 |\n| | w/o PSAE | 0.7456 | 2.5556 | 695.86 |\n| | ProRL | 0.8543 | 2.8504 | 728.18 |\n| Steam | w/o SRC | 0.9432 | 0.3217 | 198.30 |\n| | w/o PSAE | 0.6311 | 0.7280 | 244.78 |\n| | ProRL | 0.5625 | 1.1188 | 340.18 |\n| Amazon-Book | w/o SRC | 0.8361 | 1.8825 | 1002.46 |\n| | w/o PSAE | 0.8404 | 2.5036 | 1223.78 |\n| | ProRL | 0.8568 | 2.9812 | 1383.41 |"
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:53c19167480b",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 5390,
+      "end": 5432,
+      "text": "### 4.3.2. ABLATION ON MULTI-REWARD DESIGN"
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:80e2b313995f",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 5434,
+      "end": 5685,
+      "text": "To investigate the contribution of each reward component, we conduct an ablation study across three datasets. As shown in Table 4, the full ProRL model consistently achieves the best performance, validating the necessity of the multi-objective design."
+    },
+    {
+      "passage_id": "088e1f601b1e#p7:6f25e9182363",
+      "page_id": "088e1f601b1e#p7",
+      "page_sha256": "b849d087913e304a313f5bdd2e05973ccaa7f4bfb024da27a1fbbd11a28c782e",
+      "start": 5687,
+      "end": 5982,
+      "text": "While removing a specific term causes a primary drop in its corresponding metric, we observe degradation across all metrics in certain cases (e.g., w/o IoR on Amazon-Book). This suggests that our reward components are mutually reinforcing and collectively critical for effective policy learning."
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:a07c3653b4c4",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 0,
+      "end": 91,
+      "text": "# ProRL: Effective RL for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:d12432ef59e6",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 93,
+      "end": 147,
+      "text": "**Table 4.** Ablation study on the multi-reward design"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:6ca6b64f8b92",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 149,
+      "end": 729,
+      "text": "| Dataset | Reward | CTR | IoI | IoR |\n|---|---|---|---|---|\n| MovieLens-1M | w/o Ctr | 0.7722 | 2.1287 | 640.12 |\n| | w/o IoI | 0.7875 | 2.2272 | 663.21 |\n| | w/o IoR | 0.8377 | 2.6794 | 665.22 |\n| | ProRL | 0.8543 | 2.8504 | 728.18 |\n| Steam | w/o Ctr | 0.5113 | 1.0126 | 338.28 |\n| | w/o IoI | 0.5325 | 0.2856 | 144.49 |\n| | w/o IoR | 0.5223 | 0.4540 | 117.46 |\n| | ProRL | 0.5625 | 1.1188 | 340.18 |\n| Amazon-Book | w/o Ctr | 0.8097 | 2.8217 | 1363.77 |\n| | w/o IoI | 0.8359 | 2.3117 | 1261.61 |\n| | w/o IoR | 0.7592 | 1.1488 | 125.94 |\n| | ProRL | 0.8568 | 2.9812 | 1383.41 |"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:eb10bde42577",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 731,
+      "end": 917,
+      "text": "**Table 5.** Analysis of gradient estimators on ML-1M. We report final performance, average path length at training Epochs 1, 5, 10, and advantage variance (normalized to Epoch 1 of RF)."
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:217a268a96e9",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 919,
+      "end": 1539,
+      "text": "| Method | Performance CTR | Performance IoI | Performance IoR | Avg. Path Length E1 | Avg. Path Length E5 | Avg. Path Length E10 | Advantage Variance E1 | Advantage Variance E2 | Advantage Variance E3 |\n|---|---|---|---|---|---|---|---|---|---|\n| RF | 0.581 | 1.626 | 329.8 | 5.2 | 2.9 | 1.5 | 1.00\u00d7 | 1.18\u00d7 | 0.94\u00d7 |\n| GRPO | 0.633 | 1.483 | 284.9 | 10.0 | 10.0 | 10.0 | 0.22\u00d7 | 0.21\u00d7 | 0.19\u00d7 |\n| A2C | 0.857 | 1.695 | 527.5 | 1.8 | 4.7 | 5.3 | 0.09\u00d7 | 0.12\u00d7 | 0.17\u00d7 |\n| RTG | 0.694 | 2.383 | 675.7 | 1.5 | 3.4 | 4.1 | 0.12\u00d7 | 0.11\u00d7 | 0.10\u00d7 |\n| ProRL | 0.854 | 2.850 | 728.2 | 1.6 | 3.1 | 3.8 | 0.06\u00d7 | 0.05\u00d7 | 0.05\u00d7 |"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:14041bfc8491",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 1541,
+      "end": 1582,
+      "text": "## 4.3.3. ABLATION ON GRADIENT ESTIMATORS"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:2f3676fef4b0",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 1584,
+      "end": 1978,
+      "text": "To validate the effectiveness of position-specific advantage estimation (Section 3.3), we compare five gradient estimators under identical reward normalization (Eq. (6)), isolating the effect of the advantage method. The estimators are REINFORCE (RF, Eq. (3)), reward-to-go (RTG, Eq. (7)), GRPO (path-level baseline), A2C (Mnih et al. (2016), see Appendix E.3 for details), and ProRL (Eq. (9))."
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:d5216bc8418a",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 1980,
+      "end": 3025,
+      "text": "Figure 4 shows training dynamics, where all curves report test metrics. ProRL achieves the best overall performance with steady improvement across all metrics. Table 5 further jointly analyzes final performance, path length stability during training, and gradient variance on ML-1M. ProRL achieves the highest guidance metrics, substantially surpassing both GRPO and A2C in guidance effectiveness. The path length and variance columns in Table 5 reveal the mechanism behind these performance differences. We track average path lengths at training Epochs 1, 5, and 10. RF and GRPO exhibit opposite failure modes, with RF collapsing to length 1.5 while GRPO saturates at $L_{\\text{max}} = 10$ throughout training. A2C shows moderate but unstable growth. In contrast, ProRL and RTG consistently converge to stable, moderate lengths around 3 to 4 steps. This stability is directly tied to gradient variance. ProRL achieves the lowest variance (\u223c5% of RF at Epoch 1), and RTG also maintains low variance, corroborating both methods' length stability."
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:851e550d5520",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 3027,
+      "end": 3091,
+      "text": "**Table 6.** Experimental Results with Different Training Stages"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:ba4240c660f0",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 3093,
+      "end": 3417,
+      "text": "| Dataset | Model | CTR | IoI | IoR |\n|---|---|---|---|---|\n| MovieLens-1M | Pretrain | 0.8671 | 0.8600 | 254.43 |\n| | RL | 0.8543 | 2.8504 | 728.18 |\n| Steam | Pretrain | 0.7453 | 0.4230 | 101.16 |\n| | RL | 0.5625 | 1.1188 | 340.18 |\n| Amazon-Book | Pretrain | 0.6410 | 0.1650 | 72.92 |\n| | RL | 0.8568 | 2.9812 | 1383.41 |"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:0bc04050976b",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 3419,
+      "end": 3484,
+      "text": "**Table 7.** Capacity analysis of pretrained model via Rollout@K."
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:a171ce152e91",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 3486,
+      "end": 3807,
+      "text": "| Dataset | Max-IoI @1 | Max-IoI @5 | Max-IoI @10 | Max-IoR @1 | Max-IoR @5 | Max-IoR @10 |\n|---|---|---|---|---|---|---|\n| MovieLens-1M | 1.1347 | 2.7779 | 3.3585 | 294.53 | 717.69 | 851.03 |\n| Steam | 0.2395 | 1.8728 | 2.4803 | 57.89 | 818.11 | 1074.35 |\n| Books | 0.1523 | 2.2524 | 3.0780 | 52.47 | 1132.01 | 1509.70 |"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:1f57720c840f",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 3809,
+      "end": 4106,
+      "text": "A key finding is that A2C's variance increases over training (0.09\u00d7 \u2192 0.17\u00d7), as its learned critic fails to track the evolving policy and produces progressively noisier baselines. ProRL's analytic baseline (Eq. (8)), computed directly from rollout statistics, adapts naturally without this drift."
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:f18dccdfe789",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 4108,
+      "end": 4156,
+      "text": "## 4.4. Quantitative Analysis of Training Stages"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:f5050958e908",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 4158,
+      "end": 4388,
+      "text": "To understand the evolution from pretraining to RL, we conduct a two-stage analysis. We first evaluate performance at each stage, then investigate the mechanism behind improvement by probing the pretrained model's latent capacity."
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:effd407ae6a9",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 4390,
+      "end": 4960,
+      "text": "**The Leap from Feasibility to Effectiveness.** As shown in Table 6, the pretrained model achieves high CTR, establishing a foundation for path feasibility. However, its guidance effectiveness remains limited. The RL stage breaks this bottleneck. By shifting the objective from likelihood maximization to cumulative reward maximization, RL improves guidance effectiveness while maintaining path feasibility. This confirms that rectified policy gradients (SRC + PSAE) enable effective RL optimization that discovers high-quality paths beyond the pretraining distribution."
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:04f36bb2fa94",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 4962,
+      "end": 5166,
+      "text": "**Mechanisms for Eliciting Pre-existing Capabilities.** The dramatic gain in effectiveness raises a question: Does RL impart new capabilities, or unlock potential already existing in the pretrained model?"
+    },
+    {
+      "passage_id": "088e1f601b1e#p8:b14c80c8aa53",
+      "page_id": "088e1f601b1e#p8",
+      "page_sha256": "6a328086ead935d48a1b9c553c049082cd990458489baab7c19db69c1f46e43c",
+      "start": 5168,
+      "end": 5633,
+      "text": "To answer this, we probe the latent capacity of the fixed pretrained model using Rollout@K analysis. We sample K paths for each input from the pretrained model and record the maximum IoI/IoR achieved. As shown in Table 7, while greedy generation (@1) is weak, the latent potential (@10) is remarkably high, often matching RL's final performance. This reveals that our RL stage actually functions as a probabilistic rectifier, identifying high-quality guidance paths"
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:e45169b03310",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 0,
+      "end": 91,
+      "text": "# ProRL: Effective RL for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:7d80d2c559fa",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 93,
+      "end": 596,
+      "text": "*[Figure 4: Training dynamics of gradient estimators on MovieLens-1M, Steam, and Amazon-Book. All methods use identical multi-objective rewards with the same weights; only the gradient estimator differs. RF: REINFORCE (Eq. (3)); RTG: reward-to-go (Eq. (7)); GRPO: REINFORCE with path-level baseline; ProRL: position-specific advantage (Eq. (9)). ProRL achieves the best balance between path feasibility (CTR) and guidance effectiveness (IoI, IoR), while RTG sacrifices guidance metrics for higher CTR.]*"
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:f24d34e1503f",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 598,
+      "end": 706,
+      "text": "in the low-probability tail of the pretrained distribution and redistributing probability mass towards them."
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:91bcb814be53",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 708,
+      "end": 726,
+      "text": "## 5. Related Work"
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:e88fca5b383f",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 728,
+      "end": 1403,
+      "text": "**Sequential Recommendation.** Sequential recommendation models user history to predict future behaviors. GRU4Rec (Hidasi et al., 2015) pioneered RNNs for temporal modeling. SASRec (Kang & McAuley, 2018) adapts self-attention with causal masking, whereas BERT4Rec (Sun et al., 2019) employs bidirectional objectives to deepen context understanding. Recent advances optimize this backbone. LightSANs (Fan et al., 2021) introduces low-rank decomposed attention for linear scalability, and FEARec (Du et al., 2023) leverages frequency domain learning for multi-scale information. However, these methods focus on fitting historical preferences and fail to shift user preferences."
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:b4f0d47ca725",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 1405,
+      "end": 2307,
+      "text": "**Proactive Recommendation.** Proactive recommendations aim to shift user preferences toward target items. IRN (Zhu et al., 2023) introduces a Transformer-based supervised method with a Personalized Impressionability Mask to model user receptiveness. IPG (Bi et al., 2024) selects intermediate items by jointly evaluating local feasibility and guidance effectiveness via predefined heuristics, while ITMPRec (Lian et al., 2025) further incorporates intention-level features for finer-grained characterization. More recently, LLM-IPP (Wang et al., 2025a) leverages LLMs via Chain-of-Thought for path planning, and T-PRA (Wang et al., 2025b) employs an LLM-based Actor-Critic framework. However, supervised methods cannot explore paths beyond historical data; heuristic methods greedily optimize local objectives and often yield suboptimal paths; and LLM-based methods incur prohibitive deployment costs."
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:f60bb4d8377d",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 2309,
+      "end": 2325,
+      "text": "## 6. Conclusion"
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:7729274e2db2",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 2327,
+      "end": 3245,
+      "text": "We present ProRL, a reinforcement learning framework for proactive recommendation via rectified policy gradient estimation. Our analysis reveals two deficiencies in standard policy gradient estimation for PRS: the length shortcut and high gradient variance. To address these issues, we introduce two rectifications. Stepwise Reward Centering eliminates the length shortcut by ensuring path extension yields zero expected gain, while Position-Specific Advantage Estimation reduces variance by exploiting reward decomposition. Together, these rectifications yield policy gradients that align with target path quality, enabling effective optimization of both feasibility and effectiveness. Experiments on three real-world datasets confirm that ProRL significantly outperforms state-of-the-art methods, and cross-evaluator analysis validates that the learned guidance strategy generalizes beyond the training reward model."
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:5831654d10da",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 3247,
+      "end": 3264,
+      "text": "## Acknowledgment"
+    },
+    {
+      "passage_id": "088e1f601b1e#p9:87346414fc1c",
+      "page_id": "088e1f601b1e#p9",
+      "page_sha256": "095ceca031be15c68c1f20b0f3a2fb5f90d0fc2f4bd6d3c7614d111d7082a534",
+      "start": 3266,
+      "end": 3339,
+      "text": "This work was supported by the Chinese NSF General Program (No.62572129)."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:1902e83d622c",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 0,
+      "end": 91,
+      "text": "# ProRL: Effective RL for Proactive Recommendation via Rectified Policy Gradient Estimation"
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:c056d8a1734f",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 93,
+      "end": 112,
+      "text": "## Impact Statement"
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:2bdf1ae1b0bb",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 114,
+      "end": 596,
+      "text": "This paper contributes to the field of proactive recommendation by introducing a reinforcement learning-based guidance framework. Our work aims to enhance the capability of recommender systems to proactively assist users in exploring new interests or achieving specific goals. While our method focuses on optimizing guidance efficiency, we acknowledge the importance of aligning such proactive strategies with user utility and ethical standards to ensure a positive user experience."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:1de4f17ac3dc",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 598,
+      "end": 611,
+      "text": "## References"
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:d9d6a9df2812",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 613,
+      "end": 867,
+      "text": "Bao, K., Zhang, J., Zhang, Y., Wang, W., Feng, F., and He, X. Tallrec: An effective and efficient tuning framework to align large language model with recommendation. In *Proceedings of the 17th ACM conference on recommender systems*, pp. 1007\u20131014, 2023."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:6db7af905929",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 869,
+      "end": 1055,
+      "text": "Bi, S., Wang, W., Pan, H., Feng, F., and He, X. Proactive recommendation with iterative preference guidance. In *Companion Proceedings of the ACM Web Conference 2024*, pp. 871\u2013874, 2024."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:5429fc4894a2",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 1057,
+      "end": 1301,
+      "text": "Brown, T., Mann, B., Ryder, N., Subbiah, M., Kaplan, J. D., Dhariwal, P., Neelakantan, A., Shyam, P., Sastry, G., Askell, A., et al. Language models are few-shot learners. *Advances in neural information processing systems*, 33:1877\u20131901, 2020."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:d3eedd46740f",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 1303,
+      "end": 1572,
+      "text": "Cheng, H.-T., Koc, L., Harmsen, J., Shaked, T., Chandra, T., Aradhye, H., Anderson, G., Corrado, G., Chai, W., Ispir, M., et al. Wide & deep learning for recommender systems. In *Proceedings of the 1st workshop on deep learning for recommender systems*, pp. 7\u201310, 2016."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:8c1def0f3b4e",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 1574,
+      "end": 1866,
+      "text": "Du, X., Yuan, H., Zhao, P., Qu, J., Zhuang, F., Liu, G., Liu, Y., and Sheng, V. S. Frequency enhanced hybrid attention network for sequential recommendation. In *Proceedings of the 46th international ACM SIGIR conference on research and development in information retrieval*, pp. 78\u201388, 2023."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:8f3a64611203",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 1868,
+      "end": 2060,
+      "text": "Dubey, A., Jauhri, A., Pandey, A., Kadian, A., Al-Dahle, A., Letman, A., Mathur, A., Schelten, A., Yang, A., Fan, A., et al. The llama 3 herd of models. *arXiv e-prints*, pp. arXiv\u20132407, 2024."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:b3043fa9e52a",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 2062,
+      "end": 2359,
+      "text": "Fan, X., Liu, Z., Lian, J., Zhao, W. X., Xie, X., and Wen, J.-R. Lighter and better: low-rank decomposed self-attention networks for next-item recommendation. In *Proceedings of the 44th international ACM SIGIR conference on research and development in information retrieval*, pp. 1733\u20131737, 2021."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:4c5a7331c000",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 2361,
+      "end": 2710,
+      "text": "Greensmith, E., Bartlett, P. L., and Baxter, J. Variance reduction techniques for gradient estimates in reinforcement learning. In *Advances in Neural Information Processing Systems 14 [Neural Information Processing Systems: Natural and Synthetic, NIPS 2001, December 3-8, 2001, Vancouver, British Columbia, Canada]*, pp. 1507\u20131514. MIT Press, 2001."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:1a11f5654c86",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 2712,
+      "end": 2868,
+      "text": "Harper, F. M. and Konstan, J. A. The movielens datasets: History and context. *Acm transactions on interactive intelligent systems (tiis)*, 5(4):1\u201319, 2015."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:16ecaf83ff88",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 2870,
+      "end": 3029,
+      "text": "Hidasi, B., Karatzoglou, A., Baltrunas, L., and Tikk, D. Session-based recommendations with recurrent neural networks. *arXiv preprint arXiv:1511.06939*, 2015."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:668b888d394e",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 3031,
+      "end": 3270,
+      "text": "Hou, H., Sun, J., Lin, W., Bi, W., Wang, X., and Yang, D. Heterogeneous influence maximization in user recommendation. In *Proceedings of the 34th ACM International Conference on Information and Knowledge Management*, pp. 5747\u20135754, 2025a."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:924ce39e92ba",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 3272,
+      "end": 3421,
+      "text": "Hou, M., Wu, L., Liao, Y., Yang, Y., Zhang, Z., Zheng, C., Wu, H., and Hong, R. A survey on generative recommendation: Data, model, and tasks, 2025b."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:c964465eacc5",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 3423,
+      "end": 3589,
+      "text": "Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., Chen, W., et al. Lora: Low-rank adaptation of large language models. *ICLR*, 1(2):3, 2022."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:6093a5e855de",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 3591,
+      "end": 3647,
+      "text": "Kahneman, D. *Thinking, fast and slow*. macmillan, 2011."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:6532cff857e0",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 3649,
+      "end": 3806,
+      "text": "Kang, W.-C. and McAuley, J. Self-attentive sequential recommendation. In *2018 IEEE international conference on data mining (ICDM)*, pp. 197\u2013206. IEEE, 2018."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:aaa0d34943e6",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 3808,
+      "end": 4097,
+      "text": "Li, C., Liu, Z., Wu, M., Xu, Y., Zhao, H., Huang, P., Kang, G., Chen, Q., Li, W., and Lee, D. L. Multi-interest network with dynamic routing for recommendation at tmall. In *Proceedings of the 28th ACM international conference on information and knowledge management*, pp. 2615\u20132623, 2019."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:007585dc0071",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 4099,
+      "end": 4274,
+      "text": "Lian, Y., Song, C., and Ge, T. Itmprec: Intention-based targeted multi-round proactive recommendation. In *Proceedings of the ACM on Web Conference 2025*, pp. 4171\u20134182, 2025."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:962e9ccf5762",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 4276,
+      "end": 4572,
+      "text": "Liu, X., Yu, C., Zhang, Z., Zheng, Z., Rong, Y., Lv, H., Huo, D., Wang, Y., Chen, D., Xu, J., et al. Neural auction: End-to-end learning of auction mechanisms for e-commerce advertising. In *Proceedings of the 27th ACM SIGKDD Conference on Knowledge Discovery & Data Mining*, pp. 3354\u20133364, 2021."
+    },
+    {
+      "passage_id": "088e1f601b1e#p10:8e9ed0fff5ac",
+      "page_id": "088e1f601b1e#p10",
+      "page_sha256": "37c557db1697d6e57bdbad8c2fd4414b13af1c578ca96425f5e343dbd44b259a",
+      "start": 4574,
+      "end": 4739,
+      "text": "Mei, T., Chen, H., Yu, P., Liang, J., and Yang, D. Goracs: Group-level optimal transport-guided coreset selection for llm-based recommender systems. In *Proceedings*"
+    }
+  ]
+}

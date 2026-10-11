@@ -93,3 +93,33 @@ def test_attempt_budget_is_atomic_under_concurrency():
 def test_estimate_tokens_positive_and_monotone():
     assert estimate_tokens("") >= 1
     assert estimate_tokens("a" * 4000) > estimate_tokens("a" * 400)
+
+
+def test_review_environment_budget_reaches_model(corpus, monkeypatch):
+    from reasoning.fake import FakeChat
+    from .conftest import make_reasoner, run
+
+    root, land, _ = corpus
+    monkeypatch.setenv("REASON_MAX_REVIEW_OUTPUT_TOKENS", "128000")
+    chat = FakeChat()
+    run(make_reasoner(root, chat), land)
+    reviews = [c for c in chat.calls if c["task"] == "review"]
+    assert reviews and all(c["max_tokens"] == 128000 for c in reviews)
+    assert Budgets(max_review_output_tokens=12000).max_review_output_tokens == 12000
+    monkeypatch.delenv("REASON_MAX_REVIEW_OUTPUT_TOKENS")
+    assert Budgets().max_review_output_tokens == 500000
+
+
+def test_unlimited_budget_keeps_accounting_under_concurrency():
+    async def exercise():
+        budget = AttemptBudget(None)
+        assert all(await asyncio.gather(*(budget.reserve('draft') for _ in range(1000))))
+        assert budget.remaining is None
+        assert budget.snapshot() == {'draft': 1000, 'total': 1000, 'budget': None}
+        zero = AttemptBudget(0)
+        assert not await zero.reserve('draft')
+        finite = AttemptBudget(7)
+        results = await asyncio.gather(*(finite.reserve('review') for _ in range(100)))
+        assert sum(results) == 7
+        assert finite.remaining == 0
+    asyncio.run(exercise())

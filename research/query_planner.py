@@ -81,11 +81,11 @@ async def plan_queries(query: str, *, max_queries: int = 5,
     if owned:
         client = AsyncLLMClient(provider or os.environ.get("QUERY_PLANNER_PROVIDER"))
     try:
-        raw = await client.chat(
+        raw = await client.structured(
             json.dumps({"query": query, "max_queries": max_queries}, ensure_ascii=False),
             system=SYSTEM_PROMPT,
             model=model or os.environ.get("QUERY_PLANNER_MODEL"),
-            response_format={"type": "json_object"},
+            schema=QueryPlan,
         )
         return _parse_plan(raw, query, max_queries)
     finally:

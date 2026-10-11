@@ -47,12 +47,12 @@ def test_landscape_rejects_duplicate_item_ids_and_missing_inventory(corpus):
     with pytest.raises(ValidationError):           # group_ids is required by schema
         S.LandscapeItem(item_id="x", kind="aggregated_finding", statement="s", supporting=[])
     with pytest.raises(ValidationError):           # no inventory reconstruction
-        S.Landscape.model_validate({"schema_version": "landscape_v1", "topic": "t",
+        S.LegacyLandscape.model_validate({"schema_version": "landscape_v1", "topic": "t",
                                     "groups": [], "items": []})
 
 
 def test_json_schemas_export():
-    for m in (S.Landscape, S.EvidenceBundle, S.ThreadReasoningDraft,
+    for m in (S.Landscape, S.LegacyLandscape, S.EvidenceBundle, S.ThreadReasoningDraft,
               S.SupportReviewRequest, S.SupportReviewResponse, S.CrossPaperReasoning):
         json.dumps(m.model_json_schema())
 

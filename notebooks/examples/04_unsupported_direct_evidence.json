@@ -1,0 +1,379 @@
+{
+  "provenance": {
+    "run": "cost_aware_agent_rl_20261011T034213Z",
+    "checkpoint": "comparison.json",
+    "checkpoint_sha256": "9fb5f6b9ffc43d14a7e1b606e9a5cb29e6f3f237a2ef2285c56b1338bea35c67",
+    "direction_id": "dir-003",
+    "paper_id": "4b9a4c446e2f",
+    "authenticity": "reconstructed teaching response: original rejected extraction response was not saved",
+    "source_pointer": "/result/candidates/1/papers/35"
+  },
+  "recorded_error": "ValueError: invalid_evidence_after_repair: dir-003: direct/inferred coverage requires all proposed intervention/comparison/regime/effect facets ['/comparison/0', '/comparison/1', '/expected_effect/0', '/expected_effect/1', '/intervention/0', '/intervention/1', '/regime/0'] to be covered by cited claims. Background problem evidence is insufficient; use related or insufficient_evidence if the proposed relationship is not established.",
+  "target": {
+    "target_id": "dir-003",
+    "level": "direction",
+    "problem": [
+      {
+        "text": "The resource level at which each metric's marginal gain turns non-positive is not established across retrieved chunks, context/history, routing budget/LLM calls, agents, and refinement/collaboration rounds.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/research_direction"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "BudgetMem reports a concrete retrieval-size turning point: K=5 is the best balance on LoCoMo and Judge score is non-monotonic.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "observation:t003-o01/t003-e008"
+        ],
+        "source_spans": [
+          {
+            "page_id": "41d503b70097#p8",
+            "quote": "In our setting, retrieving 5 chunks provides the best balance between cost and quality."
+          },
+          {
+            "page_id": "41d503b70097#p8",
+            "quote": "However, the benefit is not monotonic."
+          }
+        ]
+      },
+      {
+        "text": "GLANCE reports that increasing routing budget K can improve heterophilous-node accuracy but that routing too many nodes can harm accuracy, and that a single homophily threshold is ineffective across datasets.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "finding:t003-f02/t003-e531",
+          "finding:t003-f02/t003-e545"
+        ],
+        "source_spans": [
+          {
+            "page_id": "654826391bc4#p9",
+            "quote": "We find that increasing $K$ tends to lead to steady gains on heterophilous nodes, while leaving performance on the homophilous nodes mostly unchanged."
+          },
+          {
+            "page_id": "654826391bc4#p9",
+            "quote": "Importantly, we also observe that routing too many nodes can harm accuracy (as seen in Table 10 for full-batch routing), as easy nodes well modeled by the GNN can become misclassified when the LLM is unnecessarily used."
+          },
+          {
+            "page_id": "654826391bc4#p9",
+            "quote": "Thus, a single homophily threshold that only routes heterophilous nodes would be ineffective for maximizing performance, and additional context is needed."
+          }
+        ]
+      },
+      {
+        "text": "MEMOPILOT reports Full History is worse than No Memory on RPS and only marginally better on StreamBench.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "finding:t003-f02/t003-e868"
+        ],
+        "source_spans": [
+          {
+            "page_id": "d8f57e888907#p6",
+            "quote": "Full History performs poorly on RPS and stays negative on LHE in Table 1."
+          },
+          {
+            "page_id": "d8f57e888907#p7",
+            "quote": "Table 2 shows that full History provides only marginal gains over No Memory"
+          }
+        ]
+      },
+      {
+        "text": "SUMMQ reports BERTScore-F1 peaking at three refinement iterations and then declining, while ROUGE-1 does not rise monotonically across iterations 3 to 5 on the same axis.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "finding:t003-f02/t003-e318"
+        ],
+        "source_spans": [
+          {
+            "page_id": "4b9a4c446e2f#p8",
+            "quote": "Performance generally improves from 1 to 3 iterations, with BERTScore-F1 peaking at 62.76, but further iterations yield diminishing or negative returns."
+          },
+          {
+            "page_id": "4b9a4c446e2f#p8",
+            "quote": "| 3 | 41.58 | 11.08 | 18.24 | 63.28 | 62.28 | 62.76 |"
+          },
+          {
+            "page_id": "4b9a4c446e2f#p8",
+            "quote": "| 4 | 41.62 | 11.19 | 18.11 | 63.26 | 62.25 | 62.73 |"
+          },
+          {
+            "page_id": "4b9a4c446e2f#p8",
+            "quote": "| 5 | 41.53 | 11.01 | 18.21 | 62.90 | 62.23 | 62.55 |"
+          }
+        ]
+      },
+      {
+        "text": "HILA reports agent scaling has diminishing and less stable gains while cost rises sharply, and collaborative rounds are non-monotonic with accuracy peaking at an intermediate depth while token usage continues to rise.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "observation:t053-o01/t053-e077",
+          "observation:t053-o01/t053-e080"
+        ],
+        "source_spans": [
+          {
+            "page_id": "6a3fd5641e6c#p10",
+            "quote": "By contrast, computational cost rises sharply with the number of agents, as both input and output tokens increase substantially with broader participation."
+          },
+          {
+            "page_id": "6a3fd5641e6c#p10",
+            "quote": "Performance peaks at an intermediate depth and then declines slightly as the interaction is extended further, even though token usage continues to rise."
+          }
+        ]
+      },
+      {
+        "text": "Whether a common determinant exists across the five resource axes rather than axis-specific mechanisms is unknown.",
+        "basis": "unknown",
+        "proposal_paths": [
+          "/uncertainties/1"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      }
+    ],
+    "intervention": [
+      {
+        "text": "Systematically map the resource level at which each metric's marginal gain turns non-positive across retrieved chunks, context/history, routing budget/LLM calls, agents, and refinement/collaboration rounds.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/research_direction"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "Test whether turning points are metric-relative and task-relative rather than predicted by resource quantity alone.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/research_direction",
+          "/what_would_falsify_it"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      }
+    ],
+    "decision_signal": [
+      {
+        "text": "Metric-specific resource level at which marginal gain turns non-positive.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/research_direction"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "Whether metric-specific peaks differ at all within the same task and resource axis is unknown.",
+        "basis": "unknown",
+        "proposal_paths": [
+          "/uncertainties/0"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      }
+    ],
+    "mechanism": [
+      {
+        "text": "Added resource raises a task metric only while marginal task-relevant evidence or coordination benefit exceeds marginal redundancy/weak relevance, over-routing of already-easy cases, and cost/token/coordination overhead.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/proposed_mechanism"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "Metrics differ in how sharply they penalize these overheads, so noise-sensitive metrics should peak earlier than coverage/task-success metrics, and cost-inclusive metrics should peak earlier than pure quality metrics.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/proposed_mechanism"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "The turning point is therefore predicted to be a metric- and task-conditioned crossing, not a fixed resource number.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/proposed_mechanism"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "Whether a common determinant exists across the five resource axes rather than axis-specific mechanisms is unknown.",
+        "basis": "unknown",
+        "proposal_paths": [
+          "/uncertainties/1"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      }
+    ],
+    "regime": [
+      {
+        "text": "Cross-paper scope: non-monotonic resource scaling in retrieval size, context/history, routing budget, agents, and refinement/collaboration rounds; not a single unified budget variable.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/scope"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "BudgetMem K=5 on LoCoMo with Judge and cost.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "observation:t003-o01/t003-e008"
+        ],
+        "source_spans": [
+          {
+            "page_id": "41d503b70097#p8",
+            "quote": "In our setting, retrieving 5 chunks provides the best balance between cost and quality."
+          }
+        ]
+      },
+      {
+        "text": "GLANCE routing budget K with overall versus heterophilous accuracy and dataset dependence.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "finding:t003-f02/t003-e545"
+        ],
+        "source_spans": [
+          {
+            "page_id": "654826391bc4#p9",
+            "quote": "We find that increasing $K$ tends to lead to steady gains on heterophilous nodes, while leaving performance on the homophilous nodes mostly unchanged."
+          },
+          {
+            "page_id": "654826391bc4#p9",
+            "quote": "We also highlight that the median beneficial homophily value is not identical across datasets"
+          }
+        ]
+      },
+      {
+        "text": "MEMOPILOT full history on RPS versus StreamBench.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "finding:t003-f02/t003-e868"
+        ],
+        "source_spans": [
+          {
+            "page_id": "d8f57e888907#p6",
+            "quote": "Full History performs poorly on RPS and stays negative on LHE in Table 1."
+          }
+        ]
+      },
+      {
+        "text": "SUMMQ refinement iterations and agents with BERTScore and ROUGE.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "finding:t003-f02/t003-e318",
+          "finding:t003-f02/t003-e307"
+        ],
+        "source_spans": [
+          {
+            "page_id": "4b9a4c446e2f#p8",
+            "quote": "Performance generally improves from 1 to 3 iterations, with BERTScore-F1 peaking at 62.76, but further iterations yield diminishing or negative returns."
+          },
+          {
+            "page_id": "4b9a4c446e2f#p8",
+            "quote": "| 5 | 42.52 | 11.49 | 18.56 | 63.53 | 62.99 | 62.96 |"
+          }
+        ]
+      },
+      {
+        "text": "HILA agents and rounds with accuracy and token usage.",
+        "basis": "source_fact",
+        "proposal_paths": [],
+        "evidence_ids": [
+          "observation:t053-o01/t053-e077",
+          "observation:t053-o01/t053-e080"
+        ],
+        "source_spans": [
+          {
+            "page_id": "6a3fd5641e6c#p10",
+            "quote": "By contrast, computational cost rises sharply with the number of agents, as both input and output tokens increase substantially with broader participation."
+          },
+          {
+            "page_id": "6a3fd5641e6c#p10",
+            "quote": "Performance peaks at an intermediate depth and then declines slightly as the interaction is extended further, even though token usage continues to rise."
+          }
+        ]
+      }
+    ],
+    "comparison": [
+      {
+        "text": "Compare metric-specific and task-specific turning points against prediction by resource quantity alone.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/research_direction",
+          "/what_would_falsify_it"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "Compare across resource axes: retrieval size, context/history, routing budget/LLM calls, agents, refinement/collaboration rounds.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/scope"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      }
+    ],
+    "expected_effect": [
+      {
+        "text": "Turning points are metric-relative and task-relative; onset is predicted by redundancy/weak-relevance, over-routing of easy cases, or cost/coordination overhead rather than resource quantity alone.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/research_direction",
+          "/proposed_mechanism"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "Noise-sensitive metrics should peak earlier or equal to coverage/task-success metrics; cost-inclusive metrics should peak earlier than pure quality metrics.",
+        "basis": "candidate_proposal",
+        "proposal_paths": [
+          "/proposed_mechanism"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      },
+      {
+        "text": "Whether reported non-monotonicity is reproducible or partly measurement noise is unknown.",
+        "basis": "unknown",
+        "proposal_paths": [
+          "/uncertainties/3"
+        ],
+        "evidence_ids": [],
+        "source_spans": []
+      }
+    ],
+    "queries": [
+      "non-monotonic resource scaling retrieval context routing budget agents refinement rounds turning point",
+      "metric-relative task-relative optimal budget retrieval size context history LLM calls agents collaboration rounds",
+      "redundancy weak relevance over-routing cost overhead resource scaling diminishing returns language agents",
+      "marginal gain non-positive more retrieved chunks more context more agents more rounds"
+    ]
+  },
+  "passage": {
+    "passage_id": "4b9a4c446e2f#p1:97a27c16e012",
+    "page_id": "4b9a4c446e2f#p1",
+    "page_sha256": "5854e8b30ea252dfecade9937a635d494332f1e426486244347b080c521acd04",
+    "start": 0,
+    "end": 44,
+    "text": "Published as a conference paper at ICLR 2026"
+  }
+}

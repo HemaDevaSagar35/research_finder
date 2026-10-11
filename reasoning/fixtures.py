@@ -21,7 +21,7 @@ from pathlib import Path
 
 from indexing.ids import paper_id as make_paper_id
 from indexing.index_contract import synthetic_paper
-from reasoning.schemas import (ConceptGroup, Contradiction, Landscape, LandscapeItem,
+from reasoning.schemas import (ConceptGroup, Contradiction, LegacyLandscape as Landscape, LandscapeItem,
                                PaperRef, Relationship)
 
 VENUE, YEAR = "ICML 2026", 2026
