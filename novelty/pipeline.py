@@ -126,12 +126,12 @@ class NoveltySearcher:
 
     async def _call(self, task, system, schema, body):
         messages = [{'role': 'system', 'content': system + '\nReturn a JSON object matching the supplied schema.'}, {'role': 'user', 'content': json.dumps(
-            {'task': task, 'schema': schema.model_json_schema(), **body},
+            {'task': task, **body},
             ensure_ascii=False, separators=(',', ':'))}]
         # Estimate actual message text, not a second JSON encoding that adds
         # escapes to quotes/newlines. Allow 32 tokens per message for framing;
         # the provider's own context limit remains independent of this estimate.
-        input_tokens = sum(estimate_tokens(m['content']) + 32 for m in messages)
+        input_tokens = sum(estimate_tokens(m['content']) + 32 for m in messages) + estimate_tokens(json.dumps(schema.model_json_schema()))
         if input_tokens > self.settings.max_input_tokens:
             raise ValueError('input_budget: complete context exceeds allowance; no silent omission')
         async with self.sem:
@@ -144,7 +144,7 @@ class NoveltySearcher:
                     self.client = AsyncLLMClient(self.provider, concurrency=self.settings.concurrency, max_retries=0)
                     self.provider = self.client.provider
                     self.model = self.model or self.client.default_model
-                    self.chat = self.client.chat_result
+                    self.chat = self.client.structured_result
                 review = task in ('review_signature', 'review_comparison', 'repair_comparison_review', 'review_comparison_evidence', 'repair_evidence_review', 'review_novelty_assessment', 'repair_review_novelty_assessment',
                     'review_research_critique', 'repair_review_research_critique', 'review_subset_direction', 'repair_review_subset_direction',
                     'review_critic_portfolio', 'repair_review_critic_portfolio',
@@ -154,7 +154,7 @@ class NoveltySearcher:
                 call = (self.review_chat or self.chat) if review else self.chat
                 model = (self.review_model or self.model) if review else self.model
                 result = await call(messages=messages, model=model,
-                    max_tokens=self.settings.max_output_tokens, response_format={'type': 'json_object'})
+                    max_tokens=self.settings.max_output_tokens, schema=schema.model_json_schema())
                 try:
                     if result.truncated:
                         raise ValueError('truncated model response')

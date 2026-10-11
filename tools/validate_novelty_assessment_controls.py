@@ -110,7 +110,7 @@ async def main(args):
         async def chat(**kw):
             index = len(calls)
             calls.append(json.loads(kw['messages'][1]['content'])['task'])
-            result = await client.chat_result(**kw)
+            result = await client.structured_result(**kw)
             save(out/name/'calls'/f'{index:03d}.json', dict(request=kw, response=asdict(result)))
             print(json.dumps(dict(case=name, task=calls[index], model=result.model)), flush=True)
             return result

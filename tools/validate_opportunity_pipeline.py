@@ -56,7 +56,7 @@ async def main(args):
         raise ValueError('Use a new directory to preserve previous runs')
     out.mkdir(parents=True)
     semaphore=asyncio.Semaphore(6)
-    original=AsyncLLMClient.chat_result
+    original=AsyncLLMClient.structured_result
     events=[]
     active=peak=0
 
@@ -84,7 +84,7 @@ async def main(args):
                 event['end']=time.time()
                 save(out/'calls.json',{'peak':peak,'events':events})
 
-    AsyncLLMClient.chat_result=tracked
+    AsyncLLMClient.structured_result=tracked
     backend=LocalBackend(Path(args.index),use_vector=False)
     topics=[('kv_cache','KV cache compression and quantization for long-context language model inference'),
             ('rag_grounding','retrieval augmented generation factual grounding and robustness to conflicting evidence')]
@@ -121,7 +121,7 @@ async def main(args):
             stage('reasoning')
             client=AsyncLLMClient('deepseek',concurrency=4,max_retries=0)
             try:
-                reasoner=CrossPaperReasoner(store,client.chat_result,budgets=budgets,concurrency=4,
+                reasoner=CrossPaperReasoner(store,client.structured_result,budgets=budgets,concurrency=4,
                     provider=client.provider,draft_model=client.default_model,review_model=client.default_model)
                 reasoning=await reasoner.run(land)
             finally:
@@ -152,7 +152,7 @@ async def main(args):
              'usage_note':'Process totals are isolated; concurrent component usage snapshots overlap.'})
     finally:
         backend.close()
-        AsyncLLMClient.chat_result=original
+        AsyncLLMClient.structured_result=original
 
 
 if __name__=='__main__':

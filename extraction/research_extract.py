@@ -1759,12 +1759,7 @@ Before producing the structured output, internally verify:
 """
 
 
-# DeepSeek's API has no server-side schema enforcement (response_format only
-# supports "json_object", not "json_schema" — the latter is rejected with 400).
-# So we supply the JSON Schema in the request, force JSON mode, and enforce
-# the schema client-side with pydantic, feeding validation errors back to the
-# model for repair rounds.
-SCHEMA_JSON = json.dumps(PaperAnalysis.model_json_schema(), indent=2)
+# The output schema is supplied through Responses text.format; local validation remains.
 
 MAX_REPAIR_ROUNDS = 2
 
@@ -1781,16 +1776,7 @@ MAX_UNPARSEABLE_RETRIES = 1
 
 
 def _schema_message(document: str) -> str:
-    return (
-        "# STRUCTURED-OUTPUT SCHEMA\n\n"
-        "Your entire output must be a single JSON object that validates "
-        "against this JSON Schema. Output ONLY the JSON object — no prose, "
-        "no code fences. Every property is required; use null / [] exactly "
-        "where the schema allows them. Do not add properties that are not "
-        "in the schema.\n\n"
-        f"```json\n{SCHEMA_JSON}\n```\n\n"
-        "# PAPER\n\n"
-        f"{document}")
+    return "Return the supplied structured output for this paper.\n\n# PAPER\n\n" + document
 
 
 def _format_validation_errors(exc: ValidationError, limit: int = 40) -> str:
@@ -1849,8 +1835,8 @@ def extract_research(folder: Path, *,
     last_error = None
     unparseable = 0
     for attempt in range(1 + MAX_REPAIR_ROUNDS):
-        raw = client.chat(messages=messages, model=model,
-                          response_format={"type": "json_object"})
+        raw = client.structured(messages=messages, model=model,
+                          schema=PaperAnalysis)
         if client.last_finish_reason == "length":
             # Retrying cannot help: the same answer will be cut off again.
             raise RuntimeError(

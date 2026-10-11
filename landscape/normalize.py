@@ -121,11 +121,11 @@ async def _judge_pairs(labels: list[RawLabel], pairs: list[tuple[int, int, float
         f'{i}: "{labels[a].text}" vs "{labels[b].text}" (facet: {labels[a].facet})'
         for i, (a, b, _score) in enumerate(pairs)
     )
-    raw = await client.chat(
+    raw = await client.structured(
         numbered,
         system=SYSTEM_PROMPT,
         model=model or os.environ.get("LANDSCAPE_NORMALIZE_MODEL"),
-        response_format={"type": "json_object"},
+        schema=EquivalenceJudgment,
     )
     try:
         judgment = EquivalenceJudgment.model_validate_json(raw)

@@ -54,10 +54,10 @@ async def main(args):
         event=dict(id=len(events),task=req['task'],start=time.time());events.append(event)
         save(out/'calls'/f"{event['id']:03d}.request.json",kw)
         try:
-            reused=next(((r,p) for q,r,p in replays if all(q.get(k)==kw.get(k) for k in ('messages','model','response_format'))),None)
+            reused=next(((r,p) for q,r,p in replays if all(q.get(k)==kw.get(k) for k in ('messages','model','schema'))),None)
             if reused:
                 result,path=reused;event.update(checkpoint_replay=True,checkpoint_path=path)
-            else:result=await client.chat_result(**kw)
+            else:result=await client.structured_result(**kw)
             save(out/'calls'/f"{event['id']:03d}.response.json",asdict(result))
             event.update(model=result.model,finish_reason=result.finish_reason)
             return result

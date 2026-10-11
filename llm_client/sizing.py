@@ -18,7 +18,7 @@ def fit_context(params, config, key='max_tokens'):
     params[key] = min(params.get(key) or available, available)
 
 
-def reduce_after_context_error(exc, params):
+def reduce_after_context_error(exc, params, key='max_tokens'):
     """One correction using exact provider counts, only for context overflow."""
     if getattr(exc,'status_code',None) != 400:
         return False
@@ -28,8 +28,8 @@ def reduce_after_context_error(exc, params):
     if not limit or not inputs:
         return False
     available = int(limit[1])-int(inputs[1])-8192
-    old = params.get('max_tokens')
+    old = params.get(key)
     if available < 1024 or old is None or available >= old:
         return False
-    params['max_tokens'] = available
+    params[key] = available
     return True

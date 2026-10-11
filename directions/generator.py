@@ -297,8 +297,8 @@ class DirectionGenerator:
                 raise ValueError('hypothesis cites unknown or duplicate motivating evidence; '
                                  f'allowed evidence_ids={sorted(evidence)}')
 
-    async def _call(self, messages, kind):
-        if estimate_tokens(json.dumps(messages)) > self.settings.max_input_tokens:
+    async def _call(self, messages, kind, schema):
+        if estimate_tokens(json.dumps(messages)) + estimate_tokens(json.dumps(schema.model_json_schema())) > self.settings.max_input_tokens:
             raise GenerationFailure('input_budget', 'complete prompt exceeds allowance; no evidence silently omitted')
         async with self.sem:
             if self.fatal:
@@ -310,12 +310,12 @@ class DirectionGenerator:
                     self.client = AsyncLLMClient(self.provider, concurrency=self.settings.concurrency, max_retries=0)
                     self.provider = self.client.provider
                     self.model = self.model or self.client.default_model
-                    self.chat = self.client.chat_result
+                    self.chat = self.client.structured_result
                 is_review = kind == 'review'
                 call = (self.review_chat or self.chat) if is_review else self.chat
                 model = (self.review_model or self.model) if is_review else self.model
                 return await call(messages=messages, model=model, max_tokens=self.settings.max_output_tokens,
-                                       response_format={'type': 'json_object'})
+                                       schema=schema.model_json_schema())
             except Exception as exc:
                 if errors.is_fatal(exc):
                     self.fatal = errors.describe(exc)
@@ -325,14 +325,14 @@ class DirectionGenerator:
     async def _generate(self, op, payload, *, proposal=None, report=None):
         messages = [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': json.dumps(
             {'task': 'generate_direction' if proposal is None else 'revise_direction',
-             'schema': GenerationResponse.model_json_schema(), 'payload': payload,
+             'payload': payload,
              **({'candidate': proposal.model_dump(), 'correctness_issues': report.model_dump(),
                  'instruction': 'Resolve the concrete correctness issues while preserving the accepted opportunity. Return the complete revised candidate or abstain; do not treat reviewer suggestions as source facts.'}
                 if proposal is not None else {})})}]
         for attempt in range(self.settings.repair_rounds + 1):
             if estimate_tokens(json.dumps(messages)) > self.settings.max_input_tokens:
                 raise GenerationFailure('input_budget', 'complete prompt exceeds allowance; no evidence silently omitted')
-            result = await self._call(messages, ('generation' if proposal is None else 'revision') if attempt == 0 else 'repair')
+            result = await self._call(messages, ('generation' if proposal is None else 'revision') if attempt == 0 else 'repair', GenerationResponse)
             try:
                 if result.truncated:
                     raise ValueError('response truncated')
@@ -364,7 +364,7 @@ class DirectionGenerator:
         review_id = f'dir-{index:03d}-review-{round}'
         report, error, model = None, None, self.review_model or self.model
         try:
-            result = await self._call(judge.messages_for_review(proposal, payload), 'review')
+            result = await self._call(judge.messages_for_review(proposal, payload), 'review', LinkedCorrectnessResponse)
             model = result.model
             try:
                 if result.truncated:

@@ -50,7 +50,7 @@ async def main(args):
     client = AsyncLLMClient('deepseek',concurrency=3,max_retries=0,timeout=300)
     async def execute(name,signature,expected):
         async def chat(**kw):
-            response = await client.chat_result(**kw)
+            response = await client.structured_result(**kw)
             save(out/'calls'/(name+'.json'),{'request':kw,'response':asdict(response)})
             return response
         runner = NoveltySearcher(PaperStore(Path(args.root)),None,chat,provider=client.provider,

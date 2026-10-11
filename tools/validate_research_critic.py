@@ -53,12 +53,12 @@ async def main(args):
         save(out/'calls'/f"{event['id']:03d}.request.json", kw)
         try:
             reused = next(((saved, path) for request, saved, path in checkpoints
-                if all(request.get(key) == kw.get(key) for key in ('messages', 'model', 'response_format'))), None)
+                if all(request.get(key) == kw.get(key) for key in ('messages', 'model', 'schema'))), None)
             if reused:
                 response, checkpoint_path = reused
                 event.update(checkpoint_replay=True, checkpoint_path=checkpoint_path)
             else:
-                response = await client.chat_result(**kw)
+                response = await client.structured_result(**kw)
             save(out/'calls'/f"{event['id']:03d}.response.json", asdict(response))
             event.update(model=response.model, finish_reason=response.finish_reason)
             return response

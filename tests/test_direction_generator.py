@@ -311,7 +311,7 @@ def test_owned_client_closed_and_transient_failure_preserves_other_directions(in
             self.closed = False
             self.chat = Chat()
             created.append(self)
-        async def chat_result(self, **kw):
+        async def structured_result(self, **kw):
             payload = json.loads(kw['messages'][1]['content'])['payload']
             if payload['opportunity']['opportunity_id'] == 'op-0':
                 raise RuntimeError('Transient transport error')

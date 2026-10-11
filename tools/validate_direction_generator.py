@@ -84,7 +84,7 @@ async def main(args):
             active += 1
             peak = max(peak, active)
             try:
-                result = await client.chat_result(**kw)
+                result = await client.structured_result(**kw)
                 event.update(finish_reason=result.finish_reason, model=result.model)
                 save(out/'calls'/f"{event['id']:03d}.json", {'messages': kw['messages'], 'response': asdict(result)})
                 return result

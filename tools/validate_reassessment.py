@@ -34,10 +34,10 @@ async def main(args):
         request=json.loads(kw['messages'][1]['content']);event=dict(id=len(events),task=request['task'],start=time.time());events.append(event)
         save(out/'calls'/f"{event['id']:03d}.request.json",kw)
         try:
-            replay=next(((r,p) for q,r,p in replays if all(q.get(k)==kw.get(k) for k in ('messages','model','response_format'))),None)
+            replay=next(((r,p) for q,r,p in replays if all(q.get(k)==kw.get(k) for k in ('messages','model','schema'))),None)
             if replay:
                 response,path=replay;event.update(checkpoint_replay=True,checkpoint_path=path)
-            else:response=await client.chat_result(**kw)
+            else:response=await client.structured_result(**kw)
             save(out/'calls'/f"{event['id']:03d}.response.json",asdict(response))
             event.update(finish_reason=response.finish_reason,model=response.model);return response
         except Exception as exc:event['error']=str(exc);raise

@@ -63,7 +63,7 @@ def messages_for_review(proposal, payload):
     # Fresh conversation: no generation instructions, earlier verdict, revision
     # feedback or generator chat history is supplied to the independent reviewer.
     return [{'role': 'system', 'content': SYSTEM + '\n' + INSTRUCTION}, {'role': 'user', 'content': json.dumps({
-        'task': 'review_direction', 'schema': LinkedCorrectnessResponse.model_json_schema(),
+        'task': 'review_direction',
         'payload': payload, 'candidate': proposal.model_dump()})}]
 
 

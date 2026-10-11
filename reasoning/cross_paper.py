@@ -292,7 +292,7 @@ Rules (violations make your answer unusable):
    any inference and scope it to available evidence. Missing attribution is unknown.
    limitation_sources are context, not additional citable evidence IDs; cite only
    supplied evidence records, and leave page-level support to the review.
-Output ONLY one JSON object matching the schema in the user message."""
+Output ONLY one JSON object matching the supplied API output schema."""
 
 REVIEW_SYSTEM = """You are auditing candidate conclusions against the ORIGINAL paper pages.
 For EVERY candidate return exactly one decision:
@@ -323,9 +323,7 @@ def draft_messages(thread: Thread, bnd: S.EvidenceBundle, titles: dict[str, str]
                      for i in bnd.items],
         "omitted_records": len(bnd.omitted),
     }
-    user = ("Respond with one JSON object valid against this schema "
-            "(ThreadReasoningDraft):\n" + _fence(S.ThreadReasoningDraft.model_json_schema())
-            + "\n\nThread payload:\n" + _fence(payload))
+    user = "Thread payload:\n" + _fence(payload)
     return [{"role": "system", "content": DRAFT_SYSTEM}, {"role": "user", "content": user}]
 
 
@@ -397,17 +395,17 @@ class CrossPaperReasoner:
             self.provider = client.provider
             self.draft_model = self.draft_model or client.default_model
             self.review_model = self.review_model or self.draft_model
-            self._chat = client.chat_result
+            self._chat = client.structured_result
         return self._chat
 
     async def _call(self, kind: str, messages: list[dict], model: str | None,
-                    max_tokens: int) -> ChatResult | None:
+                    max_tokens: int, schema) -> ChatResult | None:
         """Reserve an attempt, then call. None = budget exhausted."""
         if not await self.budget.reserve(kind):
             return None
         try:
             return await self._client()(messages=messages, model=model, max_tokens=max_tokens,
-                                        response_format={"type": "json_object"})
+                                        schema=schema.model_json_schema())
         except BaseException as e:            # noqa: BLE001
             if llm_errors.is_fatal(e):
                 self._fatal = e
@@ -527,7 +525,7 @@ class CrossPaperReasoner:
                      ) -> tuple[S.ThreadReasoningDraft | None, str | None, list[dict]]:
         msgs = draft_messages(t, bnd, titles)
         # input budget: drop lowest-ranked items (from the end) until it fits
-        while bnd.items and estimate_tokens(msgs[0]["content"] + msgs[1]["content"]) \
+        while bnd.items and (estimate_tokens(msgs[0]["content"] + msgs[1]["content"]) + estimate_tokens(json.dumps(S.ThreadReasoningDraft.model_json_schema()))) \
                 > self.budgets.max_draft_input_tokens:
             dropped = bnd.items.pop()
             bnd.omitted.append(S.OmittedItem(paper_id=dropped.paper_id,
@@ -540,7 +538,7 @@ class CrossPaperReasoner:
         for attempt in range(1 + self.budgets.repair_rounds):
             kind = "draft" if attempt == 0 else "repair"
             result = await self._call(kind, msgs, self.draft_model,
-                                      self.budgets.max_draft_output_tokens)
+                                      self.budgets.max_draft_output_tokens, S.ThreadReasoningDraft)
             if result is None:
                 return None, "budget", msgs
             draft, err = self._parse_draft(result, bnd,
@@ -714,7 +712,7 @@ class CrossPaperReasoner:
                 fetched[key] = rec
         res.counters["review_pages_fetched"] += len(fetched)
         supplied: list[S.ReviewPage] = []
-        overhead = estimate_tokens(REVIEW_SYSTEM) + sum(
+        overhead = estimate_tokens(REVIEW_SYSTEM) + estimate_tokens(json.dumps(S.SupportReviewResponse.model_json_schema())) + sum(
             estimate_tokens(json.dumps(c.payload)) for c in cands) + 400
         used = overhead
         for key in ordered:
@@ -753,7 +751,7 @@ class CrossPaperReasoner:
         resp, err = None, None
         for attempt in range(1 + self.budgets.repair_rounds):
             result = await self._call("review" if attempt == 0 else "repair", msgs,
-                                      self.review_model, self.budgets.max_review_output_tokens)
+                                      self.review_model, self.budgets.max_review_output_tokens, S.SupportReviewResponse)
             if result is None:
                 for c in reviewable:
                     res.diagnostics.append(self._cand_diag(c, "budget_skipped",

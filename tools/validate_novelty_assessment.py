@@ -31,7 +31,7 @@ async def main(args):
         event = dict(id=len(events), task=req['task'], direction_id=req['packet']['direction_id'], start=time.time())
         events.append(event)
         try:
-            result = await client.chat_result(**kw)
+            result = await client.structured_result(**kw)
             save(out/'calls'/f"{event['id']:03d}.json", dict(request=kw, response=asdict(result)))
             event.update(model=result.model, finish_reason=result.finish_reason)
             return result

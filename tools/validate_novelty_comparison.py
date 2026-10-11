@@ -59,7 +59,7 @@ async def main(args):
                 event['reused_extraction']=str(path)
                 result=ChatResult(response['text'],response['finish_reason'],response['model'])
             else:
-                result = await client.chat_result(**kw)
+                result = await client.structured_result(**kw)
             event.update(model=result.model, finish_reason=result.finish_reason)
             save(out/'calls'/f"{event['id']:03d}.json", {'request':kw,'response':asdict(result)})
             return result

@@ -155,7 +155,7 @@ async def main(args):
     calls=[]
     async def chat(**kw):
         n=len(calls);calls.append(n)
-        response=await client.chat_result(**kw)
+        response=await client.structured_result(**kw)
         save(out/'calls'/f'{n:03d}.json',{'request':kw,'response':asdict(response)})
         return response
     io=NoveltySearcher(None,None,chat,provider=client.provider,model=client.default_model,

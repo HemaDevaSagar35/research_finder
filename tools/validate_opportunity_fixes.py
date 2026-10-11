@@ -40,7 +40,7 @@ async def main(args):
             event={'case':case,'id':len(events),'start':time.time()}
             events.append(event)
             try:
-                response=await client.chat_result(**kw)
+                response=await client.structured_result(**kw)
                 event.update(finish_reason=response.finish_reason,model=response.model)
                 save(out/'calls'/f"{event['id']:03d}.json",{'messages':kw['messages'],'response':response.text})
                 return response

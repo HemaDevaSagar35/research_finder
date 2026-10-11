@@ -56,7 +56,7 @@ SYSTEM_PROMPT = """You will see several near-duplicate statements from
 different papers about the same underlying observation. Write ONE merged
 statement that captures what they collectively say, in neutral language that
 does not overclaim beyond what every statement supports. Return only a JSON
-object {"statement": "..."}. Do not mention paper identifiers or add claims
+object matching the supplied ClusterSummary schema. Do not mention paper identifiers or add claims
 not present in the inputs. Limitation entries carry their extraction origin:
 author_stated means the extractor classified it as stated by the authors;
 model_inferred means the extractor inferred it. Neither label is page verification.
@@ -115,11 +115,11 @@ async def _summarize_cluster(cluster: list[RawStatement], *,
     numbered = "\n".join(
         f"- [{s.source.origin if s.source else 'extracted_statement'}] {s.text}"
         for s in cluster)
-    raw = await client.chat(
+    raw = await client.structured(
         numbered,
         system=SYSTEM_PROMPT,
         model=model or os.environ.get("LANDSCAPE_AGGREGATION_MODEL"),
-        response_format={"type": "json_object"},
+        schema=ClusterSummary,
     )
     try:
         summary = ClusterSummary.model_validate_json(raw)

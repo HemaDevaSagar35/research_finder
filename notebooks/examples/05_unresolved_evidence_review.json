@@ -1,0 +1,1789 @@
+{
+  "provenance": {
+    "run": "cost_aware_agent_rl_20261011T034213Z",
+    "checkpoint": "comparison.json",
+    "checkpoint_sha256": "9fb5f6b9ffc43d14a7e1b606e9a5cb29e6f3f237a2ef2285c56b1338bea35c67",
+    "direction_id": "dir-001",
+    "paper_id": "dd5034eb29fd",
+    "authenticity": "actual final saved evidence review",
+    "source_pointer": "/result/candidates/0/papers/70/evidence_reviews/3"
+  },
+  "review": {
+    "version": 3,
+    "trigger": "evidence_repair",
+    "record": {
+      "claims": [
+        {
+          "claim_id": "c1",
+          "text": "The prior work addresses multi-reward alignment for text-to-image generation and states that existing multi-reward fusion approaches rely on weighted summation, which is costly to tune and insufficient for balancing conflicting objectives.",
+          "kind": "discussion",
+          "passage_ids": [
+            "dd5034eb29fd#p1:f51abecaad23"
+          ]
+        },
+        {
+          "claim_id": "c2",
+          "text": "The prior work states that optimizing against a unified global target under heterogeneous reward upper bounds can induce reward hacking, a risk it says is further exacerbated by the inherent instability of weak reward models, and asserts (with formal details deferred to Appendix C) that under heterogeneous prompt-wise reward bounds a unified global target can systematically induce reward hacking for a subset of samples in both single- and multi-reward settings.",
+          "kind": "theoretical_result",
+          "passage_ids": [
+            "dd5034eb29fd#p1:de8ce017ec2f",
+            "dd5034eb29fd#p2:38d3a983f3fc",
+            "dd5034eb29fd#p3:1751c738c120",
+            "dd5034eb29fd#p1:f51abecaad23",
+            "dd5034eb29fd#p3:2c5fd29fb5e7",
+            "dd5034eb29fd#p2:2a0ef76de79f"
+          ]
+        },
+        {
+          "claim_id": "c3",
+          "text": "The prior work argues that different prompts admit different maximum achievable rewards and that each reward dimension varies not only in scale but also in optimization difficulty across prompts, giving a highly heterogeneous optimization landscape, so that enforcing a single global reward bound ignores prompt-specific feasible maxima and produces biased gradient signals that encourage shortcut exploitation and lead to reward hacking.",
+          "kind": "discussion",
+          "passage_ids": [
+            "dd5034eb29fd#p2:2a0ef76de79f",
+            "dd5034eb29fd#p3:1751c738c120"
+          ]
+        },
+        {
+          "claim_id": "c4",
+          "text": "The prior work hypothesizes that weak reward models are more prone to reward hacking while strong reward models provide more stable and reliable optimization signals, and reports that its experiments confirm this hypothesis.",
+          "kind": "discussion",
+          "passage_ids": [
+            "dd5034eb29fd#p3:2070db76148d",
+            "dd5034eb29fd#p5:3bc5e570096b",
+            "dd5034eb29fd#p3:2c5fd29fb5e7",
+            "dd5034eb29fd#p5:6566ee63623f"
+          ]
+        },
+        {
+          "claim_id": "c5",
+          "text": "The prior work proposes a Pareto-frontier-guided optimal transport (PG-OT) framework that, for each prompt, constructs a dedicated Pareto frontier as the optimization target and maps dominated samples toward it via distribution-aware optimal transport, using an offline strategy for weak reward models prone to collapse and an online strategy for strong reward models.",
+          "kind": "method",
+          "passage_ids": [
+            "dd5034eb29fd#p2:6cf56d4378a3",
+            "dd5034eb29fd#p4:16f34ccbc086",
+            "dd5034eb29fd#p4:3b5bb2628cc4"
+          ]
+        },
+        {
+          "claim_id": "c6",
+          "text": "The prior work employs a VLM-based decision agent to detect early mild reward-hacking collapse and to remove problematic weak reward models, reverting to an earlier stable checkpoint to resume training.",
+          "kind": "method",
+          "passage_ids": [
+            "dd5034eb29fd#p5:3bc5e570096b",
+            "dd5034eb29fd#p5:6566ee63623f"
+          ]
+        },
+        {
+          "claim_id": "c7",
+          "text": "The prior work reports that optimizing solely for the CLIP reward improves alignment-related metrics (CLIP and ICT) while simultaneously degrading human preference metrics (HPS and HP).",
+          "kind": "result",
+          "passage_ids": [
+            "dd5034eb29fd#p3:93c5eacfa659",
+            "dd5034eb29fd#p4:71a7ca55e7a1",
+            "dd5034eb29fd#p4:fa1747349037"
+          ]
+        },
+        {
+          "claim_id": "c8",
+          "text": "The prior work compares against four baseline families under identical hyperparameters, including single-reward fine-tuning, weighted multi-reward fine-tuning, reward soup, and multi-reward fine-tuning under heterogeneous reward bounds with weighted-sum bounds and separate-constraints variants.",
+          "kind": "evaluation",
+          "passage_ids": [
+            "dd5034eb29fd#p7:ff50faa725f2",
+            "dd5034eb29fd#p7:2906b964040d"
+          ]
+        },
+        {
+          "claim_id": "c9",
+          "text": "In the prior work, Table 3 reports on the Parti-Prompts dataset that PG-OT attains JDR2 = 47.98, JDR4 = 17.10, and JCR4 = 2.39, described as an 11% gain in JDR2, a 3.4% gain in JDR4, and a 0.2% reduction in JCR4 relative to baselines, where JCR4 quantifies joint collapse over rewards and lower values indicate better stability.",
+          "kind": "evaluation",
+          "passage_ids": [
+            "dd5034eb29fd#p6:3c0473edb70b",
+            "dd5034eb29fd#p7:75e46db4439e",
+            "dd5034eb29fd#p6:bd5d821ae3c0",
+            "dd5034eb29fd#p3:28a3889538ee",
+            "dd5034eb29fd#p3:a7bf3891f1eb"
+          ]
+        },
+        {
+          "claim_id": "c10",
+          "text": "The prior work reports that single-reward baselines optimized with the global bound collapse rapidly during training and that multi-reward optimization with the global bound and weak rewards also exhibits severe deterioration, whereas its method achieves stable and consistent improvement while avoiding reward hacking.",
+          "kind": "result",
+          "passage_ids": [
+            "dd5034eb29fd#p8:5a3e1dbeed3d",
+            "dd5034eb29fd#p8:ee11fe8d44f6"
+          ]
+        },
+        {
+          "claim_id": "c11",
+          "text": "The prior work's evaluation is built on Stable Diffusion 3.5-Turbo with LoRA fine-tuning and the DRaFT-K strategy, constructs the initial Pareto frontier from M = 50 images per prompt, and uses Parti-Prompts and DiffusionDB with JDR/JCR metrics and human win-rate studies.",
+          "kind": "evaluation",
+          "passage_ids": [
+            "dd5034eb29fd#p6:b57eeff6011b",
+            "dd5034eb29fd#p8:82782401e610",
+            "dd5034eb29fd#p8:3a124792dd7a",
+            "dd5034eb29fd#p3:a7bf3891f1eb",
+            "dd5034eb29fd#p6:bd5d821ae3c0",
+            "dd5034eb29fd#p7:75e46db4439e"
+          ]
+        },
+        {
+          "claim_id": "c12",
+          "text": "An ablation in the prior work reports JDR2/JDR4/JCR4 for online-only (21.51/9.38/4.04), offline-only (34.07/7.35/7.23), the variant without optimal transport (18.15/10.78/6.68), the variant without the online strategy (38.54/14.89/4.29), and the full method (47.98/17.10/2.39).",
+          "kind": "evaluation",
+          "passage_ids": [
+            "dd5034eb29fd#p8:c175faa871b6",
+            "dd5034eb29fd#p8:3eeaf39beaf1",
+            "dd5034eb29fd#p7:75e46db4439e"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "target_id": "dir-001-h01",
+          "intervention": [
+            "c5",
+            "c6"
+          ],
+          "comparator": [
+            "c8"
+          ],
+          "conditions": [
+            "c3",
+            "c11"
+          ],
+          "outcome": [
+            "c9",
+            "c10"
+          ],
+          "conclusion": [
+            "c2",
+            "c4"
+          ],
+          "coverage": "related",
+          "result": "not_assessed",
+          "inference": null,
+          "proposal_matches": [
+            {
+              "facet_path": "/intervention/0",
+              "claim_ids": [
+                "c5",
+                "c6"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate trains constructed routers with reward-scale alignment disabled versus enabled for each tiering strategy. The prior work's intervention is a Pareto-frontier-guided optimal transport objective plus a VLM reward-hacking detector for text-to-image reward models; it contains no router training and no reward-scale-alignment ablation, so the intervention facet is not covered."
+            },
+            {
+              "facet_path": "/comparison/0",
+              "claim_ids": [
+                "c8"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate contrasts alignment-disabled versus alignment-enabled routers within each tiering strategy. The prior work contrasts reward-optimization baselines (single-reward, weighted multi-reward, reward soup, heterogeneous-bound variants), which is a different contrast."
+            },
+            {
+              "facet_path": "/regime/1",
+              "claim_ids": [
+                "c11"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate regime is LoCoMo at lambda=0.3 across capacity, implementation, and reasoning tiering with an RL budget-tier router. The prior work operates on text-to-image generation with SD3.5-Turbo, Parti-Prompts and DiffusionDB; the regime is different."
+            },
+            {
+              "facet_path": "/expected_effect/0",
+              "claim_ids": [
+                "c3"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate predicts an ordering of LOW-tier selection collapse across tiering strategies and a tracking of the training-time std(cost reward)/std(task reward) ratio. The prior work predicts only that heterogeneous scale/difficulty and weak rewards produce degenerate optimization; it states no cross-strategy ordering for routing collapse."
+            }
+          ],
+          "explanation": "Scientific coverage: the candidate asks whether alignment-disabled router collapse is smaller under implementation or reasoning tiering than under capacity tiering, by training constructed alignment-disabled versus alignment-enabled routers per strategy on LoCoMo at lambda=0.3. The prior paper investigates a related problem class, namely multi-reward optimization where heterogeneous reward scale/difficulty and weak reward models cause degenerate optimization (reward hacking), and offers a remedy via prompt-specific Pareto frontiers plus optimal transport. However, it does not train budget-tier routers, does not toggle reward-scale alignment, does not compare routing tiering strategies, and its collapse construct (JCR over image-reward vectors) is not LOW-tier routing collapse. The candidate's motivating problem (imbalanced multi-reward optimization) is thus related to the prior work, but the candidate's specific intervention, comparator, condition and ordering are not investigated. Effect result: not assessed, since matching or conflicting direction of the candidate's predicted cross-strategy ordering cannot be established from this prior evidence."
+        },
+        {
+          "target_id": "dir-001-h03",
+          "intervention": [
+            "c5"
+          ],
+          "comparator": [
+            "c8"
+          ],
+          "conditions": [
+            "c3",
+            "c11"
+          ],
+          "outcome": [
+            "c9",
+            "c12"
+          ],
+          "conclusion": [
+            "c2",
+            "c3"
+          ],
+          "coverage": "related",
+          "result": "not_assessed",
+          "inference": null,
+          "proposal_matches": [
+            {
+              "facet_path": "/intervention/0",
+              "claim_ids": [
+                "c5"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate varies the cost/task variance ratio across constructed training runs with alignment disabled or held fixed. The prior work does not manipulate a reward variance ratio; it constructs Pareto frontiers and applies optimal transport, so the intervention facet is not covered."
+            },
+            {
+              "facet_path": "/comparison/0",
+              "claim_ids": [
+                "c8"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate compares constructed capacity-tiered LoCoMo runs at different target variance ratios against alignment-disabled and alignment-enabled references. The prior work's comparisons are among reward-fusion baselines and its own OT variants, not variance-ratio levels."
+            },
+            {
+              "facet_path": "/regime/1",
+              "claim_ids": [
+                "c11"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate regime is capacity-tiered LoCoMo at lambda=0.3 with RL-trained routers. The prior work's regime is text-to-image reward-model optimization, which does not match."
+            },
+            {
+              "facet_path": "/expected_effect/0",
+              "claim_ids": [
+                "c3"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate predicts monotonic increases in LOW-tier selection fraction and monotonic decreases in Judge as the cost/task variance ratio rises. The prior work states qualitatively that reward-scale/difficulty heterogeneity biases gradients toward shortcut exploitation but states no monotonic variance-ratio-to-collapse relationship for routing."
+            }
+          ],
+          "explanation": "Scientific coverage: the candidate tests whether the cost-reward variance ratio causally drives LOW-tier routing collapse under capacity-tiering LoCoMo at lambda=0.3 with constructed training variants. The prior paper is the closest on the mechanism side, since it claims that reward dimensions differ in scale and optimization difficulty and that biased gradient signals from a unified global bound encourage shortcut exploitation and reward hacking, and it identifies weak (unstable) reward models as more collapse-prone. That is a related mechanism, but the prior work does not manipulate reward variance, does not perform a causal variance-ratio test, and does not measure routing collapse; the imbalance it addresses is bound heterogeneity across prompts and reward-model weakness, not a controlled cost-versus-task variance ratio. Effect result: not assessed, because no prior condition isolates the candidate's manipulated variable."
+        },
+        {
+          "target_id": "dir-001-h04",
+          "intervention": [
+            "c5",
+            "c6"
+          ],
+          "comparator": [
+            "c8"
+          ],
+          "conditions": [
+            "c3",
+            "c11"
+          ],
+          "outcome": [
+            "c9",
+            "c12"
+          ],
+          "conclusion": [
+            "c2",
+            "c4"
+          ],
+          "coverage": "related",
+          "result": "not_assessed",
+          "inference": null,
+          "proposal_matches": [
+            {
+              "facet_path": "/intervention/0",
+              "claim_ids": [
+                "c5",
+                "c6"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate compares a constructed running variance-normalization router against alignment-disabled and alignment-enabled routers in a collapse regime. The prior work's remedy is Pareto-frontier-guided optimal transport plus a VLM detector that removes weak rewards; it does not use or test running variance normalization of reward components, so the intervention facet is not covered."
+            },
+            {
+              "facet_path": "/comparison/0",
+              "claim_ids": [
+                "c8"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate contrasts variance-normalization versus alignment-disabled and alignment-enabled routers. The prior work contrasts reward-fusion baselines and OT ablations (online-only, offline-only, without OT), not a variance-normalization router against an alignment toggle."
+            },
+            {
+              "facet_path": "/regime/1",
+              "claim_ids": [
+                "c11"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate regime is capacity-tiered LoCoMo at lambda=0.3 with alignment disabled, plus possibly one contrasting non-capacity strategy. The prior work's regime is text-to-image generation with reward models, which does not match."
+            },
+            {
+              "facet_path": "/expected_effect/0",
+              "claim_ids": [
+                "c5"
+              ],
+              "relationship_match": "unknown",
+              "explanation": "The candidate expects running variance normalization to reduce LOW-tier collapse and improve Judge toward the alignment-enabled level. The prior work expects its OT-based frontier mapping to improve joint domination and reduce joint collapse; it makes no prediction about variance normalization replacing reward-scale alignment in a router."
+            }
+          ],
+          "explanation": "Scientific coverage: the candidate asks whether a constructed running variance-normalization router can match or replace reward-scale alignment in an alignment-disabled capacity-tiering collapse regime on LoCoMo at lambda=0.3. The prior paper addresses the same broad concern, that differential reward scale/instability makes optimization collapse and requires an explicit corrective (reward hacking driven by unified global targets and weak reward models), but its corrective is a Pareto-frontier/optimal-transport objective with weak-reward removal, not variance normalization of reward components. It never toggles reward-scale alignment and never measures LOW-tier routing collapse, so the candidate's intervention, comparator, condition and expected effect are not investigated. Effect result: not assessed, because no prior comparison constrains whether variance normalization alone would suffice."
+        }
+      ]
+    },
+    "revision_notes": [
+      "Attached known supporting citations from the independent audit; no claim is accepted without fresh review."
+    ],
+    "format_repairs": [],
+    "model": "deepseek-flash",
+    "report": {
+      "claim_checks": [
+        {
+          "claim_id": "c1",
+          "decision": "supported",
+          "explanation": "The abstract states that existing multi-reward fusion approaches rely on weighted summation, which is costly to tune and insufficient for balancing conflicting objectives, and frames this as a challenge for text-to-image alignment. The claim faithfully paraphrases this.",
+          "scope_checks": [
+            {
+              "aspect": "other",
+              "assertion": "Existing multi-reward fusion approaches rely on weighted summation, which is costly to tune and insufficient for balancing conflicting objectives.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p1:f51abecaad23"
+              ],
+              "explanation": "The cited abstract passage states this directly; no additional scope condition is asserted by the claim."
+            }
+          ],
+          "scope_summary": "Background/discussion claim about prior multi-reward fusion for text-to-image alignment. It contains no experimental result or numerical bound, and no model/dataset qualification is needed to interpret it.",
+          "passage_ids": [
+            "dd5034eb29fd#p1:f51abecaad23"
+          ]
+        },
+        {
+          "claim_id": "c2",
+          "decision": "supported",
+          "explanation": "The cited passages state the theoretical result under heterogeneous prompt-wise reward bounds, its applicability to both single- and multi-reward settings, and the additional risk attributed to instability of weak reward models. The claim also correctly notes that formal details are deferred to Appendix C.",
+          "scope_checks": [
+            {
+              "aspect": "result",
+              "assertion": "Under heterogeneous prompt-wise reward bounds, optimizing against a unified global target can systematically induce reward hacking for a subset of samples.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p2:38d3a983f3fc",
+                "dd5034eb29fd#p3:1751c738c120",
+                "dd5034eb29fd#p1:de8ce017ec2f"
+              ],
+              "explanation": "Contribution 1 states the formal result for a subset of samples; Section 2.1 states the proof is deferred to Appendix C; the introduction says the authors theoretically prove it."
+            },
+            {
+              "aspect": "assumption",
+              "assertion": "The result is scoped to heterogeneous reward bounds and applies in both single- and multi-reward settings.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p1:de8ce017ec2f",
+                "dd5034eb29fd#p2:38d3a983f3fc"
+              ],
+              "explanation": "Both passages explicitly cover single- and multi-reward optimization under heterogeneous reward bounds."
+            },
+            {
+              "aspect": "other",
+              "assertion": "The paper states that inherent instability of weak reward models further exacerbates reward-hacking risk.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p1:f51abecaad23",
+                "dd5034eb29fd#p3:2c5fd29fb5e7"
+              ],
+              "explanation": "The abstract calls this a risk exacerbated by weak reward models, and Section 2.2 presents it as a hypothesis about weak models; the claim labels it as something the paper states, not as a proved theorem."
+            }
+          ],
+          "scope_summary": "Theoretical-result claim about text-to-image reward optimization. Relevant scope is the heterogeneous prompt-wise reward-bound assumption, the subset-of-samples outcome, applicability to single- and multi-reward settings, and the separate weak-reward-model risk. No router, tiering or cost-weight scope is asserted.",
+          "passage_ids": [
+            "dd5034eb29fd#p1:de8ce017ec2f",
+            "dd5034eb29fd#p2:38d3a983f3fc",
+            "dd5034eb29fd#p3:1751c738c120",
+            "dd5034eb29fd#p1:f51abecaad23",
+            "dd5034eb29fd#p3:2c5fd29fb5e7",
+            "dd5034eb29fd#p2:2a0ef76de79f"
+          ]
+        },
+        {
+          "claim_id": "c3",
+          "decision": "supported",
+          "explanation": "The cited passages state that prompts have different achievable maxima and reward dimensions differ in scale and optimization difficulty, and they argue that a single global bound ignores prompt-specific feasible maxima and biases gradients toward shortcut exploitation and reward hacking.",
+          "scope_checks": [
+            {
+              "aspect": "assumption",
+              "assertion": "Different prompts admit different maximum achievable rewards and each reward dimension varies in scale and optimization difficulty across prompts.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p2:2a0ef76de79f"
+              ],
+              "explanation": "The passage states the mismatch with a global upper bound and prompt-specific feasible maxima, and says reward dimensions vary in scale and optimization difficulty."
+            },
+            {
+              "aspect": "outcome",
+              "assertion": "Enforcing a single global reward bound ignores prompt-specific feasible maxima and produces biased gradient signals that encourage shortcut exploitation and lead to reward hacking.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p2:2a0ef76de79f",
+                "dd5034eb29fd#p3:1751c738c120"
+              ],
+              "explanation": "The sentence beginning in p2:2a0ef76de79f continues in p3:1751c738c120, which states that this leads to reward hacking."
+            }
+          ],
+          "scope_summary": "Argument/discussion claim about the mechanism behind reward hacking in text-to-image multi-reward optimization. It is an explanatory claim, not a numerical result; the relevant conditions are heterogeneous prompt-wise bounds and reward-dimension scale/difficulty variation.",
+          "passage_ids": [
+            "dd5034eb29fd#p2:2a0ef76de79f",
+            "dd5034eb29fd#p3:1751c738c120"
+          ]
+        },
+        {
+          "claim_id": "c4",
+          "decision": "supported",
+          "explanation": "The paper hypothesizes that weak reward models are more prone to reward hacking and that strong reward models provide more stable signals, and Section 3.3 states that the experiments confirm the weak-reward-model hacking hypothesis.",
+          "scope_checks": [
+            {
+              "aspect": "assumption",
+              "assertion": "The paper hypothesizes that weak reward models are more prone to reward hacking while strong reward models provide more stable and reliable optimization signals.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p3:2070db76148d",
+                "dd5034eb29fd#p3:2c5fd29fb5e7"
+              ],
+              "explanation": "Section 2.2 sets out this strong/weak distinction and the hypothesis about collapse propensity."
+            },
+            {
+              "aspect": "outcome",
+              "assertion": "The paper reports that its experiments confirm the hypothesis.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p5:3bc5e570096b",
+                "dd5034eb29fd#p5:6566ee63623f"
+              ],
+              "explanation": "Section 3.3 says the experiments confirm the hypothesis that weak reward models are susceptible to reward hacking, and the later passage describes strong reward models after weak ones are removed as strongly correlated with human preference."
+            }
+          ],
+          "scope_summary": "Hypothesis-and-confirmation claim in the text-to-image reward-model setting. The relevant condition is the strong/weak reward-model distinction; it does not assert router or tiering scope.",
+          "passage_ids": [
+            "dd5034eb29fd#p3:2070db76148d",
+            "dd5034eb29fd#p5:3bc5e570096b",
+            "dd5034eb29fd#p3:2c5fd29fb5e7",
+            "dd5034eb29fd#p5:6566ee63623f"
+          ]
+        },
+        {
+          "claim_id": "c5",
+          "decision": "supported",
+          "explanation": "The cited passages describe the PG-OT framework: prompt-specific Pareto frontiers as optimization targets, optimal transport of dominated samples toward the frontier, and offline versus online strategies according to weak versus strong reward models.",
+          "scope_checks": [
+            {
+              "aspect": "model",
+              "assertion": "PG-OT constructs a prompt-specific Pareto frontier as the optimization target and maps dominated samples toward it via distribution-aware optimal transport.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p2:6cf56d4378a3",
+                "dd5034eb29fd#p4:3b5bb2628cc4"
+              ],
+              "explanation": "The abstract and Section 3.2 describe prompt-specific frontiers and OT-based mapping of dominated reward vectors."
+            },
+            {
+              "aspect": "assumption",
+              "assertion": "The framework uses an offline strategy for weak reward models prone to collapse and an online strategy for strong reward models.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p2:6cf56d4378a3",
+                "dd5034eb29fd#p4:16f34ccbc086"
+              ],
+              "explanation": "The abstract and Section 3.1 state the online/offline strategy split according to reward-model strength."
+            }
+          ],
+          "scope_summary": "Method claim about text-to-image multi-reward optimization. The relevant conditions are reward-model strength and the use of prompt-specific Pareto frontiers; no routing, tiering or LoCoMo scope is asserted.",
+          "passage_ids": [
+            "dd5034eb29fd#p2:6cf56d4378a3",
+            "dd5034eb29fd#p4:16f34ccbc086",
+            "dd5034eb29fd#p4:3b5bb2628cc4"
+          ]
+        },
+        {
+          "claim_id": "c6",
+          "decision": "supported",
+          "explanation": "Section 3.3 describes a VLM-based decision agent that detects early mild collapse, removes the problematic weak reward model, and reverts to an earlier stable checkpoint before resuming training.",
+          "scope_checks": [
+            {
+              "aspect": "other",
+              "assertion": "A VLM-based decision agent detects early mild reward-hacking collapse and removes problematic weak reward models, reverting to an earlier stable checkpoint to resume training.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p5:3bc5e570096b"
+              ],
+              "explanation": "The cited passage states each element: early detection, removal of the weak reward model, and reversion to a stable checkpoint."
+            }
+          ],
+          "scope_summary": "Method claim about the paper's VLM detection/removal component. It does not include numerical outcomes or a dataset comparison; the relevant scope is the weak-reward-model removal procedure.",
+          "passage_ids": [
+            "dd5034eb29fd#p5:3bc5e570096b",
+            "dd5034eb29fd#p5:6566ee63623f"
+          ]
+        },
+        {
+          "claim_id": "c7",
+          "decision": "supported",
+          "explanation": "Table 2 reports that CLIP-only optimization increases CLIP and ICT while decreasing HPS and HP, and the accompanying text states the same conclusion about alignment-related versus human-preference metrics.",
+          "scope_checks": [
+            {
+              "aspect": "outcome",
+              "assertion": "Optimizing solely for CLIP improves alignment-related metrics CLIP and ICT while degrading human-preference metrics HPS and HP.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p3:93c5eacfa659",
+                "dd5034eb29fd#p4:71a7ca55e7a1"
+              ],
+              "explanation": "The text states the direction, and the table values show CLIP and ICT increasing while HPS and HP decrease over steps."
+            },
+            {
+              "aspect": "measurement",
+              "assertion": "The trend is reported as percentage changes over optimization steps relative to the original model.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p4:fa1747349037",
+                "dd5034eb29fd#p4:71a7ca55e7a1"
+              ],
+              "explanation": "The Table 2 caption says \u0394n reports percentage change with respect to the original model at optimization step n; the table provides the corresponding values."
+            }
+          ],
+          "scope_summary": "Result from Table 2 for CLIP-only optimization. The cited passages do not name the dataset, and the claim does not assert one; the supported scope is the direction of the four reported metrics in this text-to-image reward-optimization table.",
+          "passage_ids": [
+            "dd5034eb29fd#p3:93c5eacfa659",
+            "dd5034eb29fd#p4:71a7ca55e7a1",
+            "dd5034eb29fd#p4:fa1747349037"
+          ]
+        },
+        {
+          "claim_id": "c8",
+          "decision": "supported",
+          "explanation": "The baselines section lists the four baseline families and states that all methods use identical hyperparameters, while the dedicated heterogeneous-bounds subsection names the weighted-sum bounds and separate-constraints variants.",
+          "scope_checks": [
+            {
+              "aspect": "comparator",
+              "assertion": "The paper compares against four baseline families: single-reward fine-tuning, weighted multi-reward fine-tuning, reward soup, and multi-reward fine-tuning under heterogeneous reward bounds.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p7:ff50faa725f2"
+              ],
+              "explanation": "The cited passage lists these four families explicitly."
+            },
+            {
+              "aspect": "assumption",
+              "assertion": "All methods use identical hyperparameters.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p7:ff50faa725f2"
+              ],
+              "explanation": "The cited passage states this condition explicitly."
+            },
+            {
+              "aspect": "comparator",
+              "assertion": "The heterogeneous-bounds baseline includes weighted-sum bounds and separate-constraints variants.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p7:2906b964040d"
+              ],
+              "explanation": "The passage names and describes both variants."
+            }
+          ],
+          "scope_summary": "Evaluation-setup claim about baseline construction. It does not report numerical outcomes and does not need a dataset qualification; the comparator families and identical-hyperparameter condition are explicitly stated.",
+          "passage_ids": [
+            "dd5034eb29fd#p7:ff50faa725f2",
+            "dd5034eb29fd#p7:2906b964040d"
+          ]
+        },
+        {
+          "claim_id": "c9",
+          "decision": "supported",
+          "explanation": "Table 3 reports the exact PG-OT JDR2, JDR4 and JCR4 values on Parti-Prompts, and Section 4.3 states the corresponding 11%, 3.4% and 0.2% gains and defines JCR4 as lower-is-better joint collapse.",
+          "scope_checks": [
+            {
+              "aspect": "outcome",
+              "assertion": "PG-OT attains JDR2 = 47.98, JDR4 = 17.10, and JCR4 = 2.39.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p6:3c0473edb70b"
+              ],
+              "explanation": "The PG-OT row of Table 3 contains these values."
+            },
+            {
+              "aspect": "dataset",
+              "assertion": "These Table 3 values are on the Parti-Prompts dataset.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p6:bd5d821ae3c0",
+                "dd5034eb29fd#p7:75e46db4439e"
+              ],
+              "explanation": "The table caption and the Section 4.3 text both identify Parti-Prompts."
+            },
+            {
+              "aspect": "measurement",
+              "assertion": "The paper describes the results as an 11% gain in JDR2, a 3.4% gain in JDR4, and a 0.2% reduction in JCR4, with JCR4 quantifying joint collapse over rewards and lower values indicating better stability.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p7:75e46db4439e",
+                "dd5034eb29fd#p3:28a3889538ee",
+                "dd5034eb29fd#p3:a7bf3891f1eb"
+              ],
+              "explanation": "Section 4.3 states the gains and the JCR4 stability interpretation; Section 2.3 defines JDR and JCR."
+            }
+          ],
+          "scope_summary": "Evaluation result on Parti-Prompts with JDR/JCR metrics. The claim accurately carries the dataset, metric names, exact values and lower-is-better JCR4 direction; it does not claim a specific baseline for the 0.2% reduction.",
+          "passage_ids": [
+            "dd5034eb29fd#p6:3c0473edb70b",
+            "dd5034eb29fd#p7:75e46db4439e",
+            "dd5034eb29fd#p6:bd5d821ae3c0",
+            "dd5034eb29fd#p3:28a3889538ee",
+            "dd5034eb29fd#p3:a7bf3891f1eb"
+          ]
+        },
+        {
+          "claim_id": "c10",
+          "decision": "supported",
+          "explanation": "Section 4.3 states that single-reward global-bound baselines collapse rapidly and that multi-reward optimization with the global bound and weak rewards severely deteriorates, while the proposed method improves stably and avoids reward hacking; Figure 4 shows JDR4 training curves.",
+          "scope_checks": [
+            {
+              "aspect": "outcome",
+              "assertion": "Single-reward baselines optimized with the global bound collapse rapidly during training, and multi-reward optimization with the global bound and weak rewards also exhibits severe deterioration.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p8:5a3e1dbeed3d"
+              ],
+              "explanation": "The cited passage states both collapse/deterioration patterns."
+            },
+            {
+              "aspect": "measurement",
+              "assertion": "The comparison is based on JDR4 training curves.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p8:ee11fe8d44f6",
+                "dd5034eb29fd#p8:5a3e1dbeed3d"
+              ],
+              "explanation": "Figure 4 is captioned as comparative JDR4 training curves, and the text interprets those curves."
+            }
+          ],
+          "scope_summary": "Qualitative training-curve result. The cited passages do not name the dataset for the curves, and the claim does not assert one; the supported scope is the reported JDR4 curve behavior for the listed baselines and the proposed method.",
+          "passage_ids": [
+            "dd5034eb29fd#p8:5a3e1dbeed3d",
+            "dd5034eb29fd#p8:ee11fe8d44f6"
+          ]
+        },
+        {
+          "claim_id": "c11",
+          "decision": "supported",
+          "explanation": "The implementation details state the Stable Diffusion 3.5-Turbo backbone, LoRA fine-tuning, DRaFT-K strategy and M=50 initial Pareto-frontier images. Table 3 uses Parti-Prompts with JDR/JCR metrics, and Table 6 and the user study use DiffusionDB for human win rates.",
+          "scope_checks": [
+            {
+              "aspect": "model",
+              "assertion": "The evaluation is built on Stable Diffusion 3.5-Turbo with LoRA fine-tuning and the DRaFT-K strategy.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p6:b57eeff6011b"
+              ],
+              "explanation": "The implementation-details passage states each element."
+            },
+            {
+              "aspect": "dataset",
+              "assertion": "The evaluation uses Parti-Prompts and DiffusionDB.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p6:bd5d821ae3c0",
+                "dd5034eb29fd#p8:82782401e610",
+                "dd5034eb29fd#p8:3a124792dd7a"
+              ],
+              "explanation": "Table 3 is on Parti-Prompts; Table 6 and the user study are on DiffusionDB prompts."
+            },
+            {
+              "aspect": "measurement",
+              "assertion": "It uses JDR/JCR metrics, constructs the initial Pareto frontier from M = 50 images per prompt, and reports human win-rate studies.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p6:b57eeff6011b",
+                "dd5034eb29fd#p3:a7bf3891f1eb",
+                "dd5034eb29fd#p7:75e46db4439e",
+                "dd5034eb29fd#p8:82782401e610"
+              ],
+              "explanation": "M=50 is stated in the implementation details; JDR/JCR are defined in Section 2.3 and used in Table 3; Table 6 reports human win rates."
+            }
+          ],
+          "scope_summary": "Evaluation-setup claim. The claim correctly scopes the model, datasets, metrics and human study; it does not assert that every metric was computed on both datasets.",
+          "passage_ids": [
+            "dd5034eb29fd#p6:b57eeff6011b",
+            "dd5034eb29fd#p8:82782401e610",
+            "dd5034eb29fd#p8:3a124792dd7a",
+            "dd5034eb29fd#p3:a7bf3891f1eb",
+            "dd5034eb29fd#p6:bd5d821ae3c0",
+            "dd5034eb29fd#p7:75e46db4439e"
+          ]
+        },
+        {
+          "claim_id": "c12",
+          "decision": "supported",
+          "explanation": "Table 7 reports exactly these JDR2/JDR4/JCR4 values for the online-only, offline-only, without-OT, without-online and full PG-OT rows, and Section 4.3 defines JCR4 as lower-is-better joint collapse.",
+          "scope_checks": [
+            {
+              "aspect": "outcome",
+              "assertion": "The ablation reports online-only 21.51/9.38/4.04, offline-only 34.07/7.35/7.23, without OT 18.15/10.78/6.68, without online 38.54/14.89/4.29, and full method 47.98/17.10/2.39 for JDR2/JDR4/JCR4.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p8:c175faa871b6",
+                "dd5034eb29fd#p8:3eeaf39beaf1"
+              ],
+              "explanation": "The table caption identifies the ablation study and the table rows contain these exact values."
+            },
+            {
+              "aspect": "measurement",
+              "assertion": "The reported columns are the JDR2, JDR4 and JCR4 joint metrics, with lower JCR4 indicating better stability.",
+              "decision": "supported",
+              "passage_ids": [
+                "dd5034eb29fd#p7:75e46db4439e",
+                "dd5034eb29fd#p3:28a3889538ee",
+                "dd5034eb29fd#p3:a7bf3891f1eb"
+              ],
+              "explanation": "Section 4.3 and Section 2.3 define and interpret JDR/JCR metrics."
+            }
+          ],
+          "scope_summary": "Ablation-table result. The claim accurately reports exact values and variant names; it does not name a dataset, and Table 7 in the supplied passage does not name one.",
+          "passage_ids": [
+            "dd5034eb29fd#p8:c175faa871b6",
+            "dd5034eb29fd#p8:3eeaf39beaf1",
+            "dd5034eb29fd#p7:75e46db4439e"
+          ]
+        }
+      ],
+      "coverage_checks": [
+        {
+          "target_id": "dir-001-h01",
+          "decision": "adequate",
+          "explanation": "The record's related/not_assessed mapping is faithful to the supplied pages. The prior paper addresses multi-reward alignment in text-to-image generation: it argues that heterogeneous reward bounds and weak reward models cause reward hacking, proposes PG-OT with prompt-specific Pareto frontiers and OT mapping, and measures JDR/JCR collapse (p1:f51abecaad23, p2:2a0ef76de79f, p3:2c5fd29fb5e7, p2:6cf56d4378a3, p6:3c0473edb70b). That is a related mechanism/problem class, but the supplied evidence contains no budget-tier router, no capacity/implementation/reasoning tiering comparison, no LoCoMo lambda=0.3 reward-scale-alignment ablation, and no LOW-tier routing-collapse outcome. The paper's collapse construct in the supplied pages is JCR over image-reward vectors and JDR4 training curves (p6:3c0473edb70b, p8:5a3e1dbeed3d), not LOW-tier selection. Inspecting all supplied pages found no omitted passage that would make any facet direct or overturn the related mapping; the broad reward-imbalance motivation is already captured.",
+          "passage_ids": [
+            "dd5034eb29fd#p1:f51abecaad23",
+            "dd5034eb29fd#p2:2a0ef76de79f",
+            "dd5034eb29fd#p3:2c5fd29fb5e7",
+            "dd5034eb29fd#p2:6cf56d4378a3",
+            "dd5034eb29fd#p6:3c0473edb70b",
+            "dd5034eb29fd#p8:5a3e1dbeed3d",
+            "dd5034eb29fd#p4:16f34ccbc086"
+          ]
+        },
+        {
+          "target_id": "dir-001-h03",
+          "decision": "adequate",
+          "explanation": "The record correctly treats the prior work as related but not a direct test of the candidate's variance-ratio intervention. The closest supplied material is the claim that reward dimensions differ in scale and optimization difficulty and that a unified global target produces biased gradients and reward hacking (p2:2a0ef76de79f, p3:1751c738c120), plus the weak-reward-model instability hypothesis (p3:2c5fd29fb5e7) and the paper's JCR/JDR collapse measurements (p6:3c0473edb70b, p8:5a3e1dbeed3d). This is a related mechanism, but the supplied pages contain no controlled variance-ratio manipulation, no LOW-tier selection measure, and no LoCoMo budget-tier router. No inspected passage supplies an omitted variance-ratio manipulation or routing-collapse outcome that would change the mapping.",
+          "passage_ids": [
+            "dd5034eb29fd#p2:2a0ef76de79f",
+            "dd5034eb29fd#p3:1751c738c120",
+            "dd5034eb29fd#p3:2c5fd29fb5e7",
+            "dd5034eb29fd#p6:3c0473edb70b",
+            "dd5034eb29fd#p8:5a3e1dbeed3d",
+            "dd5034eb29fd#p9:9397a8b7bb5a"
+          ]
+        },
+        {
+          "target_id": "dir-001-h04",
+          "decision": "adequate",
+          "explanation": "The record's related/not_assessed mapping is faithful to the supplied pages. The prior paper's remedy for reward hacking is PG-OT: offline prompt-specific Pareto frontiers for weak rewards and online frontier exploration for strong rewards, plus a VLM agent that removes weak reward models (p2:6cf56d4378a3, p4:16f34ccbc086, p5:3bc5e570096b). That addresses the same broad concern about reward-scale/instability-driven collapse, but the supplied pages contain no running variance normalization test, no reward-scale alignment toggle, no LoCoMo budget-tier router, and no LOW-tier selection measure. The prior collapse outcome in the supplied pages is JCR/JDR4 over image-reward vectors (p6:3c0473edb70b, p8:5a3e1dbeed3d), not LOW-tier selection. No inspected passage supplies omitted evidence that would make the intervention/comparator/regime direct or contradict the record's related mapping.",
+          "passage_ids": [
+            "dd5034eb29fd#p2:6cf56d4378a3",
+            "dd5034eb29fd#p4:16f34ccbc086",
+            "dd5034eb29fd#p5:3bc5e570096b",
+            "dd5034eb29fd#p6:3c0473edb70b",
+            "dd5034eb29fd#p8:5a3e1dbeed3d",
+            "dd5034eb29fd#p9:9397a8b7bb5a"
+          ]
+        }
+      ],
+      "summary": "All 12 extracted claims are supported by the attached passages, with scope checks covering the relevant theoretical assumptions, datasets, metrics, comparators and model settings. The prior paper is a text-to-image multi-reward alignment paper that addresses heterogeneous reward bounds, weak-reward-model instability, and reward hacking via PG-OT, JDR/JCR metrics, and a VLM weak-reward remover. It does not supply direct coverage for the candidate's budget-tier routing/alignment-disabled collapse hypotheses. For all three targets (dir-001-h01, dir-001-h03, dir-001-h04), the record's related/not_assessed classification is faithful: the supplied evidence provides related reward-imbalance mechanisms but no router training, no capacity/implementation/reasoning tiering comparison, no LoCoMo/lambda=0.3 reward-scale-alignment ablation, no controlled cost/task variance-ratio manipulation, and no running variance-normalization intervention. No omitted decisive evidence was found in the supplied pages that would change this mapping."
+    },
+    "error": null
+  },
+  "passages": [
+    {
+      "passage_id": "dd5034eb29fd#p1:c938180bbe45",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 0,
+      "end": 60,
+      "text": "# Pareto-Guided Optimal Transport for Multi-Reward Alignment"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p1:9ebe46da265e",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 62,
+      "end": 174,
+      "text": "Ying Ba 1 2 3 Tianyu Zhang 4 Mohan Zhou 5 Yalong Bai 5 Wenyi Mo 5 Guiwei Zhang 5 Bing Su 1 2 3 Ji-Rong Wen 1 2 3"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p1:b9ed06630ce7",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 176,
+      "end": 187,
+      "text": "## Abstract"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p1:f51abecaad23",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 189,
+      "end": 1601,
+      "text": "Text-to-image generation models have achieved remarkable progress in preference optimization, yet achieving robust alignment across diverse reward models remains a significant challenge. Existing multi-reward fusion approaches rely on weighted summation, which is costly to tune and insufficient for balancing conflicting objectives. More critically, optimization with reward models is highly susceptible to reward hacking, where reward scores increase while the perceived quality of generated images deteriorates. We demonstrate that optimizing against a unified global target under heterogeneous reward upper bounds can induce reward hacking, a risk further exacerbated by the inherent instability of weak reward models. To mitigate this, we propose a Pareto Frontier-Guided Optimal Transport (PG-OT) framework. Our method constructs a prompt-specific Pareto frontier and maps dominated samples toward it via distribution-aware optimal transport. Furthermore, we develop both online and offline optimization strategies tailored to diverse reward signal characteristics. To provide a more rigorous assessment, we introduce the Joint Domination Rate (JDR) and Joint Collapse Rate (JCR) as principled metrics to quantify multi-reward synergy and reward hacking. Experimental results show that our approach outperforms strong baselines with an 11% gain in JDR and achieves a near 80% win rate in human evaluations."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p1:9393fe22b166",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 1603,
+      "end": 1944,
+      "text": "1Gaoling School of Artificial Intelligence, Renmin University of China, Beijing, China 2Beijing Key Laboratory of Research on Large Models and Intelligent Governance 3Engineering Research Center of Next-Generation Intelligent Search and Recommendation, MOE 4Tomorrow Advancing Life 5Duxiaoman. Correspondence to: Bing Su <bingsu@ruc.edu.cn>."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p1:da3a9a40389c",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 1946,
+      "end": 2085,
+      "text": "Proceedings of the 43 rd International Conference on Machine Learning, Seoul, South Korea. PMLR 306, 2026. Copyright 2026 by the author(s)."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p1:d03b1c17946f",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 2087,
+      "end": 2105,
+      "text": "## 1. Introduction"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p1:0dd4d2160e59",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 2107,
+      "end": 3100,
+      "text": "With the rapid advancement of text-to-image generation (Sohl-Dickstein et al., 2015; Song & Ermon, 2020; Rombach et al., 2022; Podell et al., 2023; Esser et al., 2024; Sun et al., 2026), numerous post-training optimization methods have emerged (Ziegler et al., 2020; Stiennon et al., 2022; Black et al., 2024; Dhariwal & Nichol, 2021; Li et al., 2024b; Rafailov et al., 2024; Fan et al., 2023; Qiang et al., 2026; Gu et al., 2025; Wang et al., 2025; Song et al., 2025), among which aligning model outputs with human preferences via reward models has become a key research direction. Early approaches typically relied on a single human-preference reward model (Xu et al., 2023; Zhang et al., 2024; Mo et al., 2025b;a). While simple to implement, these methods face two critical issues: first, their optimization objective is overly narrow; second, they are highly susceptible to reward hacking, where reward values continue to increase while the visual quality of generated images deteriorates."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p1:de8ce017ec2f",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 3102,
+      "end": 4354,
+      "text": "To mitigate this issue, subsequent research proposed multi-reward joint optimization (Eyring et al., 2024; Agarwal & Aggarwal, 2023; Wei et al., 2024; Deng et al., 2024; de Langis et al., 2024; Lee et al., 2025), which fuses multiple reward signals to provide richer and more constrained guidance. Although the combined constraints of multiple rewards can partially suppress reward hacking, such methods introduce significant and costly weight-tuning requirements and still fail to address the fundamental problem. We argue that both single-reward optimization and multi-reward joint optimization share the same underlying flaw: different prompts span image domains with heterogeneous reward ranges and upper bounds, yet existing methods commonly ignore this heterogeneity and adopt a unified global optimization target. Even with sophisticated weight adjustments that alter the relative strength of different rewards, the underlying global bound remains unchanged and cannot fundamentally prevent reward hacking. We theoretically prove that, under heterogeneous reward upper-bound distributions, using a unified global target inevitably induces reward hacking for certain samples, regardless of whether single- or multi-reward optimization is applied."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p1:e6ffe56e63d4",
+      "page_id": "dd5034eb29fd#p1",
+      "page_sha256": "26cdbb7ed77647ab4d680733b71c8700f7806ab0b9cc24a7d624e73c239feab7",
+      "start": 4356,
+      "end": 4464,
+      "text": "To address this root cause, we propose a Pareto-frontier-guided optimal transport optimization (PG-OT) algo-"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:bf9aab723d8c",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 0,
+      "end": 60,
+      "text": "# Pareto-Guided Optimal Transport for Multi-Reward Alignment"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:6cf56d4378a3",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 62,
+      "end": 1783,
+      "text": "rithm. The core idea is to respect the heterogeneous reward boundaries of different image domains rather than blindly applying a global target. Specifically, for each prompt we construct a dedicated Pareto frontier as the optimization target, treat the generated samples within the same prompt batch as the source distribution, and use optimal transport theory to map them to the corresponding frontier as the target distribution. Furthermore, based on the characteristics of the adopted reward models, we design two complementary optimization strategies: for strong reward models, we adopt an online strategy, dynamically collecting and updating Pareto frontiers during training to explore superior solutions; for weaker reward models prone to collapse, we adopt an offline strategy, precomputing samples and extracting their Pareto frontiers for stable optimization guidance. Besides, to address the lack of evaluation metrics for multi-reward optimization, we introduce two new indicators: Joint Domination Rate (JDR) and Joint Collapse Rate (JCR). JDR measures the proportion of samples that simultaneously outperform the baseline across all reward functions, while JCR measures the proportion of samples that degrade across all rewards. Compared with traditional mean-based metrics, these indicators provide a more faithful assessment of synergistic gains in multi-reward optimization. Our method significantly outperforms robust baselines, achieving 47.98% JDR2 (an 11% improvement) and 17.10% JDR4 (a 3.4% improvement), while successfully suppressing reward hacking with a 0.2% decrease in JCR4. Human evaluations further corroborate these findings, with our approach securing a substantial win rate of nearly 80%."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:bc5b11e53837",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 1785,
+      "end": 1823,
+      "text": "Our main contributions are as follows:"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:38d3a983f3fc",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 1825,
+      "end": 2321,
+      "text": "1. We theoretically show that, under heterogeneous reward bounds, optimizing against a unified global target can induce reward hacking for a subset of samples in both single- and multi-reward settings.\n2. We propose a Pareto-frontier-guided optimal transport (PG-OT) approach with prompt-specific frontiers and online/offline strategies tailored to reward models.\n3. We introduce Joint Domination Rate (JDR) and Joint Collapse Rate (JCR) for more accurate evaluation of multi-reward optimization."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:67c59b31b03e",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 2323,
+      "end": 2361,
+      "text": "## 2. Mechanisms Behind Reward Hacking"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:f3ade8be991e",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 2363,
+      "end": 2935,
+      "text": "When using reward models to enhance performance in text-to-image generation, previous optimization methods (Clark et al., 2024; Eyring et al., 2024) employ a global constant subtracted from the reward function in the loss function to maximize rewards. However, these approaches suffer from reward hacking. While early stopping strategies mitigate this issue by halting training before collapse occurs, they failed to address the underlying causes of reward hacking. In this work, we present a causal analysis of reward hacking and propose methods to verify our hypothesis."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:fb5ed59307b6",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 2937,
+      "end": 3150,
+      "text": "*[Figure 1: Empirical validation of heterogeneous prompt-wise reward upper bounds under the ICT reward (Ba et al., 2025). Reward distributions are estimated from 50 samples per prompt across 20 distinct prompts.]*"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:a9ed2fe2e41b",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 3152,
+      "end": 3904,
+      "text": "**Problem Setup.** We study post-training preference optimization for text-to-image (T2I) generative models using reward models. Let $P = \\{p_1, \\ldots, p_n\\}$ denote a set of text prompts. Each prompt $p_i$ induces a semantic image domain $D_i \\subseteq X$, where $X$ denotes the overall image space. Given a prompt $p_i$, a T2I model generates an image $x \\in D_i$. The generated image is evaluated by one or more reward functions $\\{R_k\\}_{k=1}^K$, where each $R_k : X \\to \\mathbb{R}$ assigns a scalar score reflecting a particular aspect of preference, such as text\u2013image alignment or visual quality. The optimization goal is to fine-tune the T2I model by maximizing these reward signals, thereby steering generation toward human-preferred outputs."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:632ceb293b73",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 3906,
+      "end": 4263,
+      "text": "**When Optimization Goes Wrong: Reward Hacking.** Ideally, optimizing for higher reward scores should lead to better human-perceived quality. However, in practice, reward models are imperfect proxies that can be exploited. Reward hacking occurs when: reward scores increase, yet humans judge the images to be of lower quality or undesirable visual patterns."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:f4b2ba3e7d12",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 4265,
+      "end": 4330,
+      "text": "### 2.1. Reward Hacking by Neglecting Heterogeneous Reward Bounds"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:24e573dcadda",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 4332,
+      "end": 4505,
+      "text": "Most reward-based optimization methods (Xu et al., 2023; Clark et al., 2024; Eyring et al., 2024) adopt a unified global objective by minimizing a surrogate loss of the form"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:75e9eb7c7fe7",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 4507,
+      "end": 4558,
+      "text": "$$\nL(x) = C - \\sum_{k=1}^{K} w_k R_k(x),\n\\tag{1}\n$$"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p2:2a0ef76de79f",
+      "page_id": "dd5034eb29fd#p2",
+      "page_sha256": "44a54f09cb3f520e7150ac3407fa080b7f8163bdb059a1ad874a40d6265bd933",
+      "start": 4560,
+      "end": 5143,
+      "text": "where $C$ is treated as a constant upper bound on the aggregated reward. However, adopting a global upper bound $C$ introduces a fundamental mismatch with real-world settings, where different prompts inherently admit different maximum achievable rewards, as illustrated in Fig. 1. Moreover, each reward dimension varies not only in scale but also in optimization difficulty across prompts, giving rise to a highly heterogeneous optimization landscape. Enforcing a single global reward bound therefore ignores prompt-specific feasible maxima, resulting in biased gradient signals that"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:b96e1ada12bd",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 0,
+      "end": 60,
+      "text": "# Pareto-Guided Optimal Transport for Multi-Reward Alignment"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:1751c738c120",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 62,
+      "end": 336,
+      "text": "encourage shortcut exploitation and ultimately lead to reward hacking. We formally show that under heterogeneous prompt-wise reward bounds, optimizing toward a unified global target can systematically induce reward hacking for a subset of samples, as detailed in Appendix C."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:e95372d4a8c0",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 338,
+      "end": 383,
+      "text": "## 2.2. Reward Hacking via Weak Reward Models"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:2070db76148d",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 385,
+      "end": 1015,
+      "text": "In addition to heterogeneous reward bounds, the quality of individual reward models is another critical factor contributing to reward hacking. Using two high-quality, peer-reviewed human-preference datasets, Pick-a-Pic (Kirstain et al., 2023) and Pick-High (Ba et al., 2025), we evaluate the preference prediction capability of different reward models (Table 1). Based on their accuracy in predicting human preferences, we categorize reward models into strong and weak according to their degree of alignment with human-perceived image quality, where strong rewards exhibit consistently higher human-preference prediction accuracy."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:2c5fd29fb5e7",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 1017,
+      "end": 2049,
+      "text": "Based on this distinction, we hypothesize that weak reward models are more prone to reward hacking, whereas strong reward models provide more stable and reliable optimization signals. Intuitively, weak reward models exhibit lower alignment with human perceptual judgment and are therefore more susceptible to shortcut exploitation. During optimization, models may amplify superficial or spuriously correlated features favored by weak rewards to rapidly increase reward scores, rather than improving overall perceptual quality. Such shortcut-driven optimization leads to reward hacking, where artificial score gains replace genuine quality improvements. In contrast, strong reward models more consistently reflect human preferences across prompts, offering more coherent and constraining feedback signals. This consistency is expected to suppress shortcut exploitation and guide multi-reward optimization toward meaningful and stable quality improvements. Formal definitions and correlation-based criteria are provided in Appendix C."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:5c4ec91a9215",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 2051,
+      "end": 2099,
+      "text": "## 2.3. Quantitative Detection of Reward Hacking"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:2e24ef705ca1",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 2101,
+      "end": 2879,
+      "text": "Reward hacking is often diagnosed through human visual inspection, yet such qualitative assessments are inherently unreliable and difficult to quantify. Importantly, when reward hacking occurs in one reward dimension, the corresponding reward score may continue to increase, while other reward models can detect the abnormality and assign degraded scores. This cross-reward imbalance allow population-level averages to remain misleadingly positive, rendering standard mean-based evaluation insufficient for reliably identifying reward hacking. Motivated by this property, we propose two principled metrics, the Joint Domination Rate (JDR) and the Joint Collapse Rate (JCR), to explicitly reflect the presence of reward hacking and to evaluate multi-reward optimization behavior."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:e73aa38b603e",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 2881,
+      "end": 3120,
+      "text": "**Table 1.** Human preference prediction accuracy (%) on high-quality image datasets, Pick-a-Pic (Kirstain et al., 2023) and Pick-High (Ba et al., 2025). Bold indicates strong reward models with higher human-preference prediction accuracy."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:2e7eed83aa01",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 3122,
+      "end": 3227,
+      "text": "| Reward | CLIP | HPS | ICT | HP |\n|---|---|---|---|---|\n| Accuracy (%) | 60.30 | 72.88 | 87.58 | 88.47 |"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:a7bf3891f1eb",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 3229,
+      "end": 3368,
+      "text": "**Joint Domination Rate (JDR).** JDR measures the proportion of samples that simultaneously improve over a baseline across all $K$ rewards:"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:7238a2237a74",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 3370,
+      "end": 3454,
+      "text": "$$\\text{JDR}_K = \\frac{1}{N} \\sum_{i=1}^{N} \\mathbb{1}(R_i \\succ R_{i,b}), \\tag{2}$$"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:31e6be94f1fc",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 3456,
+      "end": 3570,
+      "text": "where $R_i \\in \\mathbb{R}^K$ and $R_{i,b}$ denote the reward vectors of sample $i$ and its baseline, respectively."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:28a3889538ee",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 3572,
+      "end": 3723,
+      "text": "**Joint Collapse Rate (JCR).** JCR measures the fraction of samples whose reward vectors are strictly dominated by the baseline across all $K$ rewards:"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:d7516a89ba5f",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 3725,
+      "end": 3809,
+      "text": "$$\\text{JCR}_K = \\frac{1}{N} \\sum_{i=1}^{N} \\mathbb{1}(R_{i,b} \\succ R_i), \\tag{3}$$"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:7591205c0288",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 3811,
+      "end": 3925,
+      "text": "where $R_i \\in \\mathbb{R}^K$ and $R_{i,b}$ denote the reward vectors of sample $i$ and its baseline, respectively."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:7728cd785950",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 3927,
+      "end": 4444,
+      "text": "JDR evaluates the effectiveness of multi-reward optimization while detecting reward hacking by enforcing consistent improvement across all reward dimensions. Shortcut-induced inflation in any single reward is counteracted by penalties from other rewards, preventing spurious gains from being reflected in JDR. In contrast, JCR reveals hidden collapse patterns that mean-based metrics fail to capture. Together, these metrics provide a robust and faithful diagnostic of reward hacking beyond population-level averages."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:1cccfe4ca156",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 4446,
+      "end": 4492,
+      "text": "## 3. Pareto-Frontier-Guided Optimal Transport"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:ec85dab2f44a",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 4494,
+      "end": 4540,
+      "text": "### 3.1. Multi-reward Optimization Formulation"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p3:93c5eacfa659",
+      "page_id": "dd5034eb29fd#p3",
+      "page_sha256": "5f8965cd953ca87c42b70f8fefacb7c73ffad16e8cb9969f1dcba4431422d260",
+      "start": 4542,
+      "end": 5378,
+      "text": "Multi-reward optimization aims to achieve synergistic improvements across multiple reward models. Since objectives may be conflicting, the problem naturally falls within the framework of Pareto optimization. In the Pareto framework, \"conflict\" primarily refers to unavoidable trade-offs near the Pareto frontier: while multiple rewards can improve together in suboptimal regions, further improving one reward close to optimality often requires sacrificing at least one other. As shown in Table 2, optimizing solely for CLIP model improves alignment-related metrics (CLIP and ICT) while simultaneously degrading human preference metrics (HPS and HP), highlighting the intrinsic conflicts among rewards. Motivated by these inherent trade-offs, we next introduce the fundamental concepts of Pareto optimality under multiple reward signals."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:546f539ebd40",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 0,
+      "end": 60,
+      "text": "# Pareto-Guided Optimal Transport for Multi-Reward Alignment"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:e16cbf7bf867",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 62,
+      "end": 240,
+      "text": "**Pareto Optimality Fundamentals.** Given $K$ rewards $\\tilde{R} = (R_1(x), R_2(x), \\ldots, R_K(x))$ to be maximized, the concepts of Pareto optimality can be defined as follows:"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:766feda13118",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 242,
+      "end": 1144,
+      "text": "- **Pareto Dominance.** The reward vector of $x_a$ dominates that of $x_b$ (denoted $\\tilde{R}(x_a) \\succ \\tilde{R}(x_b)$) if\n$$\\forall u \\in \\{1, \\ldots, K\\} : R_u(x_a) \\geq R_u(x_b) \\;\\wedge\\; \\exists v \\in \\{1, \\ldots, K\\} : R_v(x_a) > R_v(x_b).$$\n- **Pareto Optimality.** For a given prompt $p_i$, a sample $x^* \\in \\mathcal{F}_i$ is Pareto optimal if its reward vector $\\tilde{R}(x^*)$ is not dominated by that of any other $x \\in \\mathcal{F}_i$:\n$$x^* \\text{ is Pareto optimal} \\iff x^* \\in \\mathcal{F}_i \\;\\wedge\\; \\nexists x \\in \\mathcal{F}_i : \\tilde{R}(x) \\succ \\tilde{R}(x^*).$$\n- **Pareto Front.** Given prompt $p_i$, the Pareto front $\\mathcal{J}_i$ is the set of all samples in the perceptually admissible feasible set $\\mathcal{F}_i$ whose rewards are Pareto optimal:\n$$\\mathcal{J}_i = \\{x \\mid x \\in \\mathcal{F}_i,\\; \\nexists x' \\in \\mathcal{F}_i : \\tilde{R}(x') \\succ \\tilde{R}(x)\\}.$$"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:16f34ccbc086",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 1146,
+      "end": 1882,
+      "text": "To tackle the issues beyond reward hacking identified in Section 2, we propose a Pareto-guided optimal transport framework for multi-reward optimization. First, an offline strategy leverages precomputed Pareto fronts for each prompt domain to mitigate reward hacking arising from heterogeneous bounds (Section 2.1). Second, addressing the assumption that weak rewards are prone to collapse (Assumption C.4), we introduce a GPT-4o-based decision agent to detect and eliminate unstable weak rewards. Third, an online strategy enables strong rewards to autonomously explore and expand the Pareto front during optimization. Finally, we propose JDR and JCR as metrics to evaluate performance gains and stability in multi-reward optimization."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:72888365e916",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 1884,
+      "end": 1933,
+      "text": "## 3.2. Offline Pareto Frontier Guidance Strategy"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:d5c9308bfe49",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 1935,
+      "end": 2797,
+      "text": "To address the reward hacking issue caused by the global bound, as discussed in Section 2.1, we precompute prompt-specific candidate reward sets to estimate heterogeneous reward bounds before training. Specifically, for a given prompt $p_i$, the T2I model generates $M$ candidate samples $\\{x_i^j\\}_{j=1}^M$, forming the precomputed candidate set $R_{i,M}^{(\\text{pre})} = \\{\\tilde{R}(x_i^j) \\mid j = 1, \\ldots, M\\}$. We then adopt dominance matrix\u2013based non-dominated sorting to extract the Pareto frontier. For the $M$ candidate reward vectors in $R_{i,M}^{(\\text{pre})}$, we build an $M \\times M$ dominance matrix $A$, with $A_{mn} = 1$ if $x_i^m$ dominates $x_i^n$ (i.e., $\\tilde{R}(x_i^m) \\succ \\tilde{R}(x_i^n)$), and $0$ otherwise. Reward vectors with a domination count of zero (that is, those not dominated by any others) constitute the Pareto frontier:"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:0708cdd9cf69",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 2799,
+      "end": 2935,
+      "text": "$$R_{\\text{front}}(p_i) = \\left\\{ \\tilde{R}(x_i^j) \\in R_{i,M}^{(\\text{pre})} \\;\\middle|\\; \\sum_{m=1}^{M} A_{mj} = 0 \\right\\}, \\tag{4}$$"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:fa1747349037",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 2937,
+      "end": 3179,
+      "text": "*[Table 2: Text\u2013image alignment and human preference score trends during CLIP-only optimization, revealing conflicts among reward signals. $\\Delta n$ reports the percentage change with respect to the original model at optimization step $n$.]*"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:71a7ca55e7a1",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 3181,
+      "end": 3648,
+      "text": "| Metric | Base | $\\Delta 100$ | $\\Delta 200$ | $\\Delta 300$ | $\\Delta 400$ |\n|--------|------|--------------|--------------|--------------|--------------|\n| CLIP   | 0.29 | +0.03%       | +3.40%       | +6.56%       | +7.27%       |\n| ICT    | 0.77 | +0.00%       | +0.26%       | +4.45%       | +6.16%       |\n| HPS    | 0.26 | -0.00%       | -0.08%       | -2.58%       | -2.78%       |\n| HP     | 0.78 | -0.00%       | -0.05%       | -1.00%       | -4.38%       |"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:eb001a4322bc",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 3650,
+      "end": 3772,
+      "text": "where $q_i = |R_{\\text{front}}(p_i)|$ denotes the number of Pareto-optimal points on the Pareto frontier for prompt $p_i$."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:3b5bb2628cc4",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 3774,
+      "end": 4252,
+      "text": "During training, for each prompt $p_i$, we retrieve its Pareto frontier $R_{\\text{front}}(p_i)$ and generate samples with the T2I model to obtain reward vectors dominated by all points on the frontier. The Pareto frontier serves as the optimization target, guiding these dominated rewards toward Pareto-optimal solutions. This is formalized by minimizing the optimal transport discrepancy between the distributions of dominated reward vectors and Pareto frontier reward vectors."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:bee7fafd1868",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 4254,
+      "end": 4614,
+      "text": "**Optimal Transport Framework.** Optimal Transport (OT) (Monge, 1781) provides a principled way to measure discrepancies between probability distributions while preserving the geometry of the underlying space. Given a source distribution $\\mu$ and a target distribution $\\nu$, OT seeks a transport plan $\\gamma \\in \\Pi(\\mu, \\nu)$ that minimizes the total cost:"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:86beb51f1212",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 4616,
+      "end": 4690,
+      "text": "$$\\min_{\\gamma \\in \\Pi(\\mu, \\nu)} \\int c(x, y) \\, d\\gamma(x, y), \\tag{5}$$"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:cd462039251a",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 4692,
+      "end": 5132,
+      "text": "where $c(x, y)$ denotes the ground cost between source sample $x$ and target sample $y$. Here, the $n$ rewards dominated by the frontier collectively constitute the source distribution: $\\mu_i = \\{\\tilde{R}(x_i^j) \\mid x_i^j \\in \\{x_i^1, \\ldots, x_i^n\\},\\; \\forall \\tilde{R}(x_i^m) \\in R^{(q)}(p_i) : \\tilde{R}(x_i^m) \\succ \\tilde{R}(x_i^j)\\}$, while the precomputed Pareto frontier serves as the target distribution $\\nu_i = R^{(q)}(p_i)$."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:a15a3e2b33cd",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 5134,
+      "end": 5512,
+      "text": "OT establishes a minimal-cost mapping from $\\mu_i$ to $\\nu_i$, transporting dominated samples toward dominating points according to geometric distances in the reward space for prompt $p_i$. Practically, the optimal plan $\\gamma_i^*$ is solved by optimizing the following discrete formulation of OT with an entropy regularization term using the Sinkhorn algorithm (Cuturi, 2013):"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:6765a9a05e8e",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 5514,
+      "end": 5631,
+      "text": "$$\\gamma_i^* = \\arg \\min_{\\gamma \\in \\Pi(\\mu_i, \\nu_i)} \\sum_{m,j} c(y_i^m, x_i^j) \\, \\gamma(y_i^m, x_i^j), \\tag{6}$$"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p4:ab5de4102c88",
+      "page_id": "dd5034eb29fd#p4",
+      "page_sha256": "e42326a358dbe90b2a0a337ac6462f0d5ececfdaadc7968140e14203b1122fab",
+      "start": 5633,
+      "end": 5843,
+      "text": "where the ground cost is defined as $c(y_i^m, x_i^j) = \\|\\tilde{R}(y_i^m) - \\tilde{R}(x_i^j)\\|_2^2$, representing the squared Euclidean distance between reward vectors of source sample $y_i^m$ and target sample"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:770cf1d5f245",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 0,
+      "end": 60,
+      "text": "# Pareto-Guided Optimal Transport for Multi-Reward Alignment"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:d6f1a86ba52b",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 62,
+      "end": 144,
+      "text": "Ours  \nWeighted-Sum Bounds  \nSD3.5-turbo  \nMulti-2:3:2:3  \nSoup-1:1:1:1  \nHP  \nHPS"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:62ebd25f229e",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 148,
+      "end": 251,
+      "text": "\"Impressionist and Futurist women\"  \n\"Cool demon girl\"  \n\"Earth-like melting ice cream\"  \nSeparate-Cons"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:97a41690e633",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 255,
+      "end": 341,
+      "text": "*[Figure 2: Qualitative Comparison of Optimization Results Across Different Methods.]*"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:f0436418270a",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 343,
+      "end": 452,
+      "text": "$x_i^j$ whose reward vector is in the Pareto frontier, and the $\\gamma$ is a $n \\times q_i$ transport matrix."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:83d819b77072",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 454,
+      "end": 1058,
+      "text": "**Training Objective.** In practice, $\\tilde{R}(x)$ is computed by reward models on the generated image $x$. We optimize the T2I model parameters by backpropagating the OT-based loss through the reward computation, following the differentiable reward optimization setup (e.g., DRaFT-K) used in our training pipeline. This offline strategy is applicable to multi-reward training scenarios containing suboptimal reward models prone to shortcut behaviors, providing the model with precomputed Pareto frontiers as optimization targets to guide collaborative robust optimization across multiple reward models."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:3ec3cca4487d",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 1060,
+      "end": 1100,
+      "text": "### 3.3. VLM-based Decision-making Agent"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:3bc5e570096b",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 1102,
+      "end": 2020,
+      "text": "Our experiments confirm the hypothesis (Section 2.2) that weak reward models are susceptible to reward hacking. To mitigate this, we employ a vision-language model (VLM) as a decision-making agent for detecting and removing collapsed weak reward models. Once significant signals of reward hacking occur, the optimization trajectory becomes difficult to recover, making early detection critical. However, in the early stages of reward hacking, the generated images are only mildly collapsed, with only slight differences from normally generated images. To capture these subtle differences, we collected images of early mild collapses for each reward model and use a VLM to summarize collapse characteristics, constructing a prior reference for the agent. Upon detecting mild collapse, the agent immediately removes the problematic weak reward model and reverts to an earlier stable checkpoint to safely resume training."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:731bcbacc82c",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 2022,
+      "end": 2064,
+      "text": "### 3.4. Online Pareto Domination Strategy"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:6566ee63623f",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 2066,
+      "end": 2867,
+      "text": "After the decision-making agent eliminates all weak reward models prone to reward hacking, the remaining strong reward models exhibit a strong correlation between their preference prediction capabilities and human perceptual quality. To further explore superior reward bounds, we propose an online strategy that enables strong reward models to autonomously collect and optimize along the Pareto frontier during training. Specifically, given a prompt $p_i$, we perform the T2I model in parallel across multiple processes to increase the number of generated images. The reward vectors from all processes are aggregated into a global set $R_{i,N} = \\{\\tilde{R}(x_i^j) \\mid j = 1, \\ldots, N\\}$, where $n$ is the number of candidate images per process, $P$ is the number of processes, and $N = P \\times n$."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:80a7cf35491b",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 2869,
+      "end": 2971,
+      "text": "For each sample $x_i^j$, we identify all vectors in $R_{i,N}$ that Pareto-dominate $\\tilde{R}(x_i^j)$:"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:202416a6ee02",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 2973,
+      "end": 3102,
+      "text": "$$\nR_{\\text{dom}}(x_i^j) = \\left\\{ \\tilde{R}(x_i^m) \\in R_{i,N} \\mid \\tilde{R}(x_i^m) \\succ \\tilde{R}(x_i^j) \\right\\},\n\\tag{7}\n$$"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:30019d0e5c1c",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 3104,
+      "end": 3747,
+      "text": "where $k_i = |R_{\\text{dom}}(x_i^j)|$ is the number of dominating reward vectors. The reward vector of $x_i^j$ forms a discrete source distribution with one sampling point $\\mu = \\tilde{R}(x_i^j)$, while the dominating set serves as target distribution $\\nu = R_{\\text{dom}}(x_i^j)$. For each batch, the optimal transport discrepancies between the source and target distributions for all samples are computed and summed to obtain the batch loss. As training progresses and the reward candidate set improves, the online strategy adaptively guides strong reward models to explore superior Pareto frontiers, thereby achieving better optimization."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p5:4f02b82b51f4",
+      "page_id": "dd5034eb29fd#p5",
+      "page_sha256": "27bae41f95d8d532cd770edf6c43d91e4c8eb269c82a4eeb8e1233e7adf06f7d",
+      "start": 3749,
+      "end": 3750,
+      "text": "5"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:97818a225b3d",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 0,
+      "end": 61,
+      "text": "## Pareto-Guided Optimal Transport for Multi-Reward Alignment"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:bd5d821ae3c0",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 63,
+      "end": 231,
+      "text": "**Table 3.** Quantitative Results (%) on the Parti-Prompts dataset (Yu et al., 2022): Individual Reward Win Rates and Joint Performance Metrics Relative to SD3.5-Turbo."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:3c0473edb70b",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 233,
+      "end": 1722,
+      "text": "| Model | ICT (%)\u2191 | HP (%)\u2191 | CLIP (%)\u2191 | HPS (%)\u2191 | JDR2 (%)\u2191 | JDR4 (%)\u2191 | JCR4 (%)\u2193 |\n|---|---|---|---|---|---|---|---|\n| **Single-Reward Optimization** | | | | | | | |\n| + ICT | 56.99 | 36.83 | 47.06 | 48.71 | 20.59 | 7.66 | 10.17 |\n| + HP | 52.45 | 90.26 | 44.30 | 57.29 | 36.15 | 13.73 | 4.11 |\n| + CLIP | 48.96 | 47.06 | 52.63 | 46.81 | 23.77 | 8.09 | 9.07 |\n| + HPS | 50.12 | 41.67 | 37.07 | 88.30 | 20.77 | 8.03 | 3.06 |\n| **Multi-Reward Joint Optimization (Weighted ICT:HP:CLIP:HPS ratios)** | | | | | | | |\n| 1:1:1:1 | 51.10 | 52.08 | 47.43 | 82.97 | 26.59 | 12.68 | 3.19 |\n| 2:3:2:3 | 50.80 | 56.43 | 46.51 | 86.03 | 28.31 | 13.42 | 2.57 |\n| 2:2:3:3 | 50.43 | 56.56 | 46.57 | 84.25 | 26.23 | 12.62 | 2.76 |\n| 4:4:1:1 | 51.96 | 57.23 | 44.12 | 79.90 | 29.53 | 12.44 | 3.74 |\n| **Reward Soup (Weighted ICT:HP:CLIP:HPS fusion of single-reward LoRAs)** | | | | | | | |\n| 1:1:1:1 | 50.55 | 54.17 | 42.16 | 81.92 | 27.02 | 11.15 | 3.74 |\n| 1:1:4:4 | 50.43 | 52.94 | 42.46 | 85.11 | 25.37 | 11.15 | 3.31 |\n| 3:2:1:4 | 50.80 | 53.74 | 43.32 | 85.29 | 26.29 | 10.85 | 3.19 |\n| 3:2:0:0 | 50.74 | 53.86 | 42.59 | 83.21 | 26.10 | 10.85 | 3.31 |\n| **Multi-Reward under Heterogeneous Bounds (w/o OT)** | | | | | | | |\n| Weighted-Sum | 52.63 | 56.86 | 46.94 | 82.48 | 29.84 | 13.66 | 3.49 |\n| Separate-Cons | 49.45 | 57.23 | 46.63 | 61.21 | 28.25 | 10.78 | 6.68 |\n| **Pareto-Frontier-Guided Optimal Transport** | | | | | | | |\n| PG-OT | 56.43 | 85.23 | 43.63 | 61.70 | 47.98 | 17.10 | 2.39 |"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:9c1bea74950b",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 1724,
+      "end": 1905,
+      "text": "**Table 4.** Agreement accuracy between VLM-based reward hacking detection and human expert assessments across 200 evaluation samples. The \"/T\" indicates the thinking-mode variants."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:c8267711fd9b",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 1907,
+      "end": 2008,
+      "text": "| Model | GPT-4o | Qwen3-VL-32B/T | GLM-4.5V |\n|---|---|---|---|\n| Accuracy | 90.5% | 87.5% | 84.0% |"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:bec4b936c157",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 2010,
+      "end": 2027,
+      "text": "## 4. Experiments"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:527e7f320745",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 2029,
+      "end": 2056,
+      "text": "### 4.1. Experiment Setting"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:b57eeff6011b",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 2058,
+      "end": 2868,
+      "text": "**Implementation Details.** Our text-to-image (T2I) framework is built upon Stable Diffusion 3.5-Turbo, a state-of-the-art text-to-image model. To ensure training stability, we fine-tune only LoRA (Hu et al., 2021) parameters while keeping the original model weights frozen. Our method is compatible with a broad class of approaches that directly backpropagate gradients from reward models; in this work, we adopt the DRaFT-K strategy (Clark et al., 2024), which applies gradient updates only during the final $k = 2$ denoising steps to reduce memory consumption and accelerate training. The initial Pareto frontier is constructed by generating $M = 50$ images per prompt, providing a sufficiently tight approximation of prompt-specific reward upper bounds in practice. More training details are in Appendix G."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:3b3d98324d12",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 2870,
+      "end": 3884,
+      "text": "**VLM-based Decision Making Agent.** Our reward-hacking detection agent is implemented using vision-language models (VLMs) equipped with a carefully designed and robust chain-of-thought (CoT) reasoning process. To assess both accuracy and reproducibility, we evaluate one closed-source VLM (GPT-4o) and multiple open-source VLMs, including Qwen3-VL-32B-Thinking (Bai et al., 2025) and GLM-4.5V (Team et al., 2026) on 200 human-expert-annotated evaluation samples, as shown in Table 4. All evaluated VLMs exhibit strong agreement with human expert judgments, demonstrating that the proposed agent can be reliably instantiated using either closed- or open-source VLMs with consistent performance and reproducibility. For implementation convenience, we adopt GPT-4o as the agent during training. The agent is invoked only at fixed intervals, and each detection pass costs $0.015, accounting for merely 0.4% of the total training cost. A detailed description of the agent design and workflow is provided in Appendix D."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p6:36754902f075",
+      "page_id": "dd5034eb29fd#p6",
+      "page_sha256": "c164a00bd09a01b9eefaf48799fea8812b66cfa50c758e29d05f29beb98f4e9e",
+      "start": 3886,
+      "end": 4655,
+      "text": "**Computational Complexity.** Our method introduces a one-time Pareto frontier precomputation prior to training, which takes 2 hours (about 12% of the total training time) and yields better-calibrated optimization targets, enabling $5\\times$ faster convergence. During training, the per-iteration runtime increases only marginally from 6.0 s for the baseline to 6.18 s for our method (3% overhead), where the OT-based loss computation contributes less than 0.2 s per iteration and Pareto frontier online extraction incurs only 0.4 ms, accounting for a negligible fraction of the total iteration time. Overall, the proposed framework incurs minimal additional computational cost while achieving substantially more stable training and effective reward hacking mitigation."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p7:8fe52ee81389",
+      "page_id": "dd5034eb29fd#p7",
+      "page_sha256": "0f50d3070473cc1f43e9d1b92563aba15e230004f01506b9e503c8293861e3e2",
+      "start": 0,
+      "end": 58,
+      "text": "Pareto-Guided Optimal Transport for Multi-Reward Alignment"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p7:dfe1903bdc02",
+      "page_id": "dd5034eb29fd#p7",
+      "page_sha256": "0f50d3070473cc1f43e9d1b92563aba15e230004f01506b9e503c8293861e3e2",
+      "start": 60,
+      "end": 157,
+      "text": "Table 5. Quantitative Results on the Parti-Prompts dataset: Comparison of multiple reward scores."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p7:b4b87e331c31",
+      "page_id": "dd5034eb29fd#p7",
+      "page_sha256": "0f50d3070473cc1f43e9d1b92563aba15e230004f01506b9e503c8293861e3e2",
+      "start": 159,
+      "end": 1844,
+      "text": "| Model | CLIP\u2191 | ICT\u2191 | Aesthetic\u2191 | HPS\u2191 | PickScore\u2191 | ImgReward\u2191 | HP\u2191 |\n|---|---|---|---|---|---|---|---|\n| SD3.5-Turbo | 0.3372 | 0.8965 | 6.2766 | 0.2856 | 22.7435 | 1.1499 | 0.7754 |\n| **Single-Reward Optimization** | | | | | | | |\n| ICT | 0.3548 | 0.8986 | 6.2781 | 0.2916 | 22.7261 | 1.1487 | 0.7739 |\n| HP | 0.3538 | 0.8976 | 6.2881 | 0.2809 | 22.7687 | 1.1691 | 0.7776 |\n| CLIP | 0.3554 | 0.8958 | 6.2770 | 0.2915 | 22.7396 | 1.1530 | 0.7751 |\n| HPS | 0.3501 | 0.8987 | 6.3437 | 0.2994 | 22.6896 | 1.1793 | 0.7747 |\n| **Multi-Reward Joint Optimization (Weighted ICT:HP:CLIP:HPS ratios)** | | | | | | | |\n| 1:1:1:1 | 0.3545 | 0.8970 | 6.2839 | 0.2958 | 22.6895 | 1.1464 | 0.7763 |\n| 2:3:2:3 | 0.3544 | 0.8987 | 6.2850 | 0.2971 | 22.6835 | 1.1636 | 0.7763 |\n| 2:2:3:3 | 0.3552 | 0.8974 | 6.2787 | 0.2962 | 22.6926 | 1.1570 | 0.7770 |\n| 4:4:1:1 | 0.3541 | 0.8989 | 6.3043 | 0.2950 | 22.7049 | 1.1568 | 0.7762 |\n| **Reward Soup (Weighted ICT:HP:CLIP:HPS fusion of single-reward LoRAs)** | | | | | | | |\n| 1:1:1:1 | 0.3543 | 0.8958 | 6.2931 | 0.2936 | 22.7542 | 1.1562 | 0.7752 |\n| 1:1:4:4 | 0.3539 | 0.8967 | 6.3037 | 0.2951 | 22.7559 | 1.1679 | 0.7752 |\n| 3:2:1:4 | 0.3537 | 0.8965 | 6.3032 | 0.2951 | 22.7549 | 1.1654 | 0.7754 |\n| 3:2:0:0 | 0.3541 | 0.8961 | 6.2759 | 0.2941 | 22.7436 | 1.1493 | 0.7752 |\n| **Multi-Reward under Heterogeneous Bounds (w/o OT)** | | | | | | | |\n| Weighted-Sum | 0.3546 | 0.8968 | 6.2800 | 0.2947 | 22.7274 | 1.1514 | 0.7760 |\n| Separate-Cons | 0.3549 | 0.8967 | 6.2774 | 0.2922 | 22.7343 | 1.1561 | 0.7757 |\n| **Pareto-Frontier-Guided Optimal Transport** | | | | | | | |\n| PG-OT | 0.3534 | 0.9004 | 6.3588 | 0.2929 | 22.8160 | 1.1808 | 0.7783 |"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p7:a8efeb5dd2cc",
+      "page_id": "dd5034eb29fd#p7",
+      "page_sha256": "0f50d3070473cc1f43e9d1b92563aba15e230004f01506b9e503c8293861e3e2",
+      "start": 1846,
+      "end": 1876,
+      "text": "### 4.2. Baseline Construction"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p7:ff50faa725f2",
+      "page_id": "dd5034eb29fd#p7",
+      "page_sha256": "0f50d3070473cc1f43e9d1b92563aba15e230004f01506b9e503c8293861e3e2",
+      "start": 1878,
+      "end": 2449,
+      "text": "To fairly evaluate our multi-reward optimization framework, we construct four baselines: single-reward fine-tuning, weighted multi-reward fine-tuning, reward soup, and multi-reward fine-tuning under heterogeneous reward bounds. These baselines cover common training-time and inference-time strategies for multi-reward optimization. All methods use identical hyperparameters, and we report the best checkpoint for each baseline. Detailed baseline descriptions are in Appendix G. Below, we focus on the heterogeneous reward bounds baseline and describe its setup in detail."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p7:2906b964040d",
+      "page_id": "dd5034eb29fd#p7",
+      "page_sha256": "0f50d3070473cc1f43e9d1b92563aba15e230004f01506b9e503c8293861e3e2",
+      "start": 2451,
+      "end": 3174,
+      "text": "**Multi-Reward Fine-Tuning with Heterogeneous Reward Bounds.** We utilize the precomputed Pareto frontier as an approximation of prompt-wise heterogeneous reward bounds, and build two baseline methods on top of it that rely solely on simple mapping, without employing optimal transport. One variant aggregates approximate bounds of multiple reward functions into a weighted average, serving as a unified optimization target across prompts, denoted as the weighted-sum bounds method. The other assigns each reward bound as its optimization target and minimizes the squared error between each reward and its bound, formulated as $\\mathcal{L} = \\sum_k (r_{\\text{bound}_k} - r_k)^2$, denoted as the separate-constraints method."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p7:21960aabf98d",
+      "page_id": "dd5034eb29fd#p7",
+      "page_sha256": "0f50d3070473cc1f43e9d1b92563aba15e230004f01506b9e503c8293861e3e2",
+      "start": 3176,
+      "end": 3208,
+      "text": "### 4.3. Evaluation and Analysis"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p7:75e46db4439e",
+      "page_id": "dd5034eb29fd#p7",
+      "page_sha256": "0f50d3070473cc1f43e9d1b92563aba15e230004f01506b9e503c8293861e3e2",
+      "start": 3210,
+      "end": 4137,
+      "text": "**Joint Performance Metrics.** In Table 3, we report the individual win rates of four reward models (ICT, HP, CLIP, and HPS), together with their joint optimization performance on the Parti-Prompts dataset (Yu et al., 2022). We evaluate joint optimization using three metrics: JDR2, which measures the joint domination rate on the two strong rewards (ICT and HP) selected by the agent; JDR4, which assesses the joint domination rate across all four rewards; and JCR4, which quantifies the joint collapse rate over all rewards, where lower values indicate better stability. Our method demonstrates significant improvements over the baselines, achieving an 11% gain in JDR2, a 3.4% gain in JDR4, and a 0.2% reduction in JCR4, while maintaining comparable win rates on each individual reward. Single-reward baselines achieve the highest win rates on their respective rewards, but their joint performance metrics generally degrade."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p7:1cff63ab93e7",
+      "page_id": "dd5034eb29fd#p7",
+      "page_sha256": "0f50d3070473cc1f43e9d1b92563aba15e230004f01506b9e503c8293861e3e2",
+      "start": 4139,
+      "end": 4497,
+      "text": "**Reward Metrics.** Table 5 presents comprehensive evaluation results across seven reward models. Our method consistently secures the best performance on most metrics, demonstrating robustness under heterogeneous bounds and strong-reward training. In contrast, multi-reward joint optimization methods are affected by weak rewards, leading to degraded overall"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:6ca193564fdd",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 0,
+      "end": 60,
+      "text": "# Pareto-Guided Optimal Transport for Multi-Reward Alignment"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:1cb81ecc2987",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 62,
+      "end": 160,
+      "text": "*[Figure 3: Pareto Frontier Visualization based on strong rewards (ICT and HP) on Three Prompts.]*"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:82782401e610",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 162,
+      "end": 262,
+      "text": "**Table 6. Win Rate (%) of Ours vs. Baselines by Human Experts on DiffusionDB (Wang et al., 2023).**"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:6353239a727b",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 264,
+      "end": 462,
+      "text": "| Model | Ours vs. |\n|---|---|\n| SD3.5-Turbo | 76.34 |\n| HP | 61.29 |\n| HPS | 74.19 |\n| Soup-1:1:1:1 | 74.19 |\n| Multi-2323 | 79.57 |\n| Separate-Constraints | 68.82 |\n| Weighted-Sum Bounds | 73.12 |"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:ee11fe8d44f6",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 464,
+      "end": 571,
+      "text": "*[Figure 4: Comparative Training Curves of Joint Domination Rate (JDR4) for Ours versus Baseline Methods.]*"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:47d8f9afb12c",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 573,
+      "end": 601,
+      "text": "performance and instability."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:e5451127ed53",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 603,
+      "end": 1183,
+      "text": "**Quantitative results.** As shown in Fig. 2, we present the qualitative comparisons. The baselines include two single-reward optimizations aligned with human preference, HPS and HP; a multi-reward joint training approach with the global bound as the optimization target using the weighted ratio ICT:HP:CLIP:HPS $= 2:3:2:3$; a reward-soup fusion method applied at inference with equal weighting ICT:HP:CLIP:HPS $= 1:1:1:1$; and two heterogeneous-bound methods, Weighted-Sum bounds and Separate-Constraints. The results demonstrate that our method achieves superior visual quality."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:e738fda0b62b",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 1185,
+      "end": 1857,
+      "text": "**Qualitative Case Studies on Pareto Frontier Visualization.** We conduct a Pareto frontier analysis based on two strong rewards, ICT and HP, comparing SD 3.5-Turbo, the HP-optimized single-reward model, the multi-reward joint optimization model with ratio ICT:HP:CLIP:HPS $= 2:3:2:3$, and our proposed method. For each prompt and identical random seed, every method generates 50 images, whose reward distributions and corresponding Pareto frontiers are plotted in a two-dimensional diagram. As shown in Fig. 3, the image domains induced by different prompts exhibit heterogeneous reward bounds. Our method consistently produces Pareto frontiers that dominate those of the"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:3eeaf39beaf1",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 1859,
+      "end": 1902,
+      "text": "**Table 7. Ablation Study on JDR and JCR.**"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:c175faa871b6",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 1904,
+      "end": 2178,
+      "text": "| Model | JDR2\u2191 | JDR4\u2191 | JCR4\u2193 |\n|---|---|---|---|\n| SD3.5-Turbo | \u2013 | \u2013 | \u2013 |\n| Online Only | 21.51 | 9.38 | 4.04 |\n| Offline Only | 34.07 | 7.35 | 7.23 |\n| Ours (w/o OT) | 18.15 | 10.78 | 6.68 |\n| Ours (w/o Online) | 38.54 | 14.89 | 4.29 |\n| Ours | 47.98 | 17.10 | 2.39 |"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:9e8e03d93cbf",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 2180,
+      "end": 2339,
+      "text": "baselines, with generated samples distributed closer to the frontier, reflecting superior trade-off alignment and validating the effectiveness of our approach."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:5a3e1dbeed3d",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 2341,
+      "end": 2891,
+      "text": "**Visualization and Analysis of Training Curve.** In Figure 4, we present the training curves of the Joint Domination Rate (JDR4), which serves as a robust metric of joint optimization, for our method and the baselines. Single-reward baselines optimized with the global bound collapse rapidly, while multi-reward optimization with the global bound and the involvement of weak rewards also exhibits severe deterioration. In contrast, our method achieves stable and consistent improvements throughout training while effectively avoiding reward hacking."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:3a124792dd7a",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 2893,
+      "end": 3287,
+      "text": "**User study.** We conduct a user study with ten annotators on 300 randomly selected prompts from the DiffusionDB dataset (Wang et al., 2023). For each prompt, image pairs (ours vs. baseline) were presented in random order, and annotators evaluated prompt fidelity and visual appeal. As shown in Table 6, our method achieves higher win rates against all baselines, confirming its effectiveness."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p8:ebfc94ccb299",
+      "page_id": "dd5034eb29fd#p8",
+      "page_sha256": "a035429ef8b475b367923da34d4fac628da75e99aeba12b60dff3d581b014401",
+      "start": 3289,
+      "end": 3523,
+      "text": "**Ablation Study** We conduct extensive ablation studies, including variants with only the online strategy, only the offline strategy, without optimal transport mapping, and with the offline strategy combined with the VLM-based agent,"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:d7d272e28e9c",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 0,
+      "end": 16,
+      "text": "## 5. Conclusion"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:9397a8b7bb5a",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 18,
+      "end": 423,
+      "text": "In this work, we show that reward hacking arises from unified global targets under heterogeneous reward bounds, and from the inherent vulnerability of weak reward models. To address this, we propose a Pareto-frontier-guided optimal transport framework with online/offline strategies, and introduce JDR and JCR as principled evaluation metrics. Our approach achieves consistent gains over strong baselines."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:9ea9b9460f14",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 425,
+      "end": 444,
+      "text": "## Impact Statement"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:b4a11a20c920",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 446,
+      "end": 644,
+      "text": "This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:cf424169a11b",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 646,
+      "end": 664,
+      "text": "## Acknowledgments"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:54f98d0b4b4e",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 666,
+      "end": 916,
+      "text": "This work was supported in part by the National Natural Science Foundation of China No. 62376277, the Public Computing Cloud of Renmin University of China and the Fund for Building World-Class Universities (Disciplines) of Renmin University of China."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:0b912965f8c1",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 918,
+      "end": 931,
+      "text": "## References"
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:6e4bf0ec20a7",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 933,
+      "end": 1072,
+      "text": "Agarwal, M. and Aggarwal, V. Reinforcement learning for joint optimization of multiple rewards, 2023. URL https://arxiv.org/abs/1909.02940."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:184daf661f4c",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 1074,
+      "end": 1332,
+      "text": "Ba, Y., Zhang, T., Bai, Y., Mo, W., Liang, T., Su, B., and Wen, J.-R. Enhancing reward models for high-quality image generation: Beyond text-image alignment. In *Proceedings of the IEEE/CVF International Conference on Computer Vision*, pp. 19022\u201319031, 2025."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:7702f0491311",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 1334,
+      "end": 2009,
+      "text": "Bai, S., Cai, Y., Chen, R., Chen, K., Chen, X., Cheng, Z., Deng, L., Ding, W., Gao, C., Ge, C., Ge, W., Guo, Z., Huang, Q., Huang, J., Huang, F., Hui, B., Jiang, S., Li, Z., Li, M., Li, M., Li, K., Lin, Z., Lin, J., Liu, X., Liu, J., Liu, C., Liu, Y., Liu, D., Liu, S., Lu, D., Luo, R., Lv, C., Men, R., Meng, L., Ren, X., Ren, X., Song, S., Sun, Y., Tang, J., Tu, J., Wan, J., Wang, P., Wang, P., Wang, Q., Wang, Y., Xie, T., Xu, Y., Xu, H., Xu, J., Yang, Z., Yang, M., Yang, J., Yang, A., Yu, B., Zhang, F., Zhang, H., Zhang, X., Zheng, B., Zhong, H., Zhou, J., Zhou, F., Zhou, J., Zhu, Y., and Zhu, K. Qwen3-vl technical report, 2025. URL https://arxiv.org/abs/2511.21631."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:bddf20dc23c6",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 2011,
+      "end": 2170,
+      "text": "Black, K., Janner, M., Du, Y., Kostrikov, I., and Levine, S. Training diffusion models with reinforcement learning, 2024. URL https://arxiv.org/abs/2305.13301."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:baae8265f8ab",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 2172,
+      "end": 2332,
+      "text": "Clark, K., Vicol, P., Swersky, K., and Fleet, D. J. Directly fine-tuning diffusion models on differentiable rewards, 2024. URL https://arxiv.org/abs/2309.17400."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:e36e37e93404",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 2334,
+      "end": 2819,
+      "text": "Cuturi, M. Sinkhorn distances: Lightspeed computation of optimal transport. In Burges, C. J. C., Bottou, L., Ghahramani, Z., and Weinberger, K. Q. (eds.), *Advances in Neural Information Processing Systems 26: 27th Annual Conference on Neural Information Processing Systems 2013. Proceedings of a meeting held December 5-8, 2013, Lake Tahoe, Nevada, United States*, pp. 2292\u20132300, 2013. URL https://proceedings.neurips.cc/paper/2013/hash/af21d0c97db2e27e13572cbf59eb343d-Abstract.html."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:0545a29c76c0",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 2821,
+      "end": 2973,
+      "text": "de Langis, K., Koo, R., and Kang, D. Dynamic multi-reward weighting for multi-style controllable generation, 2024. URL https://arxiv.org/abs/2402.14146."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:a49a569f46dd",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 2975,
+      "end": 3173,
+      "text": "Deng, F., Wang, Q., Wei, W., Grundmann, M., and Hou, T. Prdp: Proximal reward difference prediction for large-scale reward finetuning of diffusion models, 2024. URL https://arxiv.org/abs/2402.08714."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:72387c92946c",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 3175,
+      "end": 3293,
+      "text": "Dhariwal, P. and Nichol, A. Diffusion models beat gans on image synthesis, 2021. URL https://arxiv.org/abs/2105.05233."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:ec2884ecfcfe",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 3295,
+      "end": 3620,
+      "text": "Esser, P., Kulal, S., Blattmann, A., Entezari, R., M\u00fcller, J., Saini, H., Levi, Y., Lorenz, D., Sauer, A., Boesel, F., Podell, D., Dockhorn, T., English, Z., Lacey, K., Goodwin, A., Marek, Y., and Rombach, R. Scaling rectified flow transformers for high-resolution image synthesis, 2024. URL https://arxiv.org/abs/2403.03206."
+    },
+    {
+      "passage_id": "dd5034eb29fd#p9:d27a64f19bfc",
+      "page_id": "dd5034eb29fd#p9",
+      "page_sha256": "a51156c8ba3beba2749682d47c5b682d0a2a4038410307cdf50cc54dee55037c",
+      "start": 3622,
+      "end": 4053,
+      "text": "Eyring, L., Karthik, S., Roth, K., Dosovitskiy, A., and Akata, Z. Reno: Enhancing one-step text-to-image models through reward-based noise optimization. In Globersons, A., Mackey, L., Belgrave, D., Fan, A., Paquet, U., Tomczak, J. M., and Zhang, C. (eds.), *Advances in Neural Information Processing Systems 38: Annual Conference on Neural Information Processing Systems 2024, NeurIPS 2024, Vancouver, BC, Canada, December 10 -*, 9"
+    }
+  ],
+  "recorded_error": "Some target comparisons remain unresolved; inspect per-target outcomes and versioned evidence/reviews."
+}

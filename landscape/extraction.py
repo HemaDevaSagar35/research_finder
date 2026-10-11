@@ -130,11 +130,11 @@ async def extract_from_paper(paper_id: str, card: PaperCard, *,
     if owned:
         client = AsyncLLMClient(provider or os.environ.get("LANDSCAPE_EXTRACTION_PROVIDER"))
     try:
-        raw = await client.chat(
+        raw = await client.structured(
             text,
             system=SYSTEM_PROMPT,
             model=model or os.environ.get("LANDSCAPE_EXTRACTION_MODEL"),
-            response_format={"type": "json_object"},
+            schema=RawExtraction,
         )
         try:
             extraction = RawExtraction.model_validate_json(raw)

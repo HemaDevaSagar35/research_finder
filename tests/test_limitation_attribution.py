@@ -56,7 +56,7 @@ def test_origin_cannot_disagree_with_path(path):
 def test_mixed_aggregation_retains_sources_and_roundtrips(monkeypatch):
     prompts = []
     class Client:
-        async def chat(self, prompt, **kw):
+        async def structured(self, prompt, **kw):
             prompts.append(prompt)
             return json.dumps({'statement': 'Evaluation appears limited to one device.'})
     monkeypatch.setattr(aggregation, 'embed_texts', lambda texts,*args: np.ones((len(texts),2)))

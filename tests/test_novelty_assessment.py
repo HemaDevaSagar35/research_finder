@@ -391,6 +391,7 @@ def test_input_budget_counts_message_text_without_losing_source_content(bundle):
         messages = chat.calls[-1][1]['messages']
         allowance = sum(estimate_tokens(m['content']) + 32 for m in messages)
         assert estimate_tokens(json.dumps(messages)) > allowance
+        allowance += estimate_tokens(json.dumps(AssessmentDraft.model_json_schema()))
         io.settings.max_input_tokens = allowance
         await io._call('assess_novelty', prompts.ASSESS, AssessmentDraft, {'packet': packet})
         assert chat.calls[-1][0]['packet'] == packet

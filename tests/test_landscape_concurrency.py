@@ -21,7 +21,7 @@ def test_cluster_summaries_overlap_and_close_after_drain(monkeypatch, fail):
                 self.raw = self
                 self.sem = asyncio.Semaphore(2)
 
-            async def chat(self, prompt, **kwargs):
+            async def structured(self, prompt, **kwargs):
                 async with self.sem:
                     state['active'] += 1
                     state['peak'] = max(state['peak'], state['active'])

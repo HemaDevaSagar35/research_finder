@@ -60,6 +60,7 @@ from openai import AsyncOpenAI, OpenAI, DefaultHttpxClient, DefaultAsyncHttpxCli
 from . import usage
 from .progress import request_progress
 from .sizing import fit_context, reduce_after_context_error
+from .structured import structured_request, complete_text
 
 
 @dataclass(frozen=True)
@@ -73,7 +74,7 @@ class ChatResult:
 
     @property
     def truncated(self) -> bool:
-        return self.finish_reason == "length"
+        return self.finish_reason in ("length", "incomplete")
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -126,7 +127,7 @@ def _finish_reason(response) -> str | None:
     if status == "incomplete":
         details = getattr(response, "incomplete_details", None)
         reason = getattr(details, "reason", None)
-        return "length" if reason == "max_output_tokens" else (reason or status)
+        return "length" if reason == "max_output_tokens" else status
     return status
 
 
@@ -197,6 +198,8 @@ def _response_params(input, model, config, instructions,
         max_output_tokens = config["max_tokens"]
 
     params = {"model": model or config["default_model"], "input": input}
+    if config.get("temperature") is not None:
+        params["temperature"] = config["temperature"]
     if instructions is not None:
         params["instructions"] = instructions
     if max_output_tokens is not None:
@@ -255,23 +258,29 @@ class LLMClient:
                           finish_reason=finish,
                           model=getattr(response, "model", None) or params["model"])
 
-    def respond(self, input, *,
-                model: str | None = None,
-                instructions: str | None = None,
-                max_output_tokens: int | None = None,
-                **kwargs) -> str:
-        """Responses API (OpenAI's newer endpoint). `input` is a string or a
-        structured input list; returns the response text.
+    def respond(self, input, **kwargs) -> str:
+        """Responses API text; endpoint support depends on configured provider."""
+        return self.respond_result(input, **kwargs).text
 
-        Note: only OpenAI supports this endpoint. Gemini and DeepSeek will
-        reject it; use chat() with those providers.
-        """
+    def respond_result(self, input, *, model=None, instructions=None,
+                       max_output_tokens=None, **kwargs) -> ChatResult:
         params = _response_params(input, model, self.config,
                                   instructions, max_output_tokens, kwargs)
         response = self._client.responses.create(**params)
         usage.record(response, params["model"])
-        self.last_finish_reason = _finish_reason(response)
-        return response.output_text
+        finish = _finish_reason(response)
+        self.last_finish_reason = finish
+        return ChatResult(response.output_text or "", finish,
+                          getattr(response, "model", None) or params["model"])
+
+    def structured_result(self, prompt=None, *, messages=None, system=None,
+                          schema, model=None, max_tokens=None) -> ChatResult:
+        request = structured_request(prompt, messages=messages, system=system, schema=schema)
+        result = self.respond_result(model=model, max_output_tokens=max_tokens, **request)
+        return result
+
+    def structured(self, prompt=None, **kwargs) -> str:
+        return complete_text(self.structured_result(prompt, **kwargs))
 
     @property
     def raw(self) -> OpenAI:
@@ -345,20 +354,36 @@ class AsyncLLMClient:
                           finish_reason=finish,
                           model=getattr(response, "model", None) or params["model"])
 
-    async def respond(self, input, *,
-                      model: str | None = None,
-                      instructions: str | None = None,
-                      max_output_tokens: int | None = None,
-                      **kwargs) -> str:
-        """Async version of LLMClient.respond (OpenAI Responses API);
-        respects the concurrency limit."""
+    async def respond(self, input, **kwargs) -> str:
+        """Responses API text; endpoint support depends on configured provider."""
+        return (await self.respond_result(input, **kwargs)).text
+
+    async def respond_result(self, input, *, model=None, instructions=None,
+                             max_output_tokens=None, **kwargs) -> ChatResult:
         params = _response_params(input, model, self.config,
                                   instructions, max_output_tokens, kwargs)
         async with self._semaphore:
-            response = await self._client.responses.create(**params)
+            with request_progress():
+                try:
+                    response = await self._client.responses.create(**params)
+                except Exception as exc:
+                    if not reduce_after_context_error(exc, params, 'max_output_tokens'):
+                        raise
+                    response = await self._client.responses.create(**params)
         usage.record(response, params["model"])
-        self.last_finish_reason = _finish_reason(response)
-        return response.output_text
+        finish = _finish_reason(response)
+        self.last_finish_reason = finish
+        return ChatResult(response.output_text or "", finish,
+                          getattr(response, "model", None) or params["model"])
+
+    async def structured_result(self, prompt=None, *, messages=None, system=None,
+                                schema, model=None, max_tokens=None) -> ChatResult:
+        request = structured_request(prompt, messages=messages, system=system, schema=schema)
+        result = await self.respond_result(model=model, max_output_tokens=max_tokens, **request)
+        return result
+
+    async def structured(self, prompt=None, **kwargs) -> str:
+        return complete_text(await self.structured_result(prompt, **kwargs))
 
     async def chat_many(self, prompts: list[str],
                         return_exceptions: bool = False,

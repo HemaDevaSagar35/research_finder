@@ -41,6 +41,7 @@ class IsolatedChat(AssessmentChat):
     def __init__(self, failures=()):
         self.failures=set(failures)
         self.requests=[]
+        self.schemas=[]
         super().__init__(mutate=self.synthesis)
     def synthesis(self,out,req):
         if 'review_novelty_assessment' in req['task']: return
@@ -54,6 +55,8 @@ class IsolatedChat(AssessmentChat):
         else: out['refinement'].update(action='defer')
     async def __call__(self,**kwargs):
         req=json.loads(kwargs['messages'][1]['content']);self.requests.append(req)
+        assert 'schema' not in req
+        self.schemas.append(kwargs['schema'])
         packet=req['packet']
         if len(packet['coverage'])==1 and (packet['direction_id'],packet['coverage'][0]['target_id']) in self.failures:
             return ChatResult('{"targets":[],"refinement":{}}','stop','fixture')
@@ -78,7 +81,7 @@ def test_failed_hypothesis_does_not_block_reviewed_subset_or_other_direction(iso
     narrowed=next(c for c in result.candidates if c.candidate_id=='D0')
     assert len(narrowed.possible_hypotheses)==1
     assert all(hid not in e.hypothesis_ids for e in narrowed.suggested_initial_experiments)
-    assert all('targets' not in r['schema']['properties'] for r in chat.requests if len(r['packet']['coverage'])==1 and 'review_novelty_assessment' not in r['task'])
+    assert all('targets' not in schema['properties'] for r,schema in zip(chat.requests,chat.schemas) if len(r['packet']['coverage'])==1 and 'review_novelty_assessment' not in r['task'])
     data=assessment.model_dump()
     data['candidates'][0]['assessment']['targets'][2]['finding']='PARTIAL_OVERLAP'
     with pytest.raises(ValueError): NoveltyAssessmentResult.model_validate(data)

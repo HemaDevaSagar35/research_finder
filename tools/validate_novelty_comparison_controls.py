@@ -58,7 +58,7 @@ async def main(args):
     async def chat(**kw):
         event={'id':len(events),'start':time.time()};events.append(event)
         try:
-            response=await client.chat_result(**kw)
+            response=await client.structured_result(**kw)
             save(out/'calls'/f"{event['id']:03d}.json",{'request':kw,'response':asdict(response)})
             return response
         finally:

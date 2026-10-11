@@ -78,7 +78,8 @@ class Chat:
     async def __call__(self, **kw):
         req = json.loads(kw['messages'][1]['content'])
         # Provider JSON-object mode must not depend on incidental words in paper text.
-        assert kw['response_format'] == {'type': 'json_object'}
+        assert 'schema' in kw and 'schema' not in req
+        assert isinstance(kw['schema'], dict)
         assert 'json' in kw['messages'][0]['content'].lower()
         self.calls.append((req, kw))
         self.active += 1

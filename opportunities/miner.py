@@ -136,7 +136,7 @@ class OpportunityMiner:
         async with self.locks.setdefault(key, asyncio.Lock()):
             return await asyncio.to_thread(getattr(self.store, kind), *args)
 
-    async def _call(self, kind, messages, model, max_tokens):
+    async def _call(self, kind, messages, model, max_tokens, schema):
         async with self.sem:
             if self.fatal:
                 raise MiningFailure("provider_error", "run stopped after provider rejection")
@@ -148,9 +148,9 @@ class OpportunityMiner:
                     self.provider = self.client.provider
                     self.model = self.model or self.client.default_model
                     self.review_model = self.review_model or self.model
-                    self.chat = self.client.chat_result
+                    self.chat = self.client.structured_result
                 return await self.chat(messages=messages, model=model or self.model,
-                                       max_tokens=max_tokens, response_format={"type": "json_object"})
+                                       max_tokens=max_tokens, schema=schema.model_json_schema())
             except Exception as exc:
                 if errors.is_fatal(exc):
                     self.fatal = errors.describe(exc)
@@ -160,13 +160,13 @@ class OpportunityMiner:
     async def _json(self, kind, payload, schema, validate):
         system = PROPOSE if kind == "proposal" else REVIEW
         messages = [{"role": "system", "content": system}, {"role": "user", "content":
-            json.dumps({"task": kind, "schema": schema.model_json_schema(), "payload": payload})}]
+            json.dumps({"task": kind, "payload": payload})}]
         for attempt in range(self.settings.repair_rounds + 1):
-            if estimate_tokens(json.dumps(messages)) > self.settings.max_input_tokens:
+            if estimate_tokens(json.dumps(messages)) + estimate_tokens(json.dumps(schema.model_json_schema())) > self.settings.max_input_tokens:
                 raise MiningFailure("input_budget", "complete prompt exceeds input allowance; nothing silently omitted")
             result = await self._call(kind if attempt == 0 else "repair", messages,
                 self.model if kind == "proposal" else self.review_model,
-                self.settings.max_output_tokens if kind == "proposal" else self.settings.max_review_output_tokens)
+                self.settings.max_output_tokens if kind == "proposal" else self.settings.max_review_output_tokens, schema)
             try:
                 if result.truncated:
                     raise ValueError("response truncated")

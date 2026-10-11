@@ -525,3 +525,29 @@ For a paper entry in `coverage.papers`:
 
 Read the novelty judgment and per-paper evidence explanations for what the
 comparisons actually concluded. Do not interpret 16/20 as “80% novel.”
+
+### Structured model calls
+
+JSON-producing pipeline stages use the configured provider's Responses endpoint,
+with the Pydantic/JSON schema in `text.format` (`type: json_schema`). Full schemas
+are no longer embedded in user messages. Initial requests and repair requests
+use the same output contract. Plain-text extraction and Markdown calls retain
+Chat Completions.
+
+`LLMClient` and `AsyncLLMClient` expose `structured()` for validated completion
+text and `structured_result()` for per-response text, model and completion
+metadata. `respond_result()` preserves metadata for general Responses calls;
+`respond()` still returns a string for existing callers. Injected pipeline call
+adapters now receive a separate JSON-serializable `schema` argument rather than
+`response_format`; use `client.structured_result` for these adapters.
+
+The format matches the tested notebook approach and does not add `strict: true`
+or rewrite schemas into a different provider-specific subset. The configured
+endpoint must support Responses and JSON Schema output. Unsupported requests
+raise an error; there is no silent fallback to prompt-only schemas. Local schema,
+reference and evidence checks still determine acceptance. Moving the schema does
+not remove it from token-budget estimates. Existing provider caps and the bounded
+context-overflow output adjustment still apply.
+
+Failed-run replay is a separate, explicit operation; these code changes do not
+launch it or change saved run judgments.

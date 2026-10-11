@@ -33,7 +33,7 @@ async def main(args):
         event = {'id':len(events), 'start':time.time()}; events.append(event)
         active += 1; peak = max(peak, active)
         try:
-            response = await client.chat_result(**kw)
+            response = await client.structured_result(**kw)
             save(out/'calls'/f"{event['id']:03d}.json", {'request':kw,'response':asdict(response)})
             return response
         except Exception as exc:
