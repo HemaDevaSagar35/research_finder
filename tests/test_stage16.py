@@ -68,3 +68,23 @@ def test_reading_report_links_and_status_folders(tmp_path):
     text=(tmp_path/'proposals/pending/D-h1.md').read_text()
     assert '## Problem' in text and '## Hypothesis' in text and 'Missing review' in text
     assert '[the hypothesis summary](summary.md)' in (tmp_path/'stage16.md').read_text()
+
+
+def test_reference_links_keep_proposal_and_evidence_anchors(tmp_path):
+    import json,re
+    from research.report_references import export_references
+    (tmp_path/'proposals/approved').mkdir(parents=True)
+    (tmp_path/'evidence').mkdir()
+    (tmp_path/'summary.md').write_text('dir-001-h01')
+    (tmp_path/'proposals/approved/dir-001-h01.md').write_text('observation:t001-o01 and C1')
+    (tmp_path/'evidence/dir-001-h01.md').write_text('`/claims_and_evidence/0` and C2')
+    h=dict(hypothesis_id='dir-001-h01',direction_id='dir-001',direction_title='Title',direction_context={},proposal={},status='approved',linked_experiments=[],reading_context=dict(supporting_evidence=[],prior_work=[],coverage=dict(papers=[])))
+    export_references(tmp_path,dict(hypotheses=[h]))
+    for f in [tmp_path/'summary.md',*tmp_path.glob('proposals/*/*.md'),*tmp_path.glob('evidence/*.md')]:
+        for dest in re.findall(r'\]\(([^)]+)\)',f.read_text()):
+            path,_,fragment=dest.partition('#')
+            target=f.parent/path
+            assert target.exists()
+            if fragment: assert f'id="{fragment}"' in target.read_text()
+    records=[json.loads(f.read_text()) for f in tmp_path.glob('evidence/sources/*.json')]
+    assert any(r['availability'].startswith('source unavailable') for r in records)

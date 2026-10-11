@@ -311,6 +311,8 @@ async def run_pipeline(config, out, *, resume=False, runner_factory=StageRunner,
                 published=write_stage16(out,state['critic'],json.loads((out/'hypothesis_reviews.json').read_text()))
                 summary.update(status=published['status'],hypothesis_counts=published['counts'],stage16='stage16.json')
             summary['completed_stages'] = list(state)
+            if (out/'summary.json').exists():
+                summary.setdefault('hypotheses',json.loads((out/'summary.json').read_text()).get('hypotheses',[]))
             atomic_json(out/'summary.json', summary)
             return summary
         except BaseException as exc:

@@ -76,6 +76,8 @@ async def recover(source,out,rounds=2, *, start_at="comparison"):
             atomic_json(out/'final_portfolio.json',result.model_dump(mode='json'))
             (out/'final_portfolio.md').write_text(markdown(result))
             summary=dict(status=published['status'],hypothesis_counts=published['counts'],direction_counts=result.counts,stage16='stage16.json',model_calls=0,retrieval_calls=0,source=str(source))
+            if (out/'summary.json').exists():
+                summary.setdefault('hypotheses',json.loads((out/'summary.json').read_text()).get('hypotheses',[]))
             atomic_json(out/'summary.json',summary)
             return summary
         runner=StageRunner(config)
@@ -118,6 +120,8 @@ async def recover(source,out,rounds=2, *, start_at="comparison"):
             from research.publication import write_stage16
             published=write_stage16(out,state['critic'],hypotheses)
             summary.update(status=published['status'],hypothesis_counts=published['counts'],stage16='stage16.json')
+            if (out/'summary.json').exists():
+                summary.setdefault('hypotheses',json.loads((out/'summary.json').read_text()).get('hypotheses',[]))
             atomic_json(out/'summary.json',summary)
             return summary
         except BaseException as exc:

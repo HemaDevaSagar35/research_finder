@@ -297,7 +297,7 @@ uv run python -m research "Your research question" \
 ```
 
 This connects planning, retrieval, landscape, reasoning, opportunities, directions,
-novelty, critique/refinement and final portfolio output. It makes real provider
+novelty, scientific critique and final portfolio output. It makes real provider
 calls using the configured corpus and models. Final reports are written as
 `final_portfolio.json` and `final_portfolio.md` when the run reaches selection;
 `summary.json` records success, pending scientific work, empty inputs or failures.
@@ -336,7 +336,7 @@ finish at stage 16. REFINE is recorded as a proposed next action, not executed.
 Stage 16 publishes approved individual hypotheses even when their parent
 direction remains pending. `stage16.json` retains the exact proposal, evidence,
 independent reviews, linked experiments and sibling statuses. `stage16.md`
-provides the readable output. Direction portfolio eligibility is reported
+links to `summary.md`, the starting point for the readable output. Direction portfolio eligibility is reported
 separately; hypothesis approval does not approve a parent or joint experiment.
 
 To publish stage 16 from existing assessment, critic and hypothesis-review
@@ -350,3 +350,178 @@ uv run python -m research.recover --from-run /path/to/saved-run \
 This mode validates saved lineage and review decisions, then writes output. It
 does not initialize a model client or retriever. Scientific revision requires a
 separate explicitly requested operation.
+
+
+## Reading a run's research output
+
+**Start with `summary.md` in the run directory**, preferably in Markdown Preview.
+It lists every hypothesis with its problem/research question, parent direction,
+hypothesis statement, status, and links to its proposal and evidence. There are
+`m × n` entries when each of `m` directions has `n` hypotheses; otherwise the total
+is the sum of the hypotheses across directions.
+
+When a run reaches Stage 16, normal execution and checkpoint publication produce
+this layout automatically:
+
+```text
+RUN_DIR/
+├── summary.md                 # Read this first: all hypotheses and links
+├── summary.json               # Machine-readable index and run summary
+├── stage16.md                 # Pointer to summary.md
+├── stage16.json               # Full saved hypothesis decisions and evidence
+├── proposals/
+│   ├── approved/
+│   │   ├── dir-002-h02.md      # Standalone, readable research proposal
+│   │   └── dir-002-h02.json    # Structured version of that proposal
+│   └── pending/
+│       ├── dir-000-h01.md      # Proposal with unresolved work explained
+│       └── dir-000-h01.json
+├── evidence/
+│   ├── dir-002-h02.md          # Papers and evidence for this hypothesis
+│   ├── dir-000-h01.md
+│   └── sources/
+│       ├── dir-002-h02.md      # Reference index: IDs resolved to saved records
+│       └── *.json             # Exported source records and provenance
+├── final_portfolio.md         # Separate direction-level selection report
+└── final_portfolio.json
+```
+
+The hypothesis filenames above are examples. Each published hypothesis has its
+own proposal Markdown, proposal JSON, and evidence Markdown. A `discarded/`
+proposal folder is also created if there are discarded hypotheses. Runs that
+stop before Stage 16 may have only checkpoints and a run summary.
+
+### What is a direction, and what is a hypothesis?
+
+A **direction** is the broader study, potentially containing several predictions
+and experiments. A **hypothesis** is one prediction that an experiment can test.
+For example, `dir-002-h02` identifies hypothesis 02 in direction `dir-002`; the
+proposal also gives the direction's full title. IDs identify records, not their
+scientific meaning.
+
+Read one proposal in this order:
+
+1. **Problem and research question:** why the study is needed. These are inherited
+   from the parent direction and can be broader than this individual hypothesis.
+2. **Research direction:** the overall study and its intended scope.
+3. **Hypothesis:** the specific predicted outcome. This is the central claim your
+   team would test, not an observed result.
+4. **Contribution and relationship to prior work:** what the saved novelty
+   assessment says is already known and what difference remains. `PARTIAL_OVERLAP`
+   means related work exists; it does not establish literature-wide novelty.
+5. **Proposed test:** the setting, what changes, proposed mechanism, measurements,
+   comparison baseline, and what would contradict the prediction.
+6. **Status and remaining work:** the review decision and unresolved requirements.
+7. **Assumptions and limitations:** conditions needed for a meaningful experiment
+   and boundaries on the claims.
+
+An experiment may involve multiple hypotheses. Its dependency statuses matter:
+an approved hypothesis does not automatically approve a pending sibling or the
+entire shared experiment. Proposed experiments may still need implementation
+choices, controls, and a statistical analysis plan before execution.
+
+### Approved, pending, and discarded
+
+| Status | How to interpret it |
+| --- | --- |
+| `approved` | Accepted by the saved review process for further investigation. It is not proven correct. |
+| `pending` | Some required assessment, evidence, review, or revision remains unresolved. Read the diagnostic and coverage gaps; this does not establish that the hypothesis is false. |
+| `discarded` | The saved review supports dropping this proposal. Read its rationale rather than assuming an experimental disproof. |
+
+`scientific_validation: model_reviewed_not_empirically_validated` means an AI
+reviewer assessed the proposal using saved evidence, but the proposed experiment
+has not established its prediction. Your team would run the experiment and assess
+whether the results support, contradict, or leave the hypothesis inconclusive.
+A `KEEP` critic action supports retaining a hypothesis; `REFINE` records proposed
+changes and does not automatically launch another research loop.
+
+Individual hypothesis status and parent-direction eligibility are separate.
+Therefore `final_portfolio.md` can have no selected directions while `summary.md`
+contains approved hypotheses. A partial result can contain both approved and
+pending hypotheses.
+
+### Markdown versus JSON proposals
+
+Use **`.md` to read and navigate**. Use **`.json` for programmatic processing or
+inspection of structured fields**. They describe the same saved proposal, rather
+than separate assessments. The proposal JSON is a focused export; `stage16.json`
+retains the more extensive review and evidence records.
+
+| Proposal JSON key | Meaning |
+| --- | --- |
+| `problem`, `research_question`, `direction` | Motivation and broader study context. |
+| `hypothesis` | The explicit prediction, taken from the saved expected effect. |
+| `hypothesis_details.condition` | Setting in which the prediction applies. |
+| `hypothesis_details.intervention` | What is changed and compared. |
+| `hypothesis_details.expected_effect` | Predicted result, not a measured finding. |
+| `hypothesis_details.mechanism` | Proposed explanation for the predicted result. |
+| `hypothesis_details.assumptions` | Requirements for the proposed comparison to be meaningful. |
+| `hypothesis_details.falsification_criterion` | Outcome that would contradict the prediction, subject to construction-validity caveats. |
+| `contribution_and_overlap` | Saved novelty judgments and their reasoning. |
+| `critic_judgments` | Scientific review actions, rationale, and checks. |
+| `review_diagnostic` | Recorded unresolved review issue; `null` is not a claim that there are no limitations. |
+| `experiments` | Proposed comparisons, observations, outcome interpretations, and hypothesis dependencies. |
+| `coverage`, `coverage_threshold` | Comparison availability and the required coverage gate. |
+| `evidence_file` | Relative path to the hypothesis's evidence Markdown. |
+
+### Reading the evidence file
+
+Follow **Papers and evidence** from the summary or proposal. The evidence file is
+specific to that hypothesis and distinguishes two roles:
+
+- **Supporting papers and evidence:** findings that motivated the proposal.
+- **Novelty and prior-work comparisons:** work explicitly compared against the
+  hypothesis to assess overlap and remaining differences.
+
+A paper can appear in both sections. Supporting a proposal and completing a
+usable novelty comparison are different roles. Within the comparison section,
+the overall novelty judgment synthesizes multiple papers. Each subsequent paper
+has its own classification and comparison explanation.
+
+Read the comparison explanation first. Expand **Evidence claims and exact saved
+passages** when you want to verify its basis:
+
+- An **evidence claim** is an extracted statement about what that paper says or
+  did, not another proposed hypothesis.
+- A **saved passage** is the source text supporting the extraction. Several
+  passages under one claim are not independent experimental confirmations.
+- A **source reference** links to a saved record inside `evidence/sources/`.
+  That index identifies the record type and paper, and links to the exported JSON.
+
+For example, `observation:t007-o02/t007-e008` identifies an observation and evidence
+entry. `/claims_and_evidence/3` is a JSON pointer to the fourth item in a paper's
+structured analysis, **not page 3**. Follow the rendered links to inspect the
+record; page references locate the underlying passages. Where available, the
+source export includes the original structured record and its artifact hash.
+Short claim IDs can repeat across papers; the reference index lists matching
+records with paper identity rather than guessing a source. Unresolvable
+references are explicitly marked **source unavailable**.
+
+Report links are relative to files within the run directory. Copy the entire
+run folder to preserve navigation. Raw JSON retains internal IDs for traceability;
+the Markdown reports link those references to their definitions and sources.
+The evidence describes saved, extracted material, not necessarily every page of
+all related papers. Check the closest papers' full methods and ablations when
+planning your experiment.
+
+### Understanding comparison coverage
+
+Coverage measures whether usable comparisons were obtained, **not how novel or
+likely correct the hypothesis is**. With a threshold of `0.8`, 16 usable
+comparisons out of 20 meet the numerical requirement; other blockers, including
+retrieval problems, can still prevent the gate passing.
+
+For a paper entry in `coverage.papers`:
+
+- `status: reviewed` means its comparison was accepted as usable. Its scientific
+  judgment can still be overlap or already studied.
+- `reasons: []` means no failure/withholding reasons are recorded. It is not the
+  scientific rationale for the comparison. Filled reasons describe issues such
+  as malformed output, invalid references, or unavailable comparison evidence.
+- `missing_referenced_pages: []` means no referenced pages were recorded missing;
+  it does not mean the entire paper was read.
+- `complete: true` at the coverage level means the configured coverage gate was
+  satisfied, not necessarily 100% of papers reviewed.
+
+Read the novelty judgment and per-paper evidence explanations for what the
+comparisons actually concluded. Do not interpret 16/20 as “80% novel.”

@@ -97,4 +97,6 @@ def write_reading_report(out,result):
     summary=json.loads(path.read_text()) if path.exists() else {}
     summary.update(status=result['status'],hypothesis_counts=result['counts'],hypotheses=entries)
     path.write_text(json.dumps(summary,indent=2)+'\n')
+    from research.report_references import export_references
+    export_references(out,result)
     (out/'stage16.md').write_text('# Stage 16\n\nStart with [the hypothesis summary](summary.md). It links to every proposal and evidence file.\n')
