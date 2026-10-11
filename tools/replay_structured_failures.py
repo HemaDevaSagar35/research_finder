@@ -81,12 +81,20 @@ def coverage(generation, search, comparisons):
 async def main(args):
     started = time.monotonic()
     source, out = Path(args.source), Path(args.out)
-    inventory = json.loads((out/'inventory.json').read_text())
+    if args.sufficiency_from:
+        prior = json.loads((Path(args.sufficiency_reuse or args.sufficiency_from)/'summary.json').read_text())
+        inventory = [{k:r[k] for k in ('direction','paper','targets','kind','diagnostic')} for r in prior['results']
+            if ((r.get('error') in ('Insufficient targets must retain original mapping', 'Every removed reference needs exactly one exclusion explanation')) if args.sufficiency_reuse else (r.get('format_resolved') and r.get('error') == 'Unresolved evidence review; no target eligible for comparison'))
+            and any('-h' in t for t in r['targets'])]
+        save(out/'inventory.json', inventory)
+    else:
+        inventory = json.loads((out/'inventory.json').read_text())
     def load(name, model):
         return model.model_validate(json.loads((source/name).read_text())['result'])
     generation = load('directions.json', GenerationResult)
     search = load('novelty_search.json', NoveltySearchResult)
-    original = load('comparison.json', NoveltyComparisonResult)
+    original = (NoveltyComparisonResult.model_validate(json.loads((Path(args.sufficiency_reuse or args.sufficiency_from)/'comparison.json').read_text()))
+        if args.sufficiency_from else load('comparison.json', NoveltyComparisonResult))
     updated = original.model_copy(deep=True)
     baseline = coverage(generation, search, original)
     save(out/'coverage_before.json', baseline)
@@ -153,7 +161,37 @@ async def main(args):
                     evidence = paper.evidence_reviews[-1]
                     draft = paper.reviews[-1].draft
                 else:
-                    if 'invalid_evidence_review_after_repair' in diagnostic:
+                    if args.sufficiency_from:
+                        from tools.evidence_sufficiency import PROMPT, SufficiencyReport, supported_ids, apply, removal_review_context
+                        matches = []
+                        for path in (Path(args.sufficiency_from)/'calls').glob('*.json'):
+                            saved = json.loads(path.read_text())
+                            event = saved['event']
+                            if event['direction'] == item['direction'] and event['paper'] == item['paper'] and event['task'] == 'review_comparison_evidence':
+                                matches.append(saved)
+                        if len(matches) != 1:
+                            raise ValueError('Expected one saved evidence review')
+                        saved = matches[0]
+                        body = json.loads(saved['request']['messages'][1]['content'])
+                        from novelty.comparison_records import EvidenceRecord
+                        record = EvidenceRecord.model_validate(body['record'])
+                        previous_report = EvidenceReport.model_validate(_parse_json(saved['response']['text']))
+                        validate_evidence_report(previous_report, record, paper.passages, require_scope=True)
+                        if args.sufficiency_reuse:
+                            proposal = SufficiencyReport.model_validate(json.loads((Path(args.sufficiency_reuse)/'sufficiency'/f"{item['direction']}_{item['paper']}.json").read_text()))
+                        else:
+                            proposal, _ = await call(item, 'assess_evidence_sufficiency', PROMPT, SufficiencyReport,
+                                dict(payload=payload, record=record.model_dump(), previous_review=previous_report.model_dump(),
+                                     supported_claim_ids=sorted(supported_ids(record, previous_report))))
+                        save(out/'sufficiency'/f"{item['direction']}_{item['paper']}.json", proposal.model_dump())
+                        original_record = record
+                        record = apply(record, previous_report, proposal)
+                        removal_context = removal_review_context(original_record, record, proposal)
+                        row['format_resolved'] = True
+                        row['sufficiency_decisions'] = {d.target_id:d.decision for d in proposal.targets}
+                        if not any(d.decision == 'sufficient' for d in proposal.targets):
+                            raise ValueError('Sufficiency review: no defensible judgment from supported evidence')
+                    elif 'invalid_evidence_review_after_repair' in diagnostic:
                         record = paper.evidence_reviews[-1].record
                     elif 'invalid_evidence_patch_after_repair' in diagnostic:
                         previous = paper.evidence_reviews[-1]
@@ -173,7 +211,7 @@ async def main(args):
                     record = attach_table_context(record, paper.passages)
                     validate_record(record, paper.targets, paper.passages, require_alignment=True, require_context=True)
                     report, model = await call(item, 'review_comparison_evidence', prompts.EVIDENCE_REVIEW, EvidenceReport,
-                        dict(payload=payload, record=record.model_dump(), required_scope_claim_ids=[c.claim_id for c in record.claims if c.kind in ('result','evaluation','theoretical_result')]))
+                        dict(payload=payload, record=record.model_dump(), **(dict(removal_review=removal_context, previous_review=previous_report.model_dump()) if args.sufficiency_from else {}), required_scope_claim_ids=[c.claim_id for c in record.claims if c.kind in ('result','evaluation','theoretical_result')]))
                     row['format_resolved'] = True
                     validate_evidence_report(report, record, paper.passages, require_scope=True)
                     evidence = EvidenceReview(version=len(paper.evidence_reviews), trigger='evidence_repair' if paper.evidence_reviews else 'initial',
@@ -208,7 +246,8 @@ async def main(args):
             except Exception as exc:
                 row['status'] = 'withheld' if row['format_resolved'] else 'failed'
                 row['error'] = str(exc)
-                # Retain original scientific state if no accepted comparison was produced.
+                # Save unsuccessful experimental evidence before retaining baseline state.
+                save(out/'attempts'/f"{item['direction']}_{item['paper']}.json", paper.model_dump())
                 paper = old
             rows.append(row)
             if row['accepted_targets']:
@@ -239,6 +278,8 @@ async def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--sufficiency-from', help='Isolated experiment using saved unresolved reviews; no production gate changes')
+    parser.add_argument('--sufficiency-reuse', help='Reuse saved sufficiency proposals for bookkeeping-only failures')
     parser.add_argument('--source', required=True)
     parser.add_argument('--out', required=True)
     parser.add_argument('--concurrency', type=int, default=20)
