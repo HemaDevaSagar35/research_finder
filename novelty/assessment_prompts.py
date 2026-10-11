@@ -1,5 +1,5 @@
 """Cross-paper novelty synthesis and independent critique (architecture 13–14)."""
-VERSION = 'novelty_assessment_v7_isolated_targets'
+VERSION = 'novelty_assessment_v7_1_isolated_targets_pending_subset'
 REVIEW_VERSION = 'novelty_assessment_review_v8_isolated_targets'
 
 RULES = """
@@ -129,7 +129,7 @@ LIFECYCLE = """
 Lifecycle contract (these constraints are enforced):
 - defer: retain ALL original hypotheses, remove NONE, scientific_edits empty. Pending judgments remain pending; retaining in a defer plan does not approve them.
 - retain: retain ALL, remove NONE, scientific_edits empty; all retained coverage and judgments must be resolved.
-- narrow: remove one or more eligible hypotheses OR provide a scientific edit; retain at least one. Only remove ALREADY_STUDIED, UNRESOLVED or below-coverage hypotheses. Do not remove an accepted covered hypothesis merely because it shares an experiment; propose scientific refinement instead.
+- narrow: remove one or more eligible hypotheses OR provide a scientific edit; retain at least one. Only remove ALREADY_STUDIED, UNRESOLVED or below-coverage hypotheses. Do not remove an accepted covered hypothesis merely because it shares an experiment; propose scientific refinement instead. Retained UNRESOLVED or below-coverage hypotheses simply stay pending on their own judgment; never add scientific edits only to justify retaining them or to re-describe the subset. Use scientific_edits only when the direction's science must change.
 - reframe: retain at least one and provide explicit scientific edits.
 - reject: remove ALL, retain NONE, scientific_edits empty; every removal must be eligible.
 A missing initial experiment is a direction-refinement need, not permission to change a test label or drop a supported hypothesis.

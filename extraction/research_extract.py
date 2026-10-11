@@ -1807,11 +1807,24 @@ def stitch_pages(folder: Path) -> str:
 
 def _parse_json(raw: str) -> dict:
     text = _clean(raw)
-    # tolerate stray text around the JSON object
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
+    start = text.find("{")
+    if start < 0:
         raise ValueError(f"No JSON object in model output: {text[:200]!r}")
-    return json.loads(match.group(0))
+    # Decode the first complete object and tolerate stray text after it. Models
+    # without constrained decoding sometimes append a duplicated tail such as
+    # `,"revision_notes":[]}` after a valid object; the greedy `\{.*\}` match
+    # used to swallow that tail and fail on otherwise valid output. A genuinely
+    # cut-off object still fails here: nothing is closed or guessed on its behalf.
+    try:
+        value, _ = json.JSONDecoder().raw_decode(text, start)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if not match:
+            raise
+        value = json.loads(match.group(0))
+    if not isinstance(value, dict):
+        raise ValueError(f"Model output is not a JSON object: {text[:200]!r}")
+    return value
 
 
 def extract_research(folder: Path, *,

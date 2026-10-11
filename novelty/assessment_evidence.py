@@ -191,8 +191,13 @@ def validate_draft(draft, packet):
         expected = {t['target_id']:t for t in packet['locked_hypotheses']}
         if actual != expected:
             raise ValueError('synthesis cannot replace individual hypothesis judgments')
-        if r.action in ('retain','narrow') and not r.scientific_edits and any(not ledger[h]['complete'] or assessments[h].finding in ('UNRESOLVED','ALREADY_STUDIED') for h in retained):
-            raise ValueError('retained subset needs accepted, evidence-ready hypothesis judgments')
+        if r.action in ('retain','narrow') and not r.scientific_edits and any(assessments[h].finding == 'ALREADY_STUDIED' for h in retained):
+            raise ValueError('retained subset cannot keep an already-studied hypothesis; remove it')
+        # A narrowed subset may still carry individually pending (incomplete or
+        # UNRESOLVED) hypotheses: they stay pending on their own locked judgment.
+        # Forcing scientific edits here only to justify keeping them would mark the
+        # whole retained subset for a fresh novelty check, blocking unchanged,
+        # evidence-ready siblings for a purely editorial reason.
     paths = set()
     scientific = {'research_direction', 'proposed_mechanism', 'scope', 'assumptions', 'what_would_falsify_it'}
     hypothesis_fields = {'condition', 'intervention', 'expected_effect', 'mechanism', 'assumptions', 'falsification_criterion'}
@@ -227,6 +232,20 @@ def validate_report(report, packet):
             raise ValueError('reassessment source belongs to another paper')
 
 
+def scope_sources(packet, target_id):
+    """Restrict evidence rows to one target and passages to the full pages they cite.
+
+    Sibling targets' evidence and pages are not needed to judge or review one
+    hypothesis; on real runs they were ~70% of a per-hypothesis request.
+    Mutates and returns ``packet``.
+    """
+    packet['evidence'] = [e for e in packet['evidence'] if e['target_id'] == target_id]
+    cited = {pid for e in packet['evidence'] for c in e['claims'] for pid in c['passage_ids']}
+    pages = {p.get('page_id') for p in packet['source_passages'] if p['passage_id'] in cited}
+    packet['source_passages'] = [p for p in packet['source_passages'] if p['passage_id'] in cited or (p.get('page_id') is not None and p.get('page_id') in pages)]
+    return packet
+
+
 def hypothesis_packet(packet, target_id):
     """Keep one original hypothesis and all its accepted comparison evidence."""
     from copy import deepcopy
@@ -235,11 +254,26 @@ def hypothesis_packet(packet, target_id):
     if len(scoped['coverage']) != 1 or scoped['coverage'][0]['level'] != 'hypothesis':
         raise ValueError('unknown hypothesis target')
     scoped['candidate']['hypotheses'] = [h for h in scoped['candidate']['hypotheses'] if h['hypothesis_id'] == target_id]
-    scoped['evidence'] = [e for e in packet['evidence'] if e['target_id'] == target_id]
-    cited = {pid for e in scoped['evidence'] for c in e['claims'] for pid in c['passage_ids']}
-    pages = {p.get('page_id') for p in packet['source_passages'] if p['passage_id'] in cited}
-    scoped['source_passages'] = [p for p in packet['source_passages'] if p['passage_id'] in cited or (p.get('page_id') is not None and p.get('page_id') in pages)]
+    scope_sources(scoped, target_id)
     scoped['scope'] += ' Assess only the hypothesis listed in coverage; direction context is supplied only for interpretation.'
+    return scoped
+
+
+def synthesis_packet(packet):
+    """Direction synthesis context: locked judgments plus the passages its evidence actually cites.
+
+    Hypothesis judgments are made (and independently reviewed) against complete
+    pages. The synthesis only composes those locked judgments and judges the
+    direction target, so it needs the cited passages, not every page of every
+    accepted paper. Shipping full pages here (~2.4M characters per direction on
+    real runs) left the thinking model no output budget and truncated every
+    synthesis review.
+    """
+    from copy import deepcopy
+    scoped = deepcopy(packet)
+    cited = {pid for e in packet['evidence'] for c in e['claims'] for pid in c['passage_ids']}
+    scoped['source_passages'] = [p for p in packet['source_passages'] if p['passage_id'] in cited]
+    scoped['scope'] += ' Source passages are limited to those cited by accepted evidence claims; hypothesis judgments were reviewed against complete pages upstream.'
     return scoped
 
 

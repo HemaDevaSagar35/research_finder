@@ -2,7 +2,7 @@
 from hashlib import sha256
 
 from critic.schemas import CRITERIA, CritiqueDraft, PortfolioDraft
-from novelty.assessment_evidence import build_packet
+from novelty.assessment_evidence import build_packet, scope_sources
 from novelty.pipeline import pointer
 from opportunities.miner import digest
 from reasoning.evidence import candidates
@@ -28,6 +28,12 @@ def packet_for(novelty, direction, support, *, hypothesis_id=None):
         accepted = child.assessment if child else None
     if accepted is None:
         raise ValueError('No independently accepted novelty assessment for review scope')
+    if hypothesis_id is not None:
+        # One hypothesis is reviewed against its own accepted evidence and the full
+        # pages that evidence cites; the whole original direction stays as context.
+        if hypothesis_id not in {h['hypothesis_id'] for h in packet['candidate']['hypotheses']}:
+            raise ValueError('unknown hypothesis target')
+        scope_sources(packet, hypothesis_id)
     packet['novelty_assessment'] = accepted.model_dump()
     packet['novelty_outcomes'] = c.outcomes()
     if c.selection_scope is not None and hypothesis_id is None:

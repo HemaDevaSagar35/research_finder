@@ -11,7 +11,7 @@ from novelty import assessment_prompts as prompts
 from novelty.assessment_schemas import (AssessmentInputs, Invalidations, AssessmentDraft,
     AssessmentReport, AssessmentReview, CandidateAssessment, FormatRepair,
     NoveltyAssessmentResult, TargetAssessment, DirectionSynthesis)
-from novelty.assessment_evidence import build_packet, hypothesis_packet, hypothesis_draft, locked_targets, model_packet, restore_response_sources, validate_draft, validate_report
+from novelty.assessment_evidence import build_packet, hypothesis_packet, hypothesis_draft, locked_targets, model_packet, restore_response_sources, synthesis_packet, validate_draft, validate_report
 from novelty.comparison import Settings
 from novelty.pipeline import ModelOutputError, NoveltySearcher, Settings as CallSettings
 from opportunities.miner import digest
@@ -177,6 +177,7 @@ class NoveltyAssessor:
                         return await self._candidate(scoped)
                     hypotheses = await progress_gather(*(one(h) for h in packet['candidate']['hypotheses']), label='hypothesis_assessments')
                     packet['locked_hypotheses'] = [t.model_dump() for t in locked_targets(packet, hypotheses)]
+                    packet = synthesis_packet(packet)
                 saved = next((c for c in recovery.candidates if c.direction_id==did),None) if recovery else None
                 if saved and saved.assessment is None and saved.reviews and saved.reviews[-1].report and saved.reviews[-1].report.decision=='revise' and not any(r.report and r.report.reassessment_requests for r in saved.reviews):
                     prior_drafts.setdefault(did,saved.reviews[-1].draft)

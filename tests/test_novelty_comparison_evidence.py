@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 from novelty.comparison_evidence import passages_for_pages, candidate_view, validate_comparison
 from novelty.comparison_schemas import Passage, ComparisonDraft, NoveltyComparisonResult
-from tests.test_novelty_comparison import ready, run, output
+from tests.test_novelty_comparison import ready, run, output, unlabelled
 from tests.test_novelty_search import prepared
 from tests.test_direction_generator import inputs
 
@@ -61,7 +61,7 @@ def test_code_resolves_exact_quotations_and_wrong_paper_reference_rejected(ready
     foreign=passages_for_pages([{'page_id':'OTHER#p1','text':original}])[0]
     data['claims'][0]['passage_ids']=[foreign.passage_id]
     with pytest.raises(ValueError,match='wrong-paper'):
-        validate_comparison(ComparisonDraft.model_validate(data),chat.calls[0][0]['payload'])
+        validate_comparison(ComparisonDraft.model_validate(data),unlabelled(chat.calls[0][0]['payload'],p))
 
 
 def test_discussion_is_not_structural_proof_of_a_test(ready):
@@ -76,8 +76,9 @@ def test_discussion_is_not_structural_proof_of_a_test(ready):
 
 
 def test_unknown_and_explicit_noncoverage_remain_distinct(ready):
-    _,chat=run(ready)
-    data=output(chat.calls[0][0]['payload'])['comparison']
+    result,chat=run(ready)
+    payload=unlabelled(chat.calls[0][0]['payload'],result.candidates[0].papers[0])
+    data=output(payload)['comparison']
     data['claims'][0]['kind']='explicit_noncoverage'
     draft=ComparisonDraft.model_validate(data)
     assert draft.claims[0].kind=='explicit_noncoverage'
@@ -86,7 +87,7 @@ def test_unknown_and_explicit_noncoverage_remain_distinct(ready):
         p['classification']=None
         for d in p['dimensions']:d.update(relation='UNKNOWN',claim_ids=[])
     data['claims']=[]
-    validate_comparison(ComparisonDraft.model_validate(data),chat.calls[0][0]['payload'])
+    validate_comparison(ComparisonDraft.model_validate(data),payload)
 
 
 def test_reviewer_cannot_rewrite_the_candidate_or_invent_quotes(ready):

@@ -55,15 +55,35 @@ def load_source(root):
     return PipelineConfig.model_validate(manifest['config']),state,manifest
 
 
-async def recover(source,out,rounds=2, *, start_at="comparison"):
+def comparison_scope(state, directions=None, papers=None):
+    """Resolve an explicit comparison replay scope to saved shortlist paper IDs.
+
+    ``None`` means every incomplete paper. Papers outside the scope keep their
+    saved results; they are never downgraded.
+    """
+    if not directions and not papers: return None
+    known={c.direction_id:{p.paper_id for p in c.papers} for c in state['comparison'].candidates}
+    selected=set()
+    for d in directions or []:
+        if d not in known: raise ValueError('unknown direction in recovery scope: '+d)
+        selected|=known[d]
+    for p in papers or []:
+        if not any(p in ids for ids in known.values()): raise ValueError('unknown paper in recovery scope: '+p)
+        selected.add(p)
+    return selected
+
+
+async def recover(source,out,rounds=2, *, start_at="comparison", directions=None, papers=None):
     if start_at not in ("comparison", "assessment", "portfolio"): raise ValueError("unknown recovery start stage")
     if start_at in ("assessment", "portfolio"): rounds=0
     config,state,manifest=load_source(source)
+    scope=comparison_scope(state,directions,papers)
     out.mkdir(parents=True,exist_ok=False)
     progress=StageProgress()
     with run_lock(out):
         atomic_json(out/'recovery_manifest.json',dict(source=str(source.resolve()),
             source_manifest_sha256=digest(manifest),config=config.model_dump(mode='json'),rounds=rounds,start_at=start_at,
+            comparison_scope=sorted(scope) if scope is not None else None,
             started=datetime.now(timezone.utc).isoformat()))
         if start_at == 'portfolio':
             from portfolio.pipeline import build_portfolio
@@ -103,7 +123,7 @@ async def recover(source,out,rounds=2, *, start_at="comparison"):
                     searcher.run(state['directions'],recovery=state['novelty_search']))
                 comparator=NoveltyComparator(runner.store,settings=config.comparison,**common)
                 state['comparison']=await save_stage(f'comparison_recovery_{i+1}',
-                    comparator.run(state['directions'],state['novelty_search'],recovery=state['comparison']))
+                    comparator.run(state['directions'],state['novelty_search'],recovery=state['comparison'],paper_ids=scope))
                 if all(c.signature is not None and all(s.status=='complete' for s in c.searches) for c in state['novelty_search'].candidates) and all(p.status=='complete' for c in state['comparison'].candidates for p in c.papers):
                     break
             state['assessment']=await save_stage('assessment',NoveltyAssessor(settings=config.assessment,**common).run(
@@ -137,10 +157,13 @@ def main():
     p.add_argument('--out',type=Path)
     p.add_argument('--rounds',type=int,choices=(1,2),default=2)
     p.add_argument('--start-at',choices=('comparison','assessment','portfolio'),default='comparison')
+    p.add_argument('--direction',action='append',default=[],help='Restrict comparison replay to this direction (repeatable); other saved results are preserved')
+    p.add_argument('--paper',action='append',default=[],help='Restrict comparison replay to this prior paper (repeatable)')
     args=p.parse_args()
     config,_,_=load_source(args.from_run)
     out=args.out or automatic_output(config.query+' recovery')
     print('Recovery output directory:',out,flush=True)
-    print(json.dumps(asyncio.run(recover(args.from_run,out,args.rounds,start_at=args.start_at)),indent=2),flush=True)
+    print(json.dumps(asyncio.run(recover(args.from_run,out,args.rounds,start_at=args.start_at,
+        directions=args.direction or None,papers=args.paper or None)),indent=2),flush=True)
 
 if __name__=='__main__': main()

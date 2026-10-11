@@ -17,6 +17,9 @@ block is what takes effect ({P} is OPENAI, GEMINI, DEEPSEEK, or DEEPINFRA):
     {P}_MODEL         default model
     {P}_MAX_TOKENS    default output allowance (chat and respond)
     {P}_OUTPUT_TOKEN_LIMIT optional provider hard output cap, applied to requests
+    {P}_CONTEXT_TOKEN_LIMIT optional context window; enables output reservation
+    {P}_MIN_OUTPUT_TOKENS  smallest acceptable output reservation (default 32768);
+                      requests that cannot reserve it fail before being sent
     {P}_TEMPERATURE   default sampling temperature
     {P}_BASE_URL      override the API endpoint
 
@@ -107,6 +110,7 @@ def _provider_config(name: str) -> dict:
         "max_tokens": int(max_tokens) if max_tokens else None,
         "output_token_limit": int(output_limit) if output_limit is not None else None,
         "context_token_limit": int(os.environ[f"{prefix}_CONTEXT_TOKEN_LIMIT"]) if os.environ.get(f"{prefix}_CONTEXT_TOKEN_LIMIT") else None,
+        "min_output_tokens": int(os.environ[f"{prefix}_MIN_OUTPUT_TOKENS"]) if os.environ.get(f"{prefix}_MIN_OUTPUT_TOKENS") else None,
         "temperature": float(temperature) if temperature else None,
     }
 

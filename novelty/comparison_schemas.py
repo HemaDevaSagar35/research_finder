@@ -228,9 +228,16 @@ class PaperComparison(Strict):
             ev=versions.get(review.evidence_version)
             if ev is None or ev.report is None:raise ValueError('comparison must bind to an evidence review')
             ids,claims=eligible(ev)
-            requested=[t for t in self.targets if t.target_id in ids]
+            # A saved comparison may cover a subset of the currently eligible targets
+            # (eligibility rules only ever relax bookkeeping, never audit verdicts),
+            # but it must never interpret a target the audit did not clear.
+            reviewed_ids={p.target_id for p in review.draft.pairs}
+            if not reviewed_ids<=ids:raise ValueError('comparison covers targets the evidence audit did not clear')
+            requested=[t for t in self.targets if t.target_id in reviewed_ids]
             check_references(review.draft,requested,self.passages)
-            if review.draft.claims!=claims:raise ValueError('comparison changed the reviewed evidence claims')
+            eligible_claims={c.claim_id:c for c in claims}
+            if any(eligible_claims.get(c.claim_id)!=c for c in review.draft.claims) or len({c.claim_id for c in review.draft.claims})!=len(review.draft.claims):
+                raise ValueError('comparison changed the reviewed evidence claims')
             if bind_relationships(review.draft,ev)!=review.draft:raise ValueError('comparison changed reviewed relationship coverage')
             if review.report:validate_report(review.report,review.draft,self.passages)
         if self.comparison is not None:

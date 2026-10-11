@@ -31,6 +31,43 @@ class ModelOutputError(ValueError):
         self.raw = raw
 
 
+def drop_null_extras(schema, data):
+    """Validate; if the only defects are unknown keys whose value is null, drop them and retry.
+
+    Strict schemas forbid unknown keys so that misplaced scientific content fails
+    loudly. A key carrying ``null`` carries no content: on real runs the provider
+    (which does not enforce the supplied JSON schema) emitted ``result_note: null``
+    or ``relationships_extra: null`` and the whole evidence record was discarded
+    after a second full-size repair call. Anything else still fails as before.
+    Returns ``(parsed, removed_paths)``.
+    """
+    from pydantic import ValidationError
+    try:
+        return schema.model_validate(data), []
+    except ValidationError as exc:
+        nulls = [e['loc'] for e in exc.errors() if e['type'] == 'extra_forbidden' and e.get('input') is None]
+        if not nulls or len(nulls) != len(exc.errors()):
+            raise
+    removed = []
+    for loc in nulls:
+        node = data
+        for key in loc[:-1]:
+            node = node[key]
+        if isinstance(node, dict) and loc[-1] in node and node[loc[-1]] is None:
+            del node[loc[-1]]
+            removed.append('/' + '/'.join(str(k) for k in loc))
+    return schema.model_validate(data), removed
+
+
+class TruncatedOutputError(RuntimeError):
+    """The response hit max_output_tokens (reasoning tokens included).
+
+    Not a ``ModelOutputError``: resending the identical input plus repair notes
+    cannot succeed and only spends the same budget again. Callers record it as
+    a processing error; the fix is a smaller input or a larger output floor.
+    """
+
+
 class Settings(BaseModel):
     concurrency: int = Field(default=100, ge=1, le=100)
     max_calls: int | None = Field(default=None, ge=0)
@@ -119,6 +156,7 @@ class NoveltySearcher:
         self.sem = asyncio.Semaphore(self.settings.concurrency)
         self.budget = AttemptBudget(self.settings.max_calls)
         self.locks, self.client, self.fatal, self.used = {}, None, None, False
+        self.normalizations = []  # deterministic output normalizations applied (null-valued unknown keys dropped)
 
     async def _resource(self, kind, *args):
         async with self.locks.setdefault((kind, *args), asyncio.Lock()):
@@ -155,12 +193,15 @@ class NoveltySearcher:
                 model = (self.review_model or self.model) if review else self.model
                 result = await call(messages=messages, model=model,
                     max_tokens=self.settings.max_output_tokens, schema=schema.model_json_schema())
+                if result.truncated:
+                    raise TruncatedOutputError(f'truncated_output: {task} hit the output limit with an estimated input of {input_tokens} tokens '
+                        f'(allowance {self.settings.max_output_tokens}); reasoning tokens count toward output. Reduce the request instead of repairing it.')
                 try:
-                    if result.truncated:
-                        raise ValueError('truncated model response')
-                    parsed = schema.model_validate(_parse_json(result.text))
+                    parsed, removed = drop_null_extras(schema, _parse_json(result.text))
                 except (ValueError, TypeError) as exc:
                     raise ModelOutputError(str(exc), result.text) from exc
+                if removed:
+                    self.normalizations.append(dict(task=task, dropped_null_keys=removed))
                 return parsed, result.model
             except Exception as exc:
                 if errors.is_fatal(exc):

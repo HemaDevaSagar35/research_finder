@@ -5,7 +5,7 @@ from novelty.reassessment import InterpretationConcern,InterpretationReassessor,
 from reasoning.evidence import PaperStore
 from tests.test_direction_generator import inputs
 from tests.test_novelty_search import prepared
-from tests.test_novelty_comparison import ready,run,Chat
+from tests.test_novelty_comparison import ready,run,Chat,unlabelled
 
 
 def execute(ready,mutate=None):
@@ -159,7 +159,7 @@ def test_recovery_source_concerns_are_checked_not_acceptance_instructions(ready,
     result = asyncio.run(IncompleteComparisonRecovery(PaperStore(ready[0]), parent, chat,
         concerns=[concern]).recover(ready[1], ready[2]))
     req = next(q for q, _ in chat.calls if q['task']=='extract_comparison_evidence')
-    assert req['payload']['recovery_feedback']['source_observations'] == [concern.model_dump()]
+    assert unlabelled(req,p)['payload']['recovery_feedback']['source_observations'] == [concern.model_dump()]
     assert any(q['task']=='review_comparison_evidence' for q, _ in chat.calls)
     assert (result.merged.candidates[0].papers[0].status=='complete') == (not rejected)
 
@@ -192,7 +192,7 @@ def test_recovery_attaches_prior_audit_citations_before_its_first_fresh_review(r
     p.reviews=[];p.comparison=None;p.status='unresolved';p.diagnostic='Awaiting recorded citation attachment.'
     chat=Chat()
     result=asyncio.run(IncompleteComparisonRecovery(PaperStore(ready[0]),parent,chat).recover(ready[1],ready[2]))
-    first=chat.calls[0][0]
+    first=unlabelled(chat.calls[0][0],p)
     assert first['task']=='review_comparison_evidence'
     new=next(x for x in first['record']['claims'] if x['claim_id']==claim.claim_id)
     assert extra in new['passage_ids'] and new['text']==claim.text

@@ -810,3 +810,59 @@ comparison, assessment, and critic results reload successfully. Regression:
 **589 tests plus 13 subtests passed**, one existing faiss/NumPy warning. See
 [Novelty Search](novelty_search.md) for module changes and
 [Research Critic](research_critic.md) for complete live results and remaining issues.
+
+## 2026-10-11 — Mechanical gate defects that left every hypothesis pending
+
+Investigation of `cost_aware_agent_rl_20261011T034213Z` and the 60% coverage
+replay (`coverage60_assessment_20261011T184156Z`, 0 approved / 12 pending)
+found that the scientific gates were rarely the binding constraint. Five
+code-level defects were, and were repaired without weakening any audit verdict:
+
+1. **Reviewer corroboration counted as a citation defect** —
+   `novelty/comparison_workflow.py scope_citation_gaps`. Any passage cited in a
+   scope check but not attached to the claim blocked the claim, even when the
+   audit marked both claim and check `supported` and cited the attached passage
+   too. 13 of 16 `citation_repair` papers ended with an all-supported, adequate
+   audit yet stayed blocked; each repair round re-audited and introduced new
+   corroborating citations (45/48 transitions), so the loop never converged.
+   Now only `missing_citation`, non-supported claims, or supported checks citing
+   *only* unattached passages are gaps; `corroborating_citations` reports the rest.
+   Saved comparisons may cover a subset of currently eligible targets
+   (`comparison_schemas.PaperComparison`); recovery seeds COMPARE/REVIEW from a
+   saved audit that now clears targets (`NoveltyComparator.reusable_evidence`)
+   instead of re-extracting, and `research/recover.py --direction/--paper`
+   bounds a replay while preserving saved work outside the scope.
+2. **Direction prose edits blocked unchanged hypotheses** —
+   `assessment_schemas.refinement_handoff` marked every retained hypothesis
+   changed for a `/scope`-style edit; `assessment_evidence.validate_draft`
+   forced such edits whenever a narrowed subset kept an incomplete sibling
+   (dir-001-h01: 28/30 coverage, PARTIAL_OVERLAP, passing review, never sent to
+   the critic). Under the isolated contract direction-level edits now recheck
+   the direction only; narrow may retain individually pending hypotheses
+   without edits (already-studied ones still cannot be retained). Lifecycle
+   prompt updated (`novelty_assessment_v7_1_isolated_targets_pending_subset`).
+3. **Direction-wide packets for one-hypothesis requests** —
+   `critic/evidence.packet_for(hypothesis_id=)` shipped all targets' evidence
+   and pages (~3.7M chars, ~930k estimated tokens); now scoped by
+   `assessment_evidence.scope_sources` (0.9–1.4M chars on the same runs).
+   Direction synthesis uses `synthesis_packet` (cited passages instead of full
+   pages of every accepted paper; hypothesis judgments keep full pages).
+4. **Output reservation ignored reasoning tokens and a low estimator** —
+   measured provider `prompt_tokens` were 1.27–1.34× the chars/4 estimate while
+   `fit_context` reserved 10%; `llm_client/sizing.py` now reserves 1.40× for the
+   fallback estimator (1.15× with tiktoken), enforces a 32k output floor
+   (`{P}_MIN_OUTPUT_TOKENS`) and refuses rather than sends a request that
+   cannot meet it. Truncation (`novelty.pipeline.TruncatedOutputError`) is no
+   longer "repaired" by resending the same input.
+5. **Schema not enforced by the provider; brittle parsing** — `_parse_json`
+   decodes the first complete object (trailing duplicated tails no longer fail;
+   cut-off output still does); `novelty.pipeline.drop_null_extras` removes
+   null-valued unknown keys only; `novelty/comparison_aliases.py` sends prior
+   passages as exact `srcN` labels (as assessment/critic already did) and
+   restores immutable IDs in outputs and error text.
+
+Offline re-evaluation of the saved 60% seed under the fixed gates: 16 papers
+seed COMPARE directly from their saved audits, and 10/12 hypotheses are
+critic-eligible from the saved assessment. Regression tests:
+`tests/test_blocking_defects_regression.py`; full suite **701 passed, 13
+subtests**. No live model calls were made for this change.

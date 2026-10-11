@@ -12,6 +12,7 @@ from llm_client import errors, usage
 from novelty import comparison_prompts as prompts
 from novelty.comparison_schemas import (CandidateComparison, ComparisonDraft, ComparisonResponse,
     ComparisonReview, NoveltyComparisonResult, PaperComparison, ReviewFormatRepair, ComparisonReport, Passage)
+from novelty.comparison_aliases import AliasedCalls
 from novelty.comparison_workflow import EvidenceBuilder, eligible, assemble, accepted_targets, project, proposal_requirements
 from novelty.comparison_repair import InterpretationPatch, apply_interpretation_patch, affected_pair_ids, review_addresses
 from novelty.pipeline import ModelOutputError, NoveltySearcher, Settings as SearchSettings, validate_signature
@@ -56,8 +57,8 @@ class NoveltyComparator:
     def __init__(self, store, chat=None, *, review_chat=None, provider=None, model=None,
                  review_model=None, settings=None):
         self.settings = settings or Settings()
-        self.io = NoveltySearcher(store, None, chat, review_chat=review_chat, provider=provider,
-            model=model, review_model=review_model, settings=SearchSettings(**self.settings.model_dump(), max_queries=20))
+        self.io = AliasedCalls(NoveltySearcher(store, None, chat, review_chat=review_chat, provider=provider,
+            model=model, review_model=review_model, settings=SearchSettings(**self.settings.model_dump(), max_queries=20)))
         self.used = False
 
     async def _reviewed(self, payload, targets, passages, reviews, evidence_history, requests, *, seed=None, prior_draft=None, initial_corrections=None):
@@ -137,7 +138,25 @@ class NoveltyComparator:
                 previous=corrections=None  # regenerate from changed evidence, no stale interpretation
         return None
 
-    async def _paper(self, pid, targets, expected_hash, source_context):
+    @staticmethod
+    def reusable_evidence(old, passages):
+        """Return the saved audit to seed from when it already clears unresolved targets.
+
+        The audit itself is unchanged; only the deterministic eligibility
+        bookkeeping may have relaxed since it was recorded. Re-extracting and
+        re-auditing identical source text would spend model calls without new
+        evidence. Any source change or missing report falls back to a fresh pass.
+        """
+        if old is None or not old.evidence_reviews or old.passages != passages:
+            return None
+        last = old.evidence_reviews[-1]
+        if last.report is None:
+            return None
+        ids, _ = eligible(last)
+        accepted = {p.target_id for p in old.comparison.pairs} if old.comparison else set()
+        return last if ids - accepted else None
+
+    async def _paper(self, pid, targets, expected_hash, source_context, reuse=None):
         reviews, refs, missing, passages, evidence_history, requests = [], [], [], [], [], []
         try:
             if Path(pid).name != pid or pid in ('.', '..'):
@@ -168,7 +187,12 @@ class NoveltyComparator:
                 'prior_passages':[p.model_dump() for p in passages],
                 'table_context_refs':table_context_refs(passages),
                 'missing_referenced_pages':missing,'evidence_scope':'available_extracted_pages'}
-            draft = await self._reviewed(payload,targets,passages,reviews,evidence_history,requests)
+            seed = self.reusable_evidence(reuse, passages)
+            if seed is None:
+                draft = await self._reviewed(payload,targets,passages,reviews,evidence_history,requests)
+            else:
+                evidence_history.extend(e.model_copy(deep=True) for e in reuse.evidence_reviews)
+                draft = await self._reviewed(payload,targets,passages,reviews,evidence_history,requests,seed=evidence_history[-1])
             status='complete' if draft and len(draft.pairs)==len(targets) else 'partial' if draft else 'unresolved'
             diagnostic=None if status=='complete' else 'Some target comparisons remain unresolved; inspect per-target outcomes and versioned evidence/reviews.'
             return PaperComparison(paper_id=pid, target_ids=[t.target_id for t in targets], targets=targets, passages=passages, status=status,
@@ -255,8 +279,6 @@ class NoveltyComparator:
                 results = [withheld(pid, 'failed', diagnostic) for pid in sorted(grouped)]
             else:
                 async def one(pid):
-                    if paper_ids is not None and pid not in paper_ids:
-                        return withheld(pid, 'skipped', 'Outside explicitly selected comparison scope; not assessed.')
                     old_candidate = saved.get(candidate.direction_id)
                     old = next((p for p in old_candidate.papers if p.paper_id == pid), None) if old_candidate else None
                     if old is not None:
@@ -264,7 +286,10 @@ class NoveltyComparator:
                             raise ValueError('comparison recovery inputs changed')
                         if old.status == 'complete':
                             return old
-                    fresh = await self._paper(pid, grouped[pid], hashes[pid], payload)
+                    if paper_ids is not None and pid not in paper_ids:
+                        # Saved work outside an explicit scope is preserved, never downgraded to skipped.
+                        return old if old is not None else withheld(pid, 'skipped', 'Outside explicitly selected comparison scope; not assessed.')
+                    fresh = await self._paper(pid, grouped[pid], hashes[pid], payload, reuse=old)
                     # Never overwrite accepted pairs with a regression or reinterpretation.
                     if old is not None and old.comparison is not None:
                         accepted = {p.target_id:p for p in old.comparison.pairs}

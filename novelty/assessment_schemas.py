@@ -219,10 +219,17 @@ class CandidateAssessment(Strict):
             return None
         r = self.assessment.refinement
         changed = set()
+        # Under the isolated contract each retained hypothesis carries its own locked,
+        # independently reviewed novelty judgment made against the ORIGINAL hypothesis
+        # text. Direction-level prose edits change the direction target, which is
+        # rechecked, but do not alter an unchanged hypothesis' identity. Without
+        # isolated judgments the direction synthesis is the only novelty verdict, so
+        # any edit conservatively invalidates every retained hypothesis.
+        isolated = bool(self.hypothesis_assessments)
         for edit in r.scientific_edits:
             if edit.field_path.startswith('/hypotheses/'):
                 changed.add(direction.proposal.hypotheses[int(edit.field_path.split('/')[2])].hypothesis_id)
-            else:
+            elif not isolated:
                 changed.update(r.retained_hypothesis_ids)
         # Removing hypotheses changes direction scope, but not unchanged survivors' identity.
         recheck = [] if r.action == 'reject' else ([direction.direction_id] if r.scientific_edits or (r.removed_hypothesis_ids and self.selection_scope is None) else []) + sorted(changed)

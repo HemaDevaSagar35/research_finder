@@ -107,6 +107,13 @@ def run(ready, chat=None, selected=None, **settings):
     return result, chat
 
 
+def unlabelled(request, paper):
+    """Restore immutable passage IDs in a captured request (prior passages are sent as srcN labels)."""
+    from novelty.comparison_aliases import restore_text
+    mapping = {p.passage_id: f'src{i}' for i, p in enumerate(paper.passages)}
+    return restore_text(request, mapping)
+
+
 def test_full_evidence_batch_and_reviewed_round_trip(ready):
     result, chat = run(ready)
     result = NoveltyComparisonResult.model_validate_json(result.model_dump_json())
@@ -287,7 +294,9 @@ def test_truncation_never_reaches_review(ready):
         return ChatResult(r.text, 'length', r.model)
     result, _ = run(ready, truncated)
     assert result.candidates[0].papers[0].comparison is None
-    assert len(stub.calls) == 2 and stub.reviews == 0
+    # Truncation is not repairable by resending the same input: exactly one call, no review.
+    assert len(stub.calls) == 1 and stub.reviews == 0
+    assert 'truncated_output' in result.candidates[0].papers[0].diagnostic
 
 
 def test_separate_reviewer_client_and_model(ready):

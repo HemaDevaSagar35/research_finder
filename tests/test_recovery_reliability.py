@@ -14,11 +14,17 @@ from critic.hypotheses import review_hypotheses
 
 
 def test_context_sizing_keeps_evidence(monkeypatch):
-    monkeypatch.setattr('reasoning.budget.estimate_tokens',lambda text:748376)
+    monkeypatch.setattr('reasoning.budget.estimate_tokens',lambda text:500000)
     p={'messages':[{'role':'user','content':'complete evidence'}],'max_tokens':393216}
     fit_context(p,{'context_token_limit':1048576})
     assert p['messages'][0]['content']=='complete evidence'
-    assert 1024 <= p['max_tokens'] < 300000
+    # chars/4 under-counts DeepSeek prompts by ~1.3x; the fallback margin reserves for that.
+    assert 32768 <= p['max_tokens'] <= 1048576-500000*1.4-8192
+    # An estimate that only "fits" under the old 10% margin is refused up front instead of
+    # being sent to truncate: on real runs 748k estimated tokens left no room for reasoning.
+    monkeypatch.setattr('reasoning.budget.estimate_tokens',lambda text:748376)
+    with pytest.raises(ValueError,match='context_budget'):
+        fit_context({'messages':[{'role':'user','content':'complete evidence'}],'max_tokens':393216},{'context_token_limit':1048576})
     class Error(Exception): status_code=400
     p['max_tokens']=393216
     assert reduce_after_context_error(Error('maximum context length is 1048576 tokens. (748376 in the messages, 393216 in the completion)'),p)

@@ -57,13 +57,44 @@ def validate_evidence_report(report,record,passages,require_scope=False):
             raise ValueError(f'claim {c.claim_id} marked supported without referencing its attached passages {claims[c.claim_id].passage_ids}; review cites {c.passage_ids}. Inspect the attached evidence: include its supporting ID if entailed, otherwise request citation/claim repair instead of supported status.')
 
 
-def scope_citation_gaps(report,record):
-    """Known but unattached scope evidence is a record repair, not malformed JSON."""
-    if report is None:return {}
+def _unattached_scope_citations(report,record):
+    """Yield (claim_check, scope_check, unattached_ids, attached_hit) for scope checks citing unattached passages."""
     attached={c.claim_id:set(c.passage_ids) for c in record.claims}
-    gaps={c.claim_id:sorted({p for check in c.scope_checks or [] for p in check.passage_ids}-attached[c.claim_id])
-        for c in report.claim_checks}
-    return {cid:refs for cid,refs in gaps.items() if refs}
+    for c in report.claim_checks:
+        for check in c.scope_checks or []:
+            extra=set(check.passage_ids)-attached.get(c.claim_id,set())
+            if extra:
+                yield c,check,extra,bool(set(check.passage_ids)&attached.get(c.claim_id,set()))
+
+
+def scope_citation_gaps(report,record):
+    """Known but unattached scope evidence that the audit says the claim *needs* is a record repair.
+
+    A gap exists when the audit marks a scope check ``missing_citation``, when a
+    claim that is not ``supported`` leans on unattached passages, or when a
+    supported scope check cites only unattached passages. A ``supported`` claim
+    whose supported scope check cites its attached evidence plus additional
+    passages is corroborated, not defective: see ``corroborating_citations``.
+    Treating corroboration as a defect previously re-audited the same record up
+    to three times, with each audit naming new passages, and never converged.
+    """
+    if report is None:return {}
+    gaps={}
+    for c,check,extra,attached_hit in _unattached_scope_citations(report,record):
+        if check.decision=='missing_citation' or c.decision!='supported' or not attached_hit:
+            gaps.setdefault(c.claim_id,set()).update(extra)
+    return {cid:sorted(refs) for cid,refs in gaps.items()}
+
+
+def corroborating_citations(report,record):
+    """Unattached passages a supported audit cited alongside the claim's own evidence."""
+    if report is None:return {}
+    gaps=scope_citation_gaps(report,record)
+    extras={}
+    for c,check,extra,attached_hit in _unattached_scope_citations(report,record):
+        if c.claim_id not in gaps and c.decision=='supported' and check.decision=='supported' and attached_hit:
+            extras.setdefault(c.claim_id,set()).update(extra)
+    return {cid:sorted(refs) for cid,refs in extras.items()}
 
 
 def eligible(review):
