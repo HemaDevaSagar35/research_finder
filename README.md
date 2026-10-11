@@ -329,18 +329,24 @@ uv run python -m research.recover --from-run /path/to/recovery-run \
 ```
 
 This validates saved checkpoint hashes and lineage and does not run comparison
-recovery. Scientific edits or later refinement may still require new comparisons.
+recovery. The automatic post-critic refinement loop is disabled, including for
+older configurations with nonzero `max_refinement_cycles`. Sections 13–15 now
+finish at stage 16. REFINE is recorded as a proposed next action, not executed.
 
+Stage 16 publishes approved individual hypotheses even when their parent
+direction remains pending. `stage16.json` retains the exact proposal, evidence,
+independent reviews, linked experiments and sibling statuses. `stage16.md`
+provides the readable output. Direction portfolio eligibility is reported
+separately; hypothesis approval does not approve a parent or joint experiment.
 
-New assessments use an isolated target contract: each hypothesis has its own
-validated judgment and exact evidence references. Direction synthesis consumes
-those judgments unchanged. Failed targets stay unresolved; an independently
-reviewed coherent subset can proceed while other hypotheses or directions remain
-pending. Reports identify each pending direction and its repair route.
+To publish stage 16 from existing assessment, critic and hypothesis-review
+checkpoints with **zero model or retrieval calls**:
 
-Refinement first attempts bounded local repairs: assessment wording returns to
-assessment review, and source interpretation requests return to the affected
-paper comparison. Accepted work with unchanged evidence is reused. Narrowing that
-requires redesigned experiments gets a separate scientific review and fresh
-novelty checks; joint experiments are never silently reassigned to survivors.
-The final hypothesis report is refreshed after repair and refinement.
+```bash
+uv run python -m research.recover --from-run /path/to/saved-run \
+  --out /path/to/stage16-output --start-at portfolio
+```
+
+This mode validates saved lineage and review decisions, then writes output. It
+does not initialize a model client or retriever. Scientific revision requires a
+separate explicitly requested operation.

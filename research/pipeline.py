@@ -61,7 +61,7 @@ class PipelineConfig(Strict):
     assessment: AssessmentSettings = Field(default_factory=AssessmentSettings)
     critic: ReviewSettings = Field(default_factory=ReviewSettings)
     refinement: ReviewSettings = Field(default_factory=ReviewSettings)
-    max_refinement_cycles: int = Field(default=2, ge=0, le=2)
+    max_refinement_cycles: int = Field(default=0, ge=0, le=2)
     selection: SelectionSettings = Field(default_factory=SelectionSettings)
 
 
@@ -244,7 +244,7 @@ async def run_pipeline(config, out, *, resume=False, runner_factory=StageRunner,
                 raise ValueError('Resume configuration, environment or code differs from the original run')
         else:
             atomic_json(manifest, identity)
-        stages = [s for s in STAGES if s != 'refinement' or config.max_refinement_cycles]
+        stages = [s for s in STAGES if s != 'refinement']
         state, parent = {}, digest(identity)
         runner = runner_factory(config)
         stage = None
@@ -306,6 +306,10 @@ async def run_pipeline(config, out, *, resume=False, runner_factory=StageRunner,
                 summary = dict(status=result.status, stopped_at='portfolio', counts=result.counts,
                     selection_shortfall=result.selection_shortfall, portfolio='final_portfolio.json',
                     diagnostics=result.diagnostics)
+            if 'portfolio' in state and (out/'hypothesis_reviews.json').exists():
+                from research.publication import write_stage16
+                published=write_stage16(out,state['critic'],json.loads((out/'hypothesis_reviews.json').read_text()))
+                summary.update(status=published['status'],hypothesis_counts=published['counts'],stage16='stage16.json')
             summary['completed_stages'] = list(state)
             atomic_json(out/'summary.json', summary)
             return summary

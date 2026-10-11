@@ -67,8 +67,10 @@ def wired(inputs, ready, monkeypatch):
     return config, Runner, calls, instances
 
 
-def test_query_to_real_downstream_and_resume_without_calls(wired, tmp_path):
+@pytest.mark.parametrize("legacy_cycles", [0, 2])
+def test_query_to_real_downstream_and_resume_without_calls(wired, tmp_path, legacy_cycles):
     config, runner, calls, instances = wired
+    config=config.model_copy(update={'max_refinement_cycles':legacy_cycles})
     out = tmp_path/'run'
     summary = asyncio.run(p.run_pipeline(config, out, runner_factory=runner))
     assert summary['status'] == 'ready'

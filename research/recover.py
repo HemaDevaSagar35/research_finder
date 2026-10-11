@@ -56,8 +56,8 @@ def load_source(root):
 
 
 async def recover(source,out,rounds=2, *, start_at="comparison"):
-    if start_at not in ("comparison", "assessment"): raise ValueError("unknown recovery start stage")
-    if start_at == "assessment": rounds=0
+    if start_at not in ("comparison", "assessment", "portfolio"): raise ValueError("unknown recovery start stage")
+    if start_at in ("assessment", "portfolio"): rounds=0
     config,state,manifest=load_source(source)
     out.mkdir(parents=True,exist_ok=False)
     progress=StageProgress()
@@ -65,6 +65,19 @@ async def recover(source,out,rounds=2, *, start_at="comparison"):
         atomic_json(out/'recovery_manifest.json',dict(source=str(source.resolve()),
             source_manifest_sha256=digest(manifest),config=config.model_dump(mode='json'),rounds=rounds,start_at=start_at,
             started=datetime.now(timezone.utc).isoformat()))
+        if start_at == 'portfolio':
+            from portfolio.pipeline import build_portfolio
+            from research.publication import write_stage16
+            if 'critic' not in state: raise ValueError('Stage 16 requires a saved critic checkpoint')
+            hypotheses=json.loads((source/'hypothesis_reviews.json').read_text())
+            published=write_stage16(out,state['critic'],hypotheses)
+            atomic_json(out/'hypothesis_reviews.json',hypotheses)
+            result=build_portfolio(state['critic'],config.selection)
+            atomic_json(out/'final_portfolio.json',result.model_dump(mode='json'))
+            (out/'final_portfolio.md').write_text(markdown(result))
+            summary=dict(status=published['status'],hypothesis_counts=published['counts'],direction_counts=result.counts,stage16='stage16.json',model_calls=0,retrieval_calls=0,source=str(source))
+            atomic_json(out/'summary.json',summary)
+            return summary
         runner=StageRunner(config)
         if (source/'hypothesis_reviews.json').exists():
             runner.hypothesis_reviews=json.loads((source/'hypothesis_reviews.json').read_text())
@@ -96,16 +109,15 @@ async def recover(source,out,rounds=2, *, start_at="comparison"):
             state['critic']=await save_stage('critic',runner.execute('critic',state))
             hypotheses=runner.hypothesis_reviews
             atomic_json(out/'hypothesis_reviews.json',hypotheses)
-            if config.max_refinement_cycles:
-                state['refinement']=await save_stage('refinement',runner.execute('refinement',state))
-            hypotheses=runner.hypothesis_reviews
-            atomic_json(out/'hypothesis_reviews.json',hypotheses)
             result=await save_stage('portfolio',runner.execute('portfolio',state))
             atomic_json(out/'final_portfolio.json',result.model_dump(mode='json'))
             (out/'final_portfolio.md').write_text(markdown(result)+'\n'+hypothesis_markdown(hypotheses))
             summary=dict(status=result.status,counts=result.counts,
                          hypothesis_counts={s:sum(h['status']==s for h in hypotheses['hypotheses']) for s in ('approved','pending','discarded')},
                          diagnostics=result.diagnostics,portfolio='final_portfolio.json',source=str(source))
+            from research.publication import write_stage16
+            published=write_stage16(out,state['critic'],hypotheses)
+            summary.update(status=published['status'],hypothesis_counts=published['counts'],stage16='stage16.json')
             atomic_json(out/'summary.json',summary)
             return summary
         except BaseException as exc:
@@ -120,7 +132,7 @@ def main():
     p.add_argument('--from-run',type=Path,required=True)
     p.add_argument('--out',type=Path)
     p.add_argument('--rounds',type=int,choices=(1,2),default=2)
-    p.add_argument('--start-at',choices=('comparison','assessment'),default='comparison')
+    p.add_argument('--start-at',choices=('comparison','assessment','portfolio'),default='comparison')
     args=p.parse_args()
     config,_,_=load_source(args.from_run)
     out=args.out or automatic_output(config.query+' recovery')
