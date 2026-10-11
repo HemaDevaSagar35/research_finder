@@ -1,15 +1,17 @@
 """Query-to-portfolio orchestration with validated, resumable stage checkpoints."""
+from __future__ import annotations
 import asyncio
 from llm_client.progress import stage_progress
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 from directions.schemas import Strict, GenerationResult
 from landscape.schemas import Landscape
 from landscape.paper_context import PaperContext, _project
@@ -80,13 +82,13 @@ STAGES = {
 }
 
 
-def atomic_json(path, value):
+def atomic_json(path: Path, value: Any) -> None:
     temporary = path.with_suffix(path.suffix + '.tmp')
     temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
     temporary.replace(path)
 
 
-def code_identity():
+def code_identity() -> str:
     root = Path(__file__).resolve().parent.parent
     files = [p for name in ('research', 'landscape', 'reasoning', 'opportunities',
              'directions', 'novelty', 'critic', 'portfolio', 'llm_client', 'indexing', 'extraction', 'ingestion')
@@ -94,7 +96,7 @@ def code_identity():
     return digest({str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)})
 
 
-def environment_identity():
+def environment_identity() -> str:
     # Record a fingerprint, never credentials or endpoint strings. Stage-specific
     # model/provider settings still apply when an explicit override is absent.
     names = {k for k in os.environ if k.endswith(('_MODEL', '_PROVIDER'))}
@@ -105,7 +107,7 @@ def environment_identity():
 
 class StageRunner:
     """Owns one store and lazily opens one retriever for the entire run."""
-    def __init__(self, config):
+    def __init__(self, config: PipelineConfig) -> None:
         self.config = config
         factory = None
         if config.allow_s3 and os.getenv('S3_ARTIFACTS_URL'):
@@ -114,7 +116,7 @@ class StageRunner:
         self.store = PaperStore(config.root, store_factory=factory)
         self.backend = self.retriever = self.search_client = None
 
-    def get_retriever(self):
+    def get_retriever(self) -> MultiQueryRetriever:
         if self.retriever is None:
             if self.config.backend == 'local':
                 self.backend = LocalBackend(self.config.index_dir, embedding=self.config.embedding)
@@ -125,7 +127,7 @@ class StageRunner:
             self.retriever = MultiQueryRetriever(self.backend, concurrency=self.config.concurrency)
         return self.retriever
 
-    async def close(self):
+    async def close(self) -> None:
         try:
             if self.retriever:
                 await self.retriever.aclose()
@@ -135,7 +137,7 @@ class StageRunner:
             if self.search_client:
                 self.search_client.close()
 
-    async def execute(self, name, state):
+    async def execute(self, name: str, state: dict[str, Any]) -> BaseModel:
         c = self.config
         common = dict(provider=c.provider, model=c.model, review_model=c.review_model)
         if name == 'plan':
@@ -207,7 +209,7 @@ class StageRunner:
 
 
 @contextmanager
-def run_lock(directory):
+def run_lock(directory: Path) -> Iterator[None]:
     with (directory/'.lock').open('a') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -219,7 +221,7 @@ def run_lock(directory):
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
-async def run_pipeline(config, out, *, resume=False, runner_factory=StageRunner, progress=None):
+async def run_pipeline(config: PipelineConfig, out: str | Path, *, resume: bool = False, runner_factory: Callable[[PipelineConfig], StageRunner] = StageRunner, progress: Callable[[str, str], None] | None = None) -> dict[str, Any]:
     """Run once, or reuse an unchanged prefix of validated saved checkpoints.
 
     No model output is promoted by the runner. A completed blocked stage is a

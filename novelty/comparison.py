@@ -2,24 +2,28 @@
 from __future__ import annotations
 from llm_client.progress import gather as progress_gather
 import asyncio
+from collections.abc import Awaitable, Callable, Collection
 from datetime import datetime, timezone
 from pathlib import Path
 import os
+from typing import Any
 
 from pydantic import BaseModel, Field
 from directions.schemas import GenerationResult
 from llm_client import errors, usage
 from novelty import comparison_prompts as prompts
+from novelty.comparison_records import EvidenceReview
 from novelty.comparison_schemas import (CandidateComparison, ComparisonDraft, ComparisonResponse,
-    ComparisonReview, NoveltyComparisonResult, PaperComparison, ReviewFormatRepair, ComparisonReport, Passage)
+    ComparisonReview, EvidenceRequest, NoveltyComparisonResult, PaperComparison, ReviewFormatRepair, ComparisonReport, Passage)
 from novelty.comparison_aliases import AliasedCalls
 from novelty.comparison_workflow import EvidenceBuilder, eligible, assemble, accepted_targets, project, proposal_requirements
 from novelty.comparison_repair import InterpretationPatch, apply_interpretation_patch, affected_pair_ids, review_addresses
 from novelty.pipeline import ModelOutputError, NoveltySearcher, Settings as SearchSettings, validate_signature
 from novelty.comparison_evidence import passages_for_pages, table_context_refs, candidate_view, validate_comparison, validate_report
-from novelty.schemas import NoveltySearchResult
+from novelty.schemas import NoveltySearchResult, TargetSignature
 from opportunities.miner import digest
 from reasoning.budget import TOKEN_COUNTER
+from reasoning.evidence import PaperStore
 from reasoning.schemas import ReviewSource
 
 
@@ -30,7 +34,7 @@ class Settings(BaseModel):
     max_output_tokens: int = Field(default_factory=lambda: int(os.getenv('NOVELTY_MAX_OUTPUT_TOKENS', '500000')), ge=1)
 
 
-def page_numbers(root, pid, paper):
+def page_numbers(root: Path | str, pid: str, paper: dict[str, Any] | None) -> tuple[list[int], set[int]]:
     """All locally extracted numeric markdown pages plus structured source references.
 
     Referenced pages can also be fetched by PaperStore's configured S3 fallback.
@@ -54,14 +58,14 @@ def page_numbers(root, pid, paper):
 
 class NoveltyComparator:
     """One run per instance. Reuses existing evidence/call infrastructure, no search."""
-    def __init__(self, store, chat=None, *, review_chat=None, provider=None, model=None,
-                 review_model=None, settings=None):
+    def __init__(self, store: PaperStore, chat: Callable[..., Awaitable[Any]] | None = None, *, review_chat: Callable[..., Awaitable[Any]] | None = None, provider: str | None = None, model: str | None = None,
+                 review_model: str | None = None, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()
         self.io = AliasedCalls(NoveltySearcher(store, None, chat, review_chat=review_chat, provider=provider,
             model=model, review_model=review_model, settings=SearchSettings(**self.settings.model_dump(), max_queries=20)))
         self.used = False
 
-    async def _reviewed(self, payload, targets, passages, reviews, evidence_history, requests, *, seed=None, prior_draft=None, initial_corrections=None):
+    async def _reviewed(self, payload: dict[str, Any], targets: list[TargetSignature], passages: list[Passage], reviews: list[ComparisonReview], evidence_history: list[EvidenceReview], requests: list[EvidenceRequest], *, seed: EvidenceReview | None = None, prior_draft: ComparisonDraft | None = None, initial_corrections: dict[str, Any] | None = None) -> ComparisonDraft | None:
         builder=EvidenceBuilder(self.io,prompts)
         evidence=seed if seed is not None else await builder.initial(payload,targets,passages,evidence_history)
         previous,corrections=prior_draft,initial_corrections
@@ -139,7 +143,7 @@ class NoveltyComparator:
         return None
 
     @staticmethod
-    def reusable_evidence(old, passages):
+    def reusable_evidence(old: PaperComparison | None, passages: list[Passage]) -> EvidenceReview | None:
         """Return the saved audit to seed from when it already clears unresolved targets.
 
         The audit itself is unchanged; only the deterministic eligibility
@@ -156,7 +160,7 @@ class NoveltyComparator:
         accepted = {p.target_id for p in old.comparison.pairs} if old.comparison else set()
         return last if ids - accepted else None
 
-    async def _paper(self, pid, targets, expected_hash, source_context, reuse=None):
+    async def _paper(self, pid: str, targets: list[TargetSignature], expected_hash: str, source_context: dict[str, Any], reuse: PaperComparison | None = None) -> PaperComparison:
         reviews, refs, missing, passages, evidence_history, requests = [], [], [], [], [], []
         try:
             if Path(pid).name != pid or pid in ('.', '..'):
@@ -207,7 +211,7 @@ class NoveltyComparator:
                 context_pages=refs, missing_referenced_pages=missing, comparison=retained,
                 reviews=reviews,evidence_reviews=evidence_history,evidence_requests=requests, diagnostic=errors.describe(exc))
 
-    async def run(self, generation: GenerationResult, search: NoveltySearchResult, *, paper_ids=None, recovery=None):
+    async def run(self, generation: GenerationResult, search: NoveltySearchResult, *, paper_ids: Collection[str] | None = None, recovery: NoveltyComparisonResult | None = None) -> NoveltyComparisonResult:
         if self.used:
             raise ValueError('create a new novelty comparator per run')
         self.used = True

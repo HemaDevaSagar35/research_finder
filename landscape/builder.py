@@ -31,6 +31,8 @@ CLI usage (dev, against a real index + S3 on EC2):
     uv run python -m landscape.builder "efficient MoE inference" --papers 15
 """
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 from pathlib import Path
@@ -157,7 +159,7 @@ async def build_landscape(topic: str, contexts: dict[str, PaperContext], *,
 
 async def _build_graph(contexts: dict[str, PaperContext], *,
                        extraction_provider: str | None,
-                       normalize_provider: str | None, model: str | None = None, concurrency: int | None = None):
+                       normalize_provider: str | None, model: str | None = None, concurrency: int | None = None) -> tuple[list[ConceptEntry], list[Relationship], list[Contradiction], list[UnderexploredConcept]]:
     """Extract and normalize the graph while statement aggregation proceeds."""
     cards = {pid: ctx.card for pid, ctx in contexts.items()}
 

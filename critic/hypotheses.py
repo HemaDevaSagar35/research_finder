@@ -1,11 +1,17 @@
 """Independently review evidence-ready hypotheses without approving their direction."""
+from __future__ import annotations
+from typing import Any, Callable
 from critic.evidence import packet_for
 from critic.pipeline import ResearchCritic
+from critic.schemas import CriticResult
+from directions.schemas import Direction
 from llm_client.progress import gather
+from novelty.assessment_schemas import CandidateAssessment, NoveltyAssessmentResult
 from opportunities.miner import digest
+from reasoning.evidence import PaperStore
 
 
-def eligibility(candidate, direction, hid):
+def eligibility(candidate: CandidateAssessment, direction: Direction, hid: str) -> str | None:
     independent = next((h for h in candidate.hypothesis_assessments or [] if h.coverage[0].target_id == hid), None)
     if candidate.assessment is None:
         if independent is None or independent.assessment is None:
@@ -23,7 +29,7 @@ def eligibility(candidate, direction, hid):
     return None
 
 
-async def review_hypotheses(novelty, store, *, existing=None, recovery=None, critic_factory=ResearchCritic, **kwargs):
+async def review_hypotheses(novelty: NoveltyAssessmentResult, store: PaperStore, *, existing: CriticResult | None = None, recovery: dict[str, Any] | None = None, critic_factory: Callable[..., ResearchCritic] = ResearchCritic, **kwargs: Any) -> dict[str, Any]:
     critic = critic_factory(store, **kwargs)
     async def direction_work(direction):
         assessment = next(c for c in novelty.candidates if c.direction_id == direction.direction_id)
@@ -76,7 +82,7 @@ async def review_hypotheses(novelty, store, *, existing=None, recovery=None, cri
                 assessment_sha256=digest(novelty.model_dump()), hypotheses=[h for group in groups for h in group])
 
 
-def markdown(result):
+def markdown(result: dict[str, Any]) -> str:
     lines=['## Independent hypothesis reviews','',
            'These decisions apply to individual unchanged hypotheses, not approval of their parent directions.','']
     for h in result['hypotheses']:

@@ -3,35 +3,39 @@ from __future__ import annotations
 
 from llm_client.progress import gather as progress_gather
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
 from directions.judge import validate_report
-from directions.schemas import CorrectnessResponse, GenerationResult
+from directions.schemas import CorrectnessResponse, Direction, GenerationResult
 from extraction.research_extract import _parse_json
 from llm_client import AsyncLLMClient, errors, usage
 from opportunities.miner import digest
 from reasoning.budget import AttemptBudget, estimate_tokens, TOKEN_COUNTER
-from reasoning.evidence import PaperStore, candidates, paper_card
+from reasoning.evidence import LoadedPaper, PageRecord, PaperStore, candidates, paper_card
 from reasoning.schemas import ReviewSource
 from research.query_planner import QueryPlan
 from research.retrieval import MultiQueryRetriever, RetrievalFilters
 from novelty import prompts
 from novelty.schemas import (FACETS, CandidateSearch, NoveltySearchResult,
-    RankingResponse, SignatureResponse, SignatureReview, TargetRetrieval)
+    RankingResponse, SignatureDraft, SignatureResponse, SignatureReview, TargetRetrieval, TargetSignature)
+
+M = TypeVar('M', bound=BaseModel)
 
 
 class ModelOutputError(ValueError):
-    def __init__(self, detail, raw):
+    def __init__(self, detail: str, raw: str) -> None:
         super().__init__(detail)
         self.raw = raw
 
 
-def drop_null_extras(schema, data):
+def drop_null_extras(schema: type[M], data: Any) -> tuple[M, list[str]]:
     """Validate; if the only defects are unknown keys whose value is null, drop them and retry.
 
     Strict schemas forbid unknown keys so that misplaced scientific content fails
@@ -80,7 +84,7 @@ class Settings(BaseModel):
     max_output_tokens: int = Field(default_factory=lambda: int(os.getenv('NOVELTY_MAX_OUTPUT_TOKENS', '500000')), ge=1)
 
 
-def pointer(document, path):
+def pointer(document: Any, path: str) -> Any:
     if not path.startswith('/'):
         raise ValueError('expected JSON Pointer into candidate proposal')
     node = document
@@ -95,7 +99,7 @@ def pointer(document, path):
     return node
 
 
-def normalize_proposal_paths(signature):
+def normalize_proposal_paths(signature: SignatureDraft) -> SignatureDraft:
     """Accept the unambiguous payload /candidate/ wrapper; store proposal-relative paths.
 
     Only syntax changes, before structural validation and independent review.
@@ -110,7 +114,7 @@ def normalize_proposal_paths(signature):
     return signature
 
 
-def validate_signature(signature, direction, payload, max_queries):
+def validate_signature(signature: SignatureDraft, direction: Direction, payload: dict[str, Any], max_queries: int) -> None:
     expected = {direction.direction_id: 'direction',
                 **{h.hypothesis_id: 'hypothesis' for h in direction.proposal.hypotheses}}
     actual = {t.target_id: t.level for t in signature.targets}
@@ -143,9 +147,9 @@ def validate_signature(signature, direction, payload, max_queries):
 
 class NoveltySearcher:
     """One run per instance. Caller owns injected retriever, store and chat clients."""
-    def __init__(self, store: PaperStore, retriever: MultiQueryRetriever, chat=None, *,
-                 review_chat=None, provider=None, model=None, review_model=None,
-                 settings=None, corpus_id='configured-index', retrieval_mode='caller_configured'):
+    def __init__(self, store: PaperStore | None, retriever: MultiQueryRetriever | None, chat: Callable[..., Awaitable[Any]] | None = None, *,
+                 review_chat: Callable[..., Awaitable[Any]] | None = None, provider: str | None = None, model: str | None = None, review_model: str | None = None,
+                 settings: Settings | None = None, corpus_id: str = 'configured-index', retrieval_mode: str = 'caller_configured') -> None:
         self.store, self.retriever, self.chat = store, retriever, chat
         self.review_chat = review_chat
         self.provider = provider or os.getenv('NOVELTY_PROVIDER') or os.getenv('PROVIDER')
@@ -158,11 +162,11 @@ class NoveltySearcher:
         self.locks, self.client, self.fatal, self.used = {}, None, None, False
         self.normalizations = []  # deterministic output normalizations applied (null-valued unknown keys dropped)
 
-    async def _resource(self, kind, *args):
+    async def _resource(self, kind: str, *args: str | int) -> LoadedPaper | PageRecord | None:
         async with self.locks.setdefault((kind, *args), asyncio.Lock()):
             return await asyncio.to_thread(getattr(self.store, kind), *args)
 
-    async def _call(self, task, system, schema, body):
+    async def _call(self, task: str, system: str, schema: type[M], body: dict[str, Any]) -> tuple[M, str]:
         messages = [{'role': 'system', 'content': system + '\nReturn a JSON object matching the supplied schema.'}, {'role': 'user', 'content': json.dumps(
             {'task': task, **body},
             ensure_ascii=False, separators=(',', ':'))}]
@@ -208,7 +212,7 @@ class NoveltySearcher:
                     self.fatal = errors.describe(exc)
                 raise
 
-    async def _context(self, direction, extra_pages):
+    async def _context(self, direction: Direction, extra_pages: dict[str, list[int]]) -> tuple[dict[str, Any], list[ReviewSource]]:
         op = direction.opportunity
         ids = sorted(direction.paper_artifact_hashes)
         if any(Path(pid).name != pid or pid in ('.', '..') for pid in ids):
@@ -258,7 +262,7 @@ class NoveltySearcher:
         refs = [ReviewSource(paper_id=p.paper_id, page=p.page, key_or_path=p.key_or_path, sha256=p.sha256) for p in pages]
         return payload, refs
 
-    async def _signature(self, direction, payload, reviews, previous=None):
+    async def _signature(self, direction: Direction, payload: dict[str, Any], reviews: list[SignatureReview], previous: SignatureReview | None = None) -> SignatureDraft:
         async def create(task, body):
             # One format/reference repair per creation or substantive revision.
             # Provider failures, abstentions and input/call budgets are not repaired.
@@ -315,7 +319,7 @@ class NoveltySearcher:
                 {'payload': payload, 'signature': signature.model_dump(), 'corrections': report.model_dump()})
         raise AssertionError('unreachable')
 
-    async def _search(self, target):
+    async def _search(self, target: TargetSignature) -> TargetRetrieval:
         retrieval, ranked, hashes, unavailable = None, [], {}, []
         try:
             retrieval = await self.retriever.retrieve(QueryPlan(queries=target.queries),
@@ -347,7 +351,7 @@ class NoveltySearcher:
             return TargetRetrieval(target_id=target.target_id, status='failed', retrieval=retrieval,
                 ranked=[], paper_artifact_hashes=hashes, unavailable_papers=unavailable, diagnostic=errors.describe(exc))
 
-    async def run(self, generation: GenerationResult, *, extra_pages=None, signature_recovery=None, recovery=None):
+    async def run(self, generation: GenerationResult, *, extra_pages: dict[str, list[int]] | None = None, signature_recovery: NoveltySearchResult | None = None, recovery: NoveltySearchResult | None = None) -> NoveltySearchResult:
         if self.used:
             raise ValueError('create a new novelty searcher per run')
         self.used = True

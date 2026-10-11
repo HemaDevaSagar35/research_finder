@@ -1,14 +1,19 @@
 """Full source packets, deterministic reference validation and publication gates."""
+from __future__ import annotations
 from hashlib import sha256
+from typing import Any
 
-from critic.schemas import CRITERIA, CritiqueDraft, PortfolioDraft
+from critic.schemas import (CRITERIA, CritiqueDraft, PortfolioDraft, ReviewReport, UpstreamRequest,
+    CandidateCritique, PortfolioCritique, CriticResult)
+from directions.schemas import Direction
 from novelty.assessment_evidence import build_packet, scope_sources
+from novelty.assessment_schemas import NoveltyAssessmentResult
 from novelty.pipeline import pointer
 from opportunities.miner import digest
 from reasoning.evidence import candidates
 
 
-def upstream_route(novelty, direction):
+def upstream_route(novelty: NoveltyAssessmentResult, direction: Direction) -> str | None:
     c = next(c for c in novelty.candidates if c.direction_id == direction.direction_id)
     route = c.refinement_handoff(direction)
     if route is None:
@@ -18,7 +23,7 @@ def upstream_route(novelty, direction):
     return None
 
 
-def packet_for(novelty, direction, support, *, hypothesis_id=None):
+def packet_for(novelty: NoveltyAssessmentResult, direction: Direction, support: dict[str, Any], *, hypothesis_id: str | None = None) -> dict[str, Any]:
     """Support is loaded and hash-checked through the existing source-store adapter."""
     packet = build_packet(novelty.inputs, direction.direction_id)
     c = next(c for c in novelty.candidates if c.direction_id == direction.direction_id)
@@ -58,7 +63,7 @@ def packet_for(novelty, direction, support, *, hypothesis_id=None):
     return packet
 
 
-def validate_support(support, direction):
+def validate_support(support: dict[str, Any], direction: Direction) -> None:
     if set(support) != {'paper_artifacts', 'pages'}:
         raise ValueError('unexpected support fields')
     artifacts = support['paper_artifacts']
@@ -79,12 +84,12 @@ def validate_support(support, direction):
             raise ValueError('support evidence differs from accepted opportunity')
 
 
-def references(ids, packet):
+def references(ids: list[str], packet: dict[str, Any]) -> None:
     if len(ids) != len(set(ids)) or not set(ids) <= {p['passage_id'] for p in packet['source_passages']}:
         raise ValueError('duplicate or unknown source reference')
 
 
-def targets(packet):
+def targets(packet: dict[str, Any]) -> list[str]:
     all_targets = [packet['direction_id'], *[h['hypothesis_id'] for h in packet['candidate']['hypotheses']]]
     scope = packet.get('review_target_ids')
     if scope is not None:
@@ -94,14 +99,14 @@ def targets(packet):
     return all_targets
 
 
-def valid_pointer(document, path):
+def valid_pointer(document: Any, path: str) -> Any:
     try:
         return pointer(document, path)
     except (KeyError, IndexError, TypeError, ValueError) as exc:
         raise ValueError('unknown field path: ' + path) from exc
 
 
-def validate_request(request, packet):
+def validate_request(request: UpstreamRequest, packet: dict[str, Any]) -> None:
     if request.target_id not in targets(packet):
         raise ValueError('upstream request names unknown target')
     references(request.passage_ids, packet)
@@ -109,7 +114,7 @@ def validate_request(request, packet):
         valid_pointer(packet['candidate'], path)
 
 
-def validate_draft(draft, packet):
+def validate_draft(draft: CritiqueDraft, packet: dict[str, Any]) -> None:
     expected = targets(packet)
     if sorted(t.target_id for t in draft.targets) != sorted(expected):
         raise ValueError('critique must cover direction and every hypothesis exactly once')
@@ -159,7 +164,7 @@ def validate_draft(draft, packet):
         validate_request(request, packet)
 
 
-def normalize_review_paths(report, draft):
+def normalize_review_paths(report: ReviewReport, draft: CritiqueDraft) -> tuple[ReviewReport, list[dict[str, str]]]:
     """Relocate a known flat revision collection, without changing review meaning.
 
     The draft stores revisions at its root. A model sometimes addresses a target's
@@ -179,7 +184,7 @@ def normalize_review_paths(report, draft):
     return report, changes
 
 
-def validate_review(report, draft, packet, portfolio=False, require_test_checks=True):
+def validate_review(report: ReviewReport, draft: CritiqueDraft | PortfolioDraft, packet: dict[str, Any], portfolio: bool = False, require_test_checks: bool = True) -> None:
     expected = packet['eligible_direction_ids'] if portfolio else targets(packet)
     if sorted(c.target_id for c in report.target_checks) != sorted(expected):
         raise ValueError('review must explicitly check every target')
@@ -199,7 +204,7 @@ def validate_review(report, draft, packet, portfolio=False, require_test_checks=
         validate_request(request, packet)
 
 
-def portfolio_packet(results):
+def portfolio_packet(results: list[CandidateCritique]) -> dict[str, Any]:
     eligible = [c for c in results if c.critique is not None and c.handoff()['next_stage'] == 'ranking']
     sources = {}
     dossiers = []
@@ -214,7 +219,7 @@ def portfolio_packet(results):
                 source_passages=list(sources.values()))
 
 
-def validate_portfolio(draft, packet):
+def validate_portfolio(draft: PortfolioDraft, packet: dict[str, Any]) -> None:
     if sorted(draft.considered_direction_ids) != sorted(packet['eligible_direction_ids']):
         raise ValueError('portfolio must consider every eligible direction exactly once')
     candidates_by_id = {d['direction_id']: d for d in packet['candidates']}
@@ -236,7 +241,7 @@ def validate_portfolio(draft, packet):
             raise ValueError('merge cites evidence outside its constituent directions')
 
 
-def checked_history(record, packet, portfolio=False, require_test_checks=True):
+def checked_history(record: CandidateCritique | PortfolioCritique, packet: dict[str, Any], portfolio: bool = False, require_test_checks: bool = True) -> None:
     validate = validate_portfolio if portfolio else validate_draft
     final = record.assessment if portfolio else record.critique
     if len(record.reviews) > 2 or [r.round for r in record.reviews] != list(range(len(record.reviews))):
@@ -270,7 +275,7 @@ def checked_history(record, packet, portfolio=False, require_test_checks=True):
         raise ValueError('withheld critique requires diagnostic')
 
 
-def validate_result(result):
+def validate_result(result: CriticResult) -> None:
     directions = {d.direction_id: d for d in result.novelty.inputs.generation.directions}
     if sorted(c.direction_id for c in result.candidates) != sorted(directions):
         raise ValueError('critic must preserve every input direction')

@@ -1,9 +1,11 @@
 """Offline, hypothesis-oriented reading files for Stage 16."""
+from __future__ import annotations
 import json
 from pathlib import Path
+from typing import Any
 
 
-def proposal_record(h):
+def proposal_record(h: dict[str, Any]) -> dict[str, Any]:
     context=h['direction_context']
     opportunity=context['opportunity']
     return dict(
@@ -24,7 +26,7 @@ def proposal_record(h):
         scientific_validation='model_reviewed_not_empirically_validated')
 
 
-def proposal_markdown(p):
+def proposal_markdown(p: dict[str, Any]) -> str:
     lines=[f"# {p['hypothesis_id']} — {p['status'].upper()}",'',
         '[All hypotheses](../../summary.md) · '+f"[Evidence and papers]({p['evidence_file']}) · [JSON]({p['hypothesis_id']}.json)",'']
     for title,key in [('Problem','problem'),('Research question','research_question'),
@@ -61,7 +63,7 @@ def proposal_markdown(p):
     return '\n'.join(lines)
 
 
-def write_reading_report(out,result):
+def write_reading_report(out: str | Path, result: dict[str, Any]) -> None:
     from research.publication import markdown
     out=Path(out)
     for folder in ('proposals/approved','proposals/pending','evidence'):

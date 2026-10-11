@@ -1,16 +1,22 @@
 """Deterministic evidence dependencies, bounded review, and partial publication."""
-from novelty.comparison_records import EvidenceResponse, EvidenceReport, EvidenceReview, ReviewFormatRepair
-from novelty.comparison_schemas import ComparisonDraft, PairComparison, Passage
-from novelty.pipeline import ModelOutputError
+from __future__ import annotations
+from collections.abc import Iterator
+from types import ModuleType
+from typing import Any, Literal
+from novelty.comparison_records import ClaimCheck, EvidenceRecord, EvidenceResponse, EvidenceReport, EvidenceReview, PriorClaim, ReviewFormatRepair, ScopeCheck
+from novelty.comparison_schemas import ComparisonDraft, ComparisonReport, ComparisonResponse, PairComparison, PaperComparison, Passage
+from novelty.comparison_aliases import AliasedCalls
+from novelty.pipeline import ModelOutputError, NoveltySearcher
+from novelty.schemas import TargetSignature
 from llm_client import errors
 
 
-def proposal_requirements(target):
+def proposal_requirements(target: TargetSignature) -> list[str]:
     return [f'/{key}/{i}' for key in ('intervention','comparison','regime','expected_effect')
         for i,f in enumerate(getattr(target,key)) if f.basis=='candidate_proposal']
 
 
-def validate_record(record,targets,passages,require_alignment=False,require_context=False):
+def validate_record(record:EvidenceRecord,targets:list[TargetSignature],passages:list[Passage],require_alignment:bool=False,require_context:bool=False)->None:
     if {r.target_id for r in record.relationships}!={t.target_id for t in targets}:
         raise ValueError('evidence record must cover exactly the requested targets')
     by_target={t.target_id:t for t in targets}
@@ -32,7 +38,7 @@ def validate_record(record,targets,passages,require_alignment=False,require_cont
         if missing:raise ValueError(f'claim {c.claim_id}: unknown/wrong-paper passage IDs {sorted(missing)}')
 
 
-def validate_evidence_report(report,record,passages,require_scope=False):
+def validate_evidence_report(report:EvidenceReport,record:EvidenceRecord,passages:list[Passage],require_scope:bool=False)->None:
     claims={c.claim_id:c for c in record.claims}; targets={r.target_id for r in record.relationships}
     if len(report.claim_checks)!=len(claims) or {c.claim_id for c in report.claim_checks}!=set(claims):
         raise ValueError('review must check every evidence claim exactly once')
@@ -57,7 +63,7 @@ def validate_evidence_report(report,record,passages,require_scope=False):
             raise ValueError(f'claim {c.claim_id} marked supported without referencing its attached passages {claims[c.claim_id].passage_ids}; review cites {c.passage_ids}. Inspect the attached evidence: include its supporting ID if entailed, otherwise request citation/claim repair instead of supported status.')
 
 
-def _unattached_scope_citations(report,record):
+def _unattached_scope_citations(report:EvidenceReport,record:EvidenceRecord)->Iterator[tuple[ClaimCheck,ScopeCheck,set[str],bool]]:
     """Yield (claim_check, scope_check, unattached_ids, attached_hit) for scope checks citing unattached passages."""
     attached={c.claim_id:set(c.passage_ids) for c in record.claims}
     for c in report.claim_checks:
@@ -67,7 +73,7 @@ def _unattached_scope_citations(report,record):
                 yield c,check,extra,bool(set(check.passage_ids)&attached.get(c.claim_id,set()))
 
 
-def scope_citation_gaps(report,record):
+def scope_citation_gaps(report:EvidenceReport|None,record:EvidenceRecord)->dict[str,list[str]]:
     """Known but unattached scope evidence that the audit says the claim *needs* is a record repair.
 
     A gap exists when the audit marks a scope check ``missing_citation``, when a
@@ -86,7 +92,7 @@ def scope_citation_gaps(report,record):
     return {cid:sorted(refs) for cid,refs in gaps.items()}
 
 
-def corroborating_citations(report,record):
+def corroborating_citations(report:EvidenceReport|None,record:EvidenceRecord)->dict[str,list[str]]:
     """Unattached passages a supported audit cited alongside the claim's own evidence."""
     if report is None:return {}
     gaps=scope_citation_gaps(report,record)
@@ -97,7 +103,7 @@ def corroborating_citations(report,record):
     return {cid:sorted(refs) for cid,refs in extras.items()}
 
 
-def eligible(review):
+def eligible(review:EvidenceReview)->tuple[set[str],list[PriorClaim]]:
     if review.report is None:return set(),[]
     gaps=scope_citation_gaps(review.report,review.record)
     supported={c.claim_id for c in review.report.claim_checks if c.decision=='supported' and c.claim_id not in gaps}
@@ -106,7 +112,7 @@ def eligible(review):
     return targets,[c for c in review.record.claims if c.claim_id in supported]
 
 
-def bind_relationships(draft,evidence):
+def bind_relationships(draft:ComparisonDraft,evidence:EvidenceReview)->ComparisonDraft:
     relationships={r.target_id:r for r in evidence.record.relationships}
     pairs=[]
     for p in draft.pairs:
@@ -117,7 +123,7 @@ def bind_relationships(draft,evidence):
     return type(draft)(claims=draft.claims,pairs=pairs)
 
 
-def assemble(response,evidence,targets):
+def assemble(response:ComparisonResponse,evidence:EvidenceReview,targets:list[TargetSignature])->ComparisonDraft:
     ids,claims=eligible(evidence)
     if {p.target_id for p in response.pairs}!=ids or len(response.pairs)!=len(ids):
         raise ValueError('interpretation must cover exactly evidence-eligible targets')
@@ -133,7 +139,7 @@ def assemble(response,evidence,targets):
     return ComparisonDraft(claims=claims,pairs=pairs)
 
 
-def accepted_targets(report,draft,evidence=None):
+def accepted_targets(report:ComparisonReport|None,draft:ComparisonDraft,evidence:EvidenceReview|None=None)->set[str]:
     if report is None or report.decision=='abstain':return set()
     all_ids={p.target_id for p in draft.pairs}
     if report.decision=='pass':return all_ids
@@ -150,14 +156,14 @@ def accepted_targets(report,draft,evidence=None):
     return all_ids-blocked
 
 
-def project(draft,target_ids):
+def project(draft:ComparisonDraft,target_ids:set[str])->ComparisonDraft|None:
     pairs=[p for p in draft.pairs if p.target_id in target_ids]
     if not pairs:return None
     used={c for p in pairs for d in p.dimensions for c in d.claim_ids}|{c for p in pairs for c in p.hypothesis_claim_ids}
     return type(draft)(claims=[c for c in draft.claims if c.claim_id in used],pairs=pairs)
 
 
-def repair_blockers(paper, target_id):
+def repair_blockers(paper: PaperComparison, target_id: str) -> list[str]:
     """Distinguish processing defects from an accepted insufficient-evidence finding."""
     if paper.status == 'skipped': return ['not_attempted']
     if paper.diagnostic and ('evidence_abstained:' in paper.diagnostic or 'comparison_abstained:' in paper.diagnostic):
@@ -176,7 +182,7 @@ def repair_blockers(paper, target_id):
     return blockers or ['interpretation_review']
 
 
-def outcomes(paper):
+def outcomes(paper:PaperComparison)->list[dict[str,Any]]:
     accepted={p.target_id:p for p in paper.comparison.pairs} if paper.comparison else {}
     evidence=paper.evidence_reviews[-1] if paper.evidence_reviews else None
     relationships={r.target_id:r for r in evidence.record.relationships} if evidence else {}
@@ -197,9 +203,9 @@ def outcomes(paper):
 
 
 class EvidenceBuilder:
-    def __init__(self,io,prompts):self.io,self.prompts=io,prompts
+    def __init__(self,io:AliasedCalls|NoveltySearcher,prompts:ModuleType)->None:self.io,self.prompts=io,prompts
 
-    async def generate(self,payload,targets,passages,previous=None,corrections=None):
+    async def generate(self,payload:dict[str,Any],targets:list[TargetSignature],passages:list[Passage],previous:EvidenceReview|None=None,corrections:dict[str,Any]|None=None)->EvidenceResponse:
         if previous is not None:
             return await self.patch(payload, targets, passages, previous, corrections)
         body={'payload':payload}
@@ -220,7 +226,7 @@ class EvidenceBuilder:
             if attempt:raise ValueError('invalid_evidence_after_repair: '+detail)
             request={**body,'invalid_output':raw,'validation_errors':detail}
 
-    async def patch(self,payload,targets,passages,previous,corrections=None):
+    async def patch(self,payload:dict[str,Any],targets:list[TargetSignature],passages:list[Passage],previous:EvidenceReview,corrections:dict[str,Any]|None=None)->EvidenceResponse:
         from novelty.comparison_repair import (EvidencePatch, attach_review_citations,
             repair_scope, apply_evidence_patch)
         from novelty.comparison_evidence import attach_table_context
@@ -248,7 +254,7 @@ class EvidenceBuilder:
             if attempt: raise ValueError('invalid_evidence_patch_after_repair: ' + detail)
             request = {**body, 'invalid_output': raw, 'validation_errors': detail}
 
-    async def audit(self,payload,response,passages,history,trigger):
+    async def audit(self,payload:dict[str,Any],response:EvidenceResponse,passages:list[Passage],history:list[EvidenceReview],trigger:Literal['initial','evidence_repair','comparison_reopen'])->EvidenceReview:
         repairs=[];report=error=None;model=self.io.review_model or self.io.model
         body={'payload':payload,'record':response.record.model_dump(),
             'required_scope_claim_ids':[c.claim_id for c in response.record.claims
@@ -274,7 +280,7 @@ class EvidenceBuilder:
                 revision_notes=response.revision_notes,format_repairs=repairs,model=model,report=report,error=error))
         return history[-1]
 
-    async def repair_remaining(self,payload,targets,passages,history):
+    async def repair_remaining(self,payload:dict[str,Any],targets:list[TargetSignature],passages:list[Passage],history:list[EvidenceReview])->EvidenceReview:
         from opportunities.miner import digest
         seen = {digest(history[-1].record.model_dump())}
         for _ in range(3):
@@ -293,12 +299,12 @@ class EvidenceBuilder:
             if repeated: break
         return history[-1]
 
-    async def initial(self,payload,targets,passages,history):
+    async def initial(self,payload:dict[str,Any],targets:list[TargetSignature],passages:list[Passage],history:list[EvidenceReview])->EvidenceReview:
         response=await self.generate(payload,targets,passages)
         await self.audit(payload,response,passages,history,'initial')
         return await self.repair_remaining(payload,targets,passages,history)
 
-    async def reopen(self,payload,targets,passages,history,corrections):
+    async def reopen(self,payload:dict[str,Any],targets:list[TargetSignature],passages:list[Passage],history:list[EvidenceReview],corrections:dict[str,Any])->EvidenceReview:
         response=await self.generate(payload,targets,passages,history[-1],corrections)
         await self.audit(payload,response,passages,history,'comparison_reopen')
         return await self.repair_remaining(payload,targets,passages,history)

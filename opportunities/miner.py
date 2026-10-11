@@ -13,19 +13,20 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Any, Awaitable, Callable, TypeVar
 
 from pydantic import BaseModel, Field, ValidationError
 
 from extraction.research_extract import _parse_json
 from landscape.schemas import Landscape, limitation_origin
-from llm_client import AsyncLLMClient, errors, usage
+from llm_client import AsyncLLMClient, ChatResult, errors, usage
 from opportunities.schemas import (Candidate, Decision, Diagnostic, MiningResult,
                                    Opportunity, Proposal, SourceReference)
 from reasoning.budget import AttemptBudget, TOKEN_COUNTER, estimate_tokens
-from reasoning.evidence import PaperStore, candidates as evidence_candidates
-from reasoning.schemas import CrossPaperReasoning, ReviewSource
+from reasoning.evidence import LoadedPaper, PageRecord, PaperStore, candidates as evidence_candidates
+from reasoning.schemas import CrossPaperFinding, CrossPaperReasoning, Evidence, Observation, ReviewSource, Tension
 
+T = TypeVar('T', bound=BaseModel)
 PROMPT_VERSION = "opportunity_v2_review_roles"
 PROPOSE = """Identify what appears unresolved given the reviewed findings and landscape.
 Look for recurring limitations, restrictive assumptions, missing regimes,
@@ -93,18 +94,18 @@ class Settings(BaseModel):
     repair_rounds: int = Field(default=1, ge=0, le=2)
 
 
-def digest(data) -> str:
+def digest(data: Any) -> str:
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
-def _evidence(item, kind):
+def _evidence(item: CrossPaperFinding | Observation | Tension, kind: str) -> list[Evidence]:
     if kind == "tension":
         return [e for side in item.sides for e in side.evidence]
     return item.evidence
 
 
 class MiningFailure(Exception):
-    def __init__(self, reason, detail, review=None):
+    def __init__(self, reason: str, detail: str, review: dict[str, Any] | None = None) -> None:
         self.reason, self.detail, self.review = reason, detail, review
         super().__init__(detail)
 
@@ -116,9 +117,9 @@ class OpportunityMiner:
     candidates from racing the PaperStore's local/S3 cache for the same file.
     Blocking artifact access is offloaded from the event loop.
     """
-    def __init__(self, store: PaperStore, chat: Callable | None = None, *,
+    def __init__(self, store: PaperStore, chat: Callable[..., Awaitable[Any]] | None = None, *,
                  settings: Settings | None = None, provider: str | None = None,
-                 model: str | None = None, review_model: str | None = None):
+                 model: str | None = None, review_model: str | None = None) -> None:
         self.store, self.chat = store, chat
         self.settings = settings or Settings()
         self.provider = provider or os.getenv("OPPORTUNITY_PROVIDER") or os.getenv("PROVIDER")
@@ -131,12 +132,12 @@ class OpportunityMiner:
         self.used = False
         self.locks = {}
 
-    async def _resource(self, kind, *args):
+    async def _resource(self, kind: str, *args: str | int) -> LoadedPaper | PageRecord | None:
         key = (kind, *args)
         async with self.locks.setdefault(key, asyncio.Lock()):
             return await asyncio.to_thread(getattr(self.store, kind), *args)
 
-    async def _call(self, kind, messages, model, max_tokens, schema):
+    async def _call(self, kind: str, messages: list[dict[str, str]], model: str | None, max_tokens: int, schema: type[BaseModel]) -> ChatResult:
         async with self.sem:
             if self.fatal:
                 raise MiningFailure("provider_error", "run stopped after provider rejection")
@@ -157,7 +158,7 @@ class OpportunityMiner:
                     raise MiningFailure("provider_error", self.fatal) from exc
                 raise MiningFailure("call_failed", errors.describe(exc)) from exc
 
-    async def _json(self, kind, payload, schema, validate):
+    async def _json(self, kind: str, payload: dict[str, Any], schema: type[T], validate: Callable[[T], None]) -> T:
         system = PROPOSE if kind == "proposal" else REVIEW
         messages = [{"role": "system", "content": system}, {"role": "user", "content":
             json.dumps({"task": kind, "payload": payload})}]
@@ -191,7 +192,7 @@ class OpportunityMiner:
                              {"role": "user", "content": "Repair this JSON; do not add claims: " + detail}]
         raise MiningFailure("invalid_proposal" if kind == "proposal" else "invalid_review", detail)
 
-    def _inputs(self, land, reasoning):
+    def _inputs(self, land: Landscape, reasoning: CrossPaperReasoning) -> tuple[dict[str, str], dict[str, dict[str, Any]], dict[str, dict[str, Any]], dict[str, tuple[str, Evidence]]]:
         if any(Path(pid).name != pid or pid in (".", "..") for pid in land.paper_ids):
             raise ValueError("paper IDs must be local artifact directory names")
         expected = {"schema_version": land.schema_version, "sha256": digest(land.model_dump())}
@@ -229,7 +230,7 @@ class OpportunityMiner:
                 sources[sid] = {"item": item, "kind": kind, "body": body}
         return expected, landscape_items, sources, evidence
 
-    async def _review(self, cid, candidate, sources, evidence):
+    async def _review(self, cid: str, candidate: Candidate, sources: dict[str, dict[str, Any]], evidence: dict[str, tuple[str, Evidence]]) -> Opportunity:
         selected = [evidence[eid][1] for eid in candidate.evidence_ids]
         pages = set()
         prior = {}
@@ -403,7 +404,7 @@ class OpportunityMiner:
                  "token_counter":TOKEN_COUNTER,"stopped_for_provider_error":self.fatal})
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     for name in ("landscape","reasoning","out"):
         parser.add_argument("--"+name,required=True)

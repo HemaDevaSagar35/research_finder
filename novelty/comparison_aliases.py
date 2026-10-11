@@ -8,8 +8,14 @@ call before the pair was abandoned. Labels are exact identifiers, not
 summaries: nothing about the passage text, offsets or hashes changes, and every
 saved artifact keeps the original IDs.
 """
+from __future__ import annotations
 import re
+from typing import TYPE_CHECKING, Any, TypeVar
+from pydantic import BaseModel
+if TYPE_CHECKING:
+    from novelty.pipeline import NoveltySearcher
 
+M = TypeVar('M', bound=BaseModel)
 ID_PATTERN = re.compile(r'[A-Za-z0-9_.-]+#p\d+:[0-9a-f]{12}')
 ALIAS_PATTERN = re.compile(r'\bsrc\d+\b')
 NOTE = ('\nSource labels: every prior_passages entry carries a short exact label (srcN) as its passage_id. '
@@ -17,14 +23,14 @@ NOTE = ('\nSource labels: every prior_passages entry carries a short exact label
         'candidate_source_passages keep their full IDs and are context, not prior-paper evidence.')
 
 
-def alias_map(body):
+def alias_map(body: dict[str, Any]) -> dict[str, str]:
     payload = body.get('payload') if isinstance(body, dict) else None
     if not isinstance(payload, dict) or not payload.get('prior_passages'):
         return {}
     return {p['passage_id']: f'src{i}' for i, p in enumerate(payload['prior_passages'])}
 
 
-def rewrite(value, pattern, mapping):
+def rewrite(value: Any, pattern: re.Pattern[str], mapping: dict[str, str]) -> Any:
     """Replace labelled identifiers inside every string, including dict keys."""
     if isinstance(value, dict):
         return {(rewrite(k, pattern, mapping) if isinstance(k, str) else k): rewrite(v, pattern, mapping) for k, v in value.items()}
@@ -35,32 +41,32 @@ def rewrite(value, pattern, mapping):
     return value
 
 
-def alias_request(body, mapping):
+def alias_request(body: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:
     return rewrite(body, ID_PATTERN, mapping)
 
 
-def restore_text(text, mapping):
+def restore_text(text: str, mapping: dict[str, str]) -> str:
     reverse = {alias: original for original, alias in mapping.items()}
     return rewrite(text, ALIAS_PATTERN, reverse)
 
 
-def restore_response(parsed, mapping):
+def restore_response(parsed: M, mapping: dict[str, str]) -> M:
     reverse = {alias: original for original, alias in mapping.items()}
     return type(parsed).model_validate(rewrite(parsed.model_dump(), ALIAS_PATTERN, reverse))
 
 
 class AliasedCalls:
     """Proxy for a NoveltySearcher that labels prior passages around ``_call`` only."""
-    def __init__(self, io):
+    def __init__(self, io: NoveltySearcher) -> None:
         object.__setattr__(self, '_io', io)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         return getattr(self._io, name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         setattr(self._io, name, value)
 
-    async def _call(self, task, system, schema, body):
+    async def _call(self, task: str, system: str, schema: type[M], body: dict[str, Any]) -> tuple[M, str]:
         from novelty.pipeline import ModelOutputError
         mapping = alias_map(body)
         if not mapping:

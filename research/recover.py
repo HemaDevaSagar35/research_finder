@@ -1,9 +1,13 @@
 """Recover failed downstream work from immutable saved research artifacts."""
+from __future__ import annotations
 import argparse
 import asyncio
 import json
+from collections.abc import Awaitable
 from pathlib import Path
 from datetime import datetime, timezone
+from typing import Any
+from pydantic import BaseModel
 from research.pipeline import PipelineConfig, StageRunner, STAGES, atomic_json, run_lock
 from research.__main__ import StageProgress, automatic_output
 from llm_client.progress import stage_progress
@@ -15,13 +19,13 @@ from critic.hypotheses import review_hypotheses, markdown as hypothesis_markdown
 from portfolio.render import markdown
 
 
-def load_source(root):
+def load_source(root: Path) -> tuple[PipelineConfig, dict[str, Any], dict[str, Any]]:
     if (root/'recovery_manifest.json').exists():
         manifest=json.loads((root/'recovery_manifest.json').read_text())
         config,state,parent_manifest=load_source(Path(manifest['source']))
         if digest(parent_manifest)!=manifest['source_manifest_sha256']:
             raise ValueError('Recovery source manifest changed')
-        def read(name, schema):
+        def read(name: str, schema: type[BaseModel]) -> BaseModel:
             payload=json.loads((root/f'{name}.json').read_text())
             if payload['result_sha256']!=digest(payload['result']):
                 raise ValueError('Invalid recovery checkpoint: '+name)
@@ -55,7 +59,7 @@ def load_source(root):
     return PipelineConfig.model_validate(manifest['config']),state,manifest
 
 
-def comparison_scope(state, directions=None, papers=None):
+def comparison_scope(state: dict[str, Any], directions: list[str] | None = None, papers: list[str] | None = None) -> set[str] | None:
     """Resolve an explicit comparison replay scope to saved shortlist paper IDs.
 
     ``None`` means every incomplete paper. Papers outside the scope keep their
@@ -73,7 +77,7 @@ def comparison_scope(state, directions=None, papers=None):
     return selected
 
 
-async def recover(source,out,rounds=2, *, start_at="comparison", directions=None, papers=None):
+async def recover(source: Path,out: Path,rounds: int = 2, *, start_at: str = "comparison", directions: list[str] | None = None, papers: list[str] | None = None) -> dict[str, Any]:
     if start_at not in ("comparison", "assessment", "portfolio"): raise ValueError("unknown recovery start stage")
     if start_at in ("assessment", "portfolio"): rounds=0
     config,state,manifest=load_source(source)
@@ -104,7 +108,7 @@ async def recover(source,out,rounds=2, *, start_at="comparison", directions=None
         if (source/'hypothesis_reviews.json').exists():
             runner.hypothesis_reviews=json.loads((source/'hypothesis_reviews.json').read_text())
         common=dict(provider=config.provider,model=config.model,review_model=config.review_model)
-        async def save_stage(name,call):
+        async def save_stage(name: str,call: Awaitable[Any]) -> Any:
             progress(name,'running')
             try:
                 async with stage_progress(name,progress): value=await call
@@ -151,7 +155,7 @@ async def recover(source,out,rounds=2, *, start_at="comparison", directions=None
             await runner.close()
 
 
-def main():
+def main() -> None:
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--from-run',type=Path,required=True)
     p.add_argument('--out',type=Path)

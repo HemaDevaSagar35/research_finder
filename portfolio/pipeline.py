@@ -1,22 +1,28 @@
 """Deterministic rendering/selection; no new scientific judgments or model calls."""
-from critic.schemas import CriticResult
+from __future__ import annotations
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
+from critic.schemas import CandidateCritique, CriticResult
 from critic.refinement_loop import RefinementResult
+from directions.schemas import Direction
 from novelty.assessment_evidence import build_packet
 from opportunities.miner import digest
 from portfolio.schemas import FinalCandidate, FinalHypothesis, RankingEntry, SelectionSettings, FinalPortfolio
+from reasoning.evidence import PaperStore
 
 NOVELTY_PRIORITY = {'LOW_PRIOR_OVERLAP': 0, 'PARTIAL_OVERLAP': 1,
                     'COMPONENTS_KNOWN': 2, 'ALREADY_STUDIED': 3}
 OVERLAP_ORDER = {'SAME': 0, 'VERY_CLOSE': 1, 'PARTIAL_OVERLAP': 2, 'ADJACENT': 3, 'DIFFERENT': 4, None: 5}
 
 
-def current_critic(source):
+def current_critic(source: CriticResult | RefinementResult) -> CriticResult:
     if isinstance(source, RefinementResult):
         return next((c.critic for c in reversed(source.cycles) if c.critic), source.repair_rounds[-1].critic if source.repair_rounds else source.original)
     return source
 
 
-def render_candidate(critic, direction, review):
+def render_candidate(critic: CriticResult, direction: Direction, review: CandidateCritique) -> FinalCandidate:
     assessment = next(c for c in critic.novelty.candidates if c.direction_id == direction.direction_id)
     targets = {t.target_id: t for t in assessment.assessment.targets}
     coverage = {t.target_id: t for t in assessment.coverage}
@@ -46,7 +52,7 @@ def render_candidate(critic, direction, review):
         critique=critiques[direction.direction_id])
 
 
-def ranking_signals(candidate):
+def ranking_signals(candidate: FinalCandidate) -> tuple[str, float, float, int]:
     findings = [f for t in [candidate.critique, *[h.critique for h in candidate.possible_hypotheses]]
                 for f in t.findings if f.assessment != 'not_applicable']
     total = len(findings)
@@ -59,7 +65,7 @@ def ranking_signals(candidate):
     return action, concerns, uncertain, novelty
 
 
-def project(source, settings):
+def project(source: CriticResult | RefinementResult, settings: SelectionSettings) -> dict[str, Any]:
     critic = current_critic(source)
     routes = {r['direction_id']: r for r in source.handoff()['candidates']}
     reviews = {c.direction_id: c for c in critic.candidates}
@@ -111,7 +117,7 @@ def project(source, settings):
         literature_wide_novelty='unverified')
 
 
-def build_portfolio(source, settings=None, *, metadata_paths=(), store=None):
+def build_portfolio(source: CriticResult | RefinementResult, settings: SelectionSettings | None = None, *, metadata_paths: Iterable[str | Path] = (), store: PaperStore | None = None) -> FinalPortfolio:
     """Validate the complete saved lineage before publishing any candidate."""
     if not isinstance(source, (CriticResult, RefinementResult)):
         raise TypeError('expected CriticResult or RefinementResult')

@@ -1,22 +1,26 @@
 """Bounded critic → revision → novelty revalidation → fresh critic cycle."""
+from __future__ import annotations
 from llm_client.progress import gather as progress_gather
 import asyncio
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Awaitable, Callable, Literal
 from pydantic import Field, model_validator
-from directions.schemas import Strict, Text, GenerationResult
+from directions.schemas import Strict, Text, Direction, GenerationResult
 from directions.judge import validate_report as validate_correctness_report
 from directions.revision_schemas import DirectionRevision
 from directions.revision import revise_direction, revised_generation, confirm_requests
 from directions.subset import SubsetRevision, revise_subset
 from novelty.revalidation import ReuseCertificate, assess_reuse, rebind_reused_inputs
 from novelty.assessment import NoveltyAssessor, AssessmentSettings
-from novelty.comparison import NoveltyComparator
-from novelty.pipeline import NoveltySearcher
+from novelty.assessment_schemas import NoveltyAssessmentResult
+from novelty.comparison import NoveltyComparator, Settings
+from novelty.pipeline import NoveltySearcher, Settings as SearchSettings
 from novelty.schemas import NoveltySearchResult
 from novelty.comparison_schemas import NoveltyComparisonResult
+from reasoning.evidence import PaperStore
+from research.retrieval import MultiQueryRetriever
 from critic.pipeline import ResearchCritic
-from critic.schemas import CriticResult, UpstreamRequest
+from critic.schemas import CriticResult, UpstreamRequest, CandidateCritique
 from critic.evidence import validate_request
 from opportunities.miner import digest
 from llm_client import usage
@@ -48,7 +52,7 @@ class RefinementResult(Strict):
     run: dict
 
     @model_validator(mode='after')
-    def lineage(self):
+    def lineage(self) -> RefinementResult:
         if self.original_sha256!=digest(self.original.model_dump()): raise ValueError('loop parent hash mismatch')
         validate_observations(self.original,self.observations)
         current=validate_rounds(self.original,self.repair_rounds or [])
@@ -95,7 +99,7 @@ class RefinementResult(Strict):
             raise ValueError('ready loop cannot have unresolved routes')
         return self
 
-    def handoff(self):
+    def handoff(self) -> dict[str, Any]:
         current=next((c.critic for c in reversed(self.cycles) if c.critic),self.repair_rounds[-1].critic if self.repair_rounds else self.original)
         handoff=current.handoff()
         if self.status=='blocked':
@@ -107,12 +111,12 @@ class RefinementResult(Strict):
         return dict(status=self.status,diagnostic=self.diagnostic,**handoff)
 
 
-def ready(result):
+def ready(result: CriticResult) -> bool:
     routes=result.handoff()['candidates']
     return bool(routes) and all(r['next_stage'] in ('ranking','stop') for r in routes)
 
 
-def validate_observations(original,observations):
+def validate_observations(original: CriticResult,observations: dict[str, list[UpstreamRequest]]) -> None:
     candidates={c.direction_id:c for c in original.candidates}
     for did,requests in observations.items():
         candidate=candidates.get(did)
@@ -124,7 +128,7 @@ def validate_observations(original,observations):
             validate_request(request,candidate.packet)
 
 
-def requests_for(candidate, original=None, novelty=None):
+def requests_for(candidate: CandidateCritique, original: Direction | None = None, novelty: NoveltyAssessmentResult | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     requests=[]
     for r in candidate.reviews:
         requests.extend(q.model_dump() for q in r.draft.upstream_requests)
@@ -153,13 +157,13 @@ def requests_for(candidate, original=None, novelty=None):
 class BorrowedIO:
     """Stage borrows shared calls/resources; only the outer loop closes its client."""
     client=None
-    def __init__(self,io): self.shared=io
-    def __getattr__(self,name): return getattr(self.shared,name)
+    def __init__(self,io: NoveltySearcher) -> None: self.shared=io
+    def __getattr__(self,name: str) -> Any: return getattr(self.shared,name)
 
 
 class RefinementLoop:
-    def __init__(self,store,chat=None,*,review_chat=None,provider=None,model=None,review_model=None,
-                 settings=None,retriever=None, max_cycles=2, checkpoint=None, search_settings=None):
+    def __init__(self,store: PaperStore,chat: Callable[..., Awaitable[Any]] | None=None,*,review_chat: Callable[..., Awaitable[Any]] | None=None,provider: str | None=None,model: str | None=None,review_model: str | None=None,
+                 settings: Settings | None=None,retriever: MultiQueryRetriever | None=None, max_cycles: int=2, checkpoint: Callable[[str, Any], Awaitable[Any]] | None=None, search_settings: SearchSettings | None=None) -> None:
         if max_cycles not in (1,2): raise ValueError('max_cycles must be one or two')
         self.core=ResearchCritic(store,chat,review_chat=review_chat,provider=provider,model=model,
             review_model=review_model,settings=settings)
@@ -170,10 +174,10 @@ class RefinementLoop:
         self.checkpoint=checkpoint
         self.used=False
 
-    async def save(self,stage,value):
+    async def save(self,stage: str,value: Any) -> None:
         if self.checkpoint: await self.checkpoint(stage,value)
 
-    async def _refresh(self,parent,generation,certificates):
+    async def _refresh(self,parent: NoveltyAssessmentResult,generation: GenerationResult,certificates: list[ReuseCertificate]) -> tuple[NoveltySearchResult, NoveltyComparisonResult, NoveltySearchResult, NoveltyComparisonResult]:
         if self.retriever is None:
             raise ValueError('fresh_novelty_required: scientific scope/applicability changed; configure a retriever')
         ids={c.direction_id for c in certificates if c.decision=='recheck'}
@@ -195,7 +199,7 @@ class RefinementLoop:
         rebound=rebind_reused_inputs(parent,generation,certificates,search,comp)
         return *rebound,search,comp
 
-    async def run(self,original,*,observations=None):
+    async def run(self,original: CriticResult,*,observations: dict[str, list[UpstreamRequest | dict[str, Any]]] | None=None) -> RefinementResult:
         if self.used: raise ValueError('create a new refinement loop per request')
         self.used=True
         original=CriticResult.model_validate(original.model_dump())

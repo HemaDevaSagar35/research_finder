@@ -1,4 +1,6 @@
 """Bounded, independently auditable repairs before scientific refinement."""
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from pydantic import Field, model_validator
 from directions.schemas import Strict
 from novelty.assessment import NoveltyAssessor, AssessmentSettings
@@ -6,6 +8,8 @@ from novelty.assessment_schemas import Invalidations, Invalidation
 from novelty.reassessment import InterpretationConcern, InterpretationReassessor, ReassessmentResult
 from opportunities.miner import digest
 from critic.schemas import CriticResult
+if TYPE_CHECKING:
+    from critic.pipeline import ResearchCritic
 
 
 class RepairRound(Strict):
@@ -15,7 +19,7 @@ class RepairRound(Strict):
     critic: CriticResult
 
 
-def source_concerns(current):
+def source_concerns(current: CriticResult) -> tuple[list[InterpretationConcern], dict[str, list[str]]]:
     rows=[]
     guidance={}
     for candidate in current.novelty.candidates:
@@ -55,7 +59,7 @@ def source_concerns(current):
     return [InterpretationConcern(**r) for r in grouped.values() if r['passage_ids']],guidance
 
 
-async def repair_round(core,current):
+async def repair_round(core: ResearchCritic,current: CriticResult) -> RepairRound:
     from critic.refinement_loop import BorrowedIO
     from critic.pipeline import ResearchCritic
     concerns,guidance=source_concerns(current)
@@ -84,7 +88,7 @@ async def repair_round(core,current):
     return RepairRound(parent_sha256=digest(current.model_dump()),evidence_repairs=repairs,failures=failures,critic=reviewed)
 
 
-def validate_rounds(original,rounds):
+def validate_rounds(original: CriticResult,rounds: list[RepairRound]) -> CriticResult:
     current=original
     for record in rounds:
         if record.parent_sha256!=digest(current.model_dump()): raise ValueError('repair round parent mismatch')

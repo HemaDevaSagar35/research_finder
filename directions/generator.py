@@ -4,25 +4,27 @@ from __future__ import annotations
 from llm_client.progress import gather as progress_gather
 import argparse
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
-from directions.schemas import (Diagnostic, Direction, GenerationResponse, GenerationResult,
+from directions.schemas import (Diagnostic, Direction, DirectionDraft, GenerationResponse, GenerationResult,
                                 CorrectnessResponse, ReviewRecord)
 from directions import judge
 from directions.test_links import LinkedCorrectnessResponse
 from extraction.research_extract import _parse_json
 from landscape.schemas import Landscape, limitation_origin
-from llm_client import AsyncLLMClient, errors, usage
+from llm_client import AsyncLLMClient, ChatResult, errors, usage
 from opportunities.miner import digest
-from opportunities.schemas import MiningResult
+from opportunities.schemas import MiningResult, Opportunity
 from reasoning.budget import AttemptBudget, TOKEN_COUNTER, estimate_tokens
-from reasoning.evidence import PaperStore, candidates, paper_card
-from reasoning.schemas import CrossPaperReasoning
+from reasoning.evidence import LoadedPaper, PageRecord, PaperStore, candidates, paper_card
+from reasoning.schemas import CrossPaperFinding, CrossPaperReasoning, Observation, Tension
 
 PROMPT_VERSION = 'direction_v2_explicit_comparisons'
 SYSTEM = """Develop one research direction that could attack the supplied accepted
@@ -129,12 +131,12 @@ class Settings(BaseModel):
 
 
 class GenerationFailure(Exception):
-    def __init__(self, reason, detail):
+    def __init__(self, reason: str, detail: str) -> None:
         self.reason, self.detail = reason, detail
         super().__init__(detail)
 
 
-def _require(condition, detail):
+def _require(condition: bool, detail: str) -> None:
     if not condition:
         raise GenerationFailure('invalid_source', detail)
 
@@ -146,8 +148,8 @@ class DirectionGenerator:
     followed by another fresh review. Only passing drafts advance. Scientific
     merit and novelty remain for downstream stages.
     """
-    def __init__(self, store: PaperStore, chat=None, *, settings=None, provider=None, model=None,
-                 review_chat=None, review_model=None):
+    def __init__(self, store: PaperStore, chat: Callable[..., Awaitable[Any]] | None = None, *, settings: Settings | None = None, provider: str | None = None, model: str | None = None,
+                 review_chat: Callable[..., Awaitable[Any]] | None = None, review_model: str | None = None) -> None:
         self.store, self.chat = store, chat
         self.review_chat = review_chat
         self.review_model = review_model or os.getenv('DIRECTION_REVIEW_MODEL')
@@ -162,11 +164,11 @@ class DirectionGenerator:
         self.used = False
         self.link_reviews = {}
 
-    async def _resource(self, kind, *args):
+    async def _resource(self, kind: str, *args: str | int) -> LoadedPaper | PageRecord | None:
         async with self.locks.setdefault((kind, *args), asyncio.Lock()):
             return await asyncio.to_thread(getattr(self.store, kind), *args)
 
-    def _source_context(self, op, land, sources):
+    def _source_context(self, op: Opportunity, land: Landscape, sources: dict[str, tuple[str, CrossPaperFinding | Observation | Tension]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         inventory = set(land.paper_ids)
         _require(bool(op.opportunity_id), 'empty opportunity ID')
         _require(set(op.paper_ids) <= inventory, 'opportunity paper outside landscape')
@@ -240,7 +242,7 @@ class DirectionGenerator:
         refs = {r for s in op.sources for r in s.refines}
         return context, [land_items[r].model_dump() for r in sorted(refs)]
 
-    async def _payload(self, op, land, sources):
+    async def _payload(self, op: Opportunity, land: Landscape, sources: dict[str, tuple[str, CrossPaperFinding | Observation | Tension]]) -> tuple[dict[str, Any], dict[str, str], list[PageRecord]]:
         context, items = self._source_context(op, land, sources)
         if len(op.review_sources) > self.settings.max_pages:
             raise GenerationFailure('page_budget', 'complete reviewed context exceeds page cap; nothing partially loaded')
@@ -275,7 +277,7 @@ class DirectionGenerator:
                    'max_experiments': self.settings.max_experiments}
         return payload, {pid: p.sha256 for pid, p in papers.items()}, pages
 
-    def _validate_draft(self, draft, op):
+    def _validate_draft(self, draft: DirectionDraft, op: Opportunity) -> None:
         if len(draft.hypotheses) > self.settings.max_hypotheses or len(draft.experiments) > self.settings.max_experiments:
             raise ValueError('generation exceeds hypothesis/experiment cap')
         evidence = {e.evidence_id: e.paper_id for e in op.evidence}
@@ -297,7 +299,7 @@ class DirectionGenerator:
                 raise ValueError('hypothesis cites unknown or duplicate motivating evidence; '
                                  f'allowed evidence_ids={sorted(evidence)}')
 
-    async def _call(self, messages, kind, schema):
+    async def _call(self, messages: list[dict[str, str]], kind: str, schema: type[BaseModel]) -> ChatResult:
         if estimate_tokens(json.dumps(messages)) + estimate_tokens(json.dumps(schema.model_json_schema())) > self.settings.max_input_tokens:
             raise GenerationFailure('input_budget', 'complete prompt exceeds allowance; no evidence silently omitted')
         async with self.sem:
@@ -322,7 +324,7 @@ class DirectionGenerator:
                     raise GenerationFailure('provider_error', self.fatal) from exc
                 raise GenerationFailure('call_failed', errors.describe(exc)) from exc
 
-    async def _generate(self, op, payload, *, proposal=None, report=None):
+    async def _generate(self, op: Opportunity, payload: dict[str, Any], *, proposal: DirectionDraft | None = None, report: CorrectnessResponse | None = None) -> DirectionDraft:
         messages = [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': json.dumps(
             {'task': 'generate_direction' if proposal is None else 'revise_direction',
              'payload': payload,
@@ -348,7 +350,7 @@ class DirectionGenerator:
         raise GenerationFailure('invalid_generation', detail)
 
     @staticmethod
-    def _assign_ids(proposal, index):
+    def _assign_ids(proposal: DirectionDraft, index: int) -> DirectionDraft:
         proposal = proposal.model_copy(deep=True)
         did = f'dir-{index:03d}'
         hmap = {h.hypothesis_id: f'{did}-h{i+1:02d}' for i, h in enumerate(proposal.hypotheses)}
@@ -360,7 +362,7 @@ class DirectionGenerator:
             e.hypothesis_ids = [hmap[h] for h in e.hypothesis_ids]
         return proposal
 
-    async def _review(self, op, payload, proposal, index, round, records):
+    async def _review(self, op: Opportunity, payload: dict[str, Any], proposal: DirectionDraft, index: int, round: int, records: list[ReviewRecord]) -> tuple[CorrectnessResponse, str]:
         review_id = f'dir-{index:03d}-review-{round}'
         report, error, model = None, None, self.review_model or self.model
         try:
@@ -384,7 +386,7 @@ class DirectionGenerator:
                 round=round, proposal=proposal.model_copy(deep=True), prompt_version=judge.PROMPT_VERSION,
                 model=model, report=report, error=error))
 
-    async def _complete(self, op, payload, proposal, index, records):
+    async def _complete(self, op: Opportunity, payload: dict[str, Any], proposal: DirectionDraft, index: int, records: list[ReviewRecord]) -> tuple[DirectionDraft, str]:
         for round in range(2):
             proposal = self._assign_ids(proposal, index)
             report, review_id = await self._review(op, payload, proposal, index, round, records)
@@ -397,7 +399,7 @@ class DirectionGenerator:
             proposal = await self._generate(op, payload, proposal=proposal, report=report)
         raise AssertionError('unreachable')
 
-    async def run(self, landscape: Landscape, reasoning: CrossPaperReasoning, opportunities: MiningResult):
+    async def run(self, landscape: Landscape, reasoning: CrossPaperReasoning, opportunities: MiningResult) -> GenerationResult:
         if self.used:
             raise ValueError('create a new generator per run')
         self.used = True
@@ -463,7 +465,7 @@ class DirectionGenerator:
                  'correctness_contract': 'test_links_v1', 'test_link_reviews': self.link_reviews})
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('landscape', 'reasoning', 'opportunities', 'out'):
         parser.add_argument('--'+name, required=True)

@@ -3,9 +3,12 @@ from __future__ import annotations
 
 from llm_client.progress import gather as progress_gather
 import asyncio
-from pydantic import Field
+from collections.abc import Awaitable, Callable
+from pydantic import BaseModel, Field
 from datetime import datetime, timezone
+from typing import Any, TypeVar
 
+from directions.schemas import GenerationResult
 from llm_client import errors, usage
 from novelty import assessment_prompts as prompts
 from novelty.assessment_schemas import (AssessmentInputs, Invalidations, AssessmentDraft,
@@ -13,9 +16,13 @@ from novelty.assessment_schemas import (AssessmentInputs, Invalidations, Assessm
     NoveltyAssessmentResult, TargetAssessment, DirectionSynthesis)
 from novelty.assessment_evidence import build_packet, hypothesis_packet, hypothesis_draft, locked_targets, model_packet, restore_response_sources, synthesis_packet, validate_draft, validate_report
 from novelty.comparison import Settings
+from novelty.comparison_schemas import NoveltyComparisonResult
 from novelty.pipeline import ModelOutputError, NoveltySearcher, Settings as CallSettings
+from novelty.schemas import NoveltySearchResult
 from opportunities.miner import digest
 from reasoning.budget import TOKEN_COUNTER
+
+M = TypeVar('M', bound=BaseModel)
 
 
 class AssessmentSettings(Settings):
@@ -25,14 +32,14 @@ class AssessmentSettings(Settings):
 
 class NoveltyAssessor:
     """One run per instance. Optional independent hypotheses precede joint synthesis."""
-    def __init__(self, chat=None, *, review_chat=None, provider=None, model=None,
-                 review_model=None, settings=None):
+    def __init__(self, chat: Callable[..., Awaitable[Any]] | None = None, *, review_chat: Callable[..., Awaitable[Any]] | None = None, provider: str | None = None, model: str | None = None,
+                 review_model: str | None = None, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()
         self.io = NoveltySearcher(None, None, chat, review_chat=review_chat, provider=provider,
             model=model, review_model=review_model, settings=CallSettings(**self.settings.model_dump(exclude={"comparison_coverage_threshold", "individual_assessments"})))
         self.used = False
 
-    async def _validated_call(self, task, system, schema, body, validator, repairs):
+    async def _validated_call(self, task: str, system: str, schema: type[M], body: dict[str, Any], validator: Callable[[M, dict[str, Any]], None], repairs: list[FormatRepair]) -> tuple[M, str]:
         transport = {**body, 'packet': model_packet(body['packet'])}
         if body['packet'].get('assessment_contract'):
             transport['available_evidence_references']=[dict(paper_id=e['paper_id'],target_id=e['target_id'],claim_ids=[c['claim_id'] for c in e['claims']]) for e in body['packet']['evidence']]
@@ -57,7 +64,7 @@ class NoveltyAssessor:
                 raise ValueError('invalid_' + task + '_after_repair: ' + detail)
             request = {**transport, 'invalid_output': raw, 'validation_errors': detail}
 
-    async def _candidate(self, packet, previous=None, observations=None, previous_review=None, hypothesis_results=None):
+    async def _candidate(self, packet: dict[str, Any], previous: AssessmentDraft | None = None, observations: list[str] | None = None, previous_review: AssessmentReport | None = None, hypothesis_results: list[CandidateAssessment] | None = None) -> CandidateAssessment:
         reviews, repairs, assessment, diagnostic = [], [], None, None
         isolated = packet.get('assessment_contract') == 'isolated_v1'
         single = isolated and len(packet['coverage']) == 1 and packet['coverage'][0]['level'] == 'hypothesis'
@@ -114,8 +121,8 @@ class NoveltyAssessor:
             coverage=packet['coverage'], assessment=assessment, reviews=reviews,
             format_repairs=repairs, diagnostic=None if assessment else diagnostic)
 
-    async def run(self, generation, search, comparisons, *, invalidations: Invalidations | None = None,
-                  recovery: NoveltyAssessmentResult | None = None, previous: NoveltyAssessmentResult | None = None, observations: dict[str,list[str]] | None = None, guidance: dict[str,list[str]] | None = None):
+    async def run(self, generation: GenerationResult, search: NoveltySearchResult, comparisons: NoveltyComparisonResult, *, invalidations: Invalidations | None = None,
+                  recovery: NoveltyAssessmentResult | None = None, previous: NoveltyAssessmentResult | None = None, observations: dict[str,list[str]] | None = None, guidance: dict[str,list[str]] | None = None) -> NoveltyAssessmentResult:
         if self.used:
             raise ValueError('create a new novelty assessor per run')
         self.used = True

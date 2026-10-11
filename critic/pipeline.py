@@ -1,7 +1,9 @@
 """Async transport-independent critique with a fresh independent audit."""
+from __future__ import annotations
 from llm_client.progress import gather as progress_gather
 import asyncio
 from datetime import datetime, timezone
+from typing import Any, Awaitable, Callable
 from critic import prompts
 from critic.evidence import (packet_for, upstream_route, validate_draft, validate_review,
     portfolio_packet, validate_portfolio, normalize_review_paths)
@@ -13,9 +15,11 @@ from novelty.comparison import Settings
 from novelty.pipeline import NoveltySearcher, Settings as CallSettings, ModelOutputError
 from opportunities.miner import digest
 from llm_client import errors, usage
+from directions.schemas import Direction
+from reasoning.evidence import PaperStore
 
 
-def transport(packet):
+def transport(packet: dict[str, Any]) -> dict[str, Any]:
     """Lossless grouping: repeated claims and support pages are sent once."""
     packed = model_packet(packet)
     for item in packed.get('candidates', [packed]):
@@ -43,7 +47,7 @@ def transport(packet):
     return packed
 
 
-def preserve_unaffected(draft, previous, report):
+def preserve_unaffected(draft: CritiqueDraft | PortfolioDraft, previous: CritiqueDraft, report: ReviewReport) -> None:
     if not isinstance(draft, CritiqueDraft):
         return
     affected = {c.target_id for c in report.target_checks if c.defects}
@@ -64,15 +68,15 @@ def preserve_unaffected(draft, previous, report):
 
 class ResearchCritic:
     """One instance per request; caller owns injected store and chat clients."""
-    def __init__(self, store, chat=None, *, review_chat=None, provider=None, model=None,
-                 review_model=None, settings=None):
+    def __init__(self, store: PaperStore | None, chat: Callable[..., Awaitable[Any]] | None = None, *, review_chat: Callable[..., Awaitable[Any]] | None = None, provider: str | None = None, model: str | None = None,
+                 review_model: str | None = None, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()
         self.io = NoveltySearcher(store, None, chat, review_chat=review_chat, provider=provider,
             model=model, review_model=review_model, settings=CallSettings(**self.settings.model_dump()))
         self.used = False
         self.normalizations = []
 
-    async def _call(self, task, system, schema, body, validate, repairs):
+    async def _call(self, task: str, system: str, schema: type[CritiqueDraft | PortfolioDraft | ReviewReport], body: dict[str, Any], validate: Callable[[Any], None], repairs: list[FormatRepair]) -> tuple[CritiqueDraft | PortfolioDraft | ReviewReport, str]:
         aliases = source_aliases(body['packet'])
         request = {**map_source_refs(body, aliases), 'packet': transport(body['packet'])}
         for attempt in range(2):
@@ -96,7 +100,7 @@ class ResearchCritic:
                 raise ValueError('invalid_' + task + '_after_repair: ' + detail)
             request = {**request, 'invalid_output': map_source_refs(raw, aliases), 'validation_errors': detail}
 
-    async def _reviewed(self, packet, portfolio=False, previous=None):
+    async def _reviewed(self, packet: dict[str, Any], portfolio: bool = False, previous: ReviewRecord | None = None) -> tuple[CritiqueDraft | PortfolioDraft | None, list[ReviewRecord], list[FormatRepair], str | None]:
         reviews, repairs, accepted, diagnostic = [], [], None, None
         schema = PortfolioDraft if portfolio else CritiqueDraft
         validate = validate_portfolio if portfolio else validate_draft
@@ -141,7 +145,7 @@ class ResearchCritic:
             diagnostic = errors.describe(exc)
         return accepted, reviews, repairs, None if accepted else diagnostic
 
-    async def _candidate(self, novelty, direction, previous=None):
+    async def _candidate(self, novelty: NoveltyAssessmentResult, direction: Direction, previous: CandidateCritique | None = None) -> CandidateCritique:
         blocked = upstream_route(novelty, direction)
         base = dict(direction_id=direction.direction_id, candidate_sha256=digest(direction.model_dump()),
                     packet=None, packet_sha256=None, critique=None, reviews=[], format_repairs=[])
@@ -161,13 +165,13 @@ class ResearchCritic:
             packet=packet, packet_sha256=digest(packet), critique=critique, reviews=reviews,
             format_repairs=repairs, diagnostic=diagnostic, blocked_at=None if critique else 'critique')
 
-    async def run(self, novelty, *, recovery=None):
+    async def run(self, novelty: NoveltyAssessmentResult, *, recovery: CriticResult | None = None) -> CriticResult:
         with usage.scoped() as totals:
             result = await self._run(novelty, recovery)
             result.usage = {k: vars(v).copy() for k, v in totals.items()}
             return result
 
-    async def _run(self, novelty, recovery=None):
+    async def _run(self, novelty: NoveltyAssessmentResult, recovery: CriticResult | None = None) -> CriticResult:
         if self.used:
             raise ValueError('create a new critic per run')
         self.used = True

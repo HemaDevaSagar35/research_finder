@@ -1,13 +1,17 @@
 """Stage 16: publish saved hypothesis decisions without running models or retrieval."""
+from __future__ import annotations
 from copy import deepcopy
+from pathlib import Path
+from typing import Any
 from novelty.assessment_evidence import build_packet
 from opportunities.miner import digest
 from critic.evidence import packet_for, validate_draft, validate_review
-from critic.schemas import CritiqueDraft, ReviewRecord
+from critic.schemas import CriticResult, CritiqueDraft, ReviewRecord
 from critic.hypotheses import eligibility
+from directions.schemas import Direction
 
 
-def reading_context(critic, direction, row, base, metadata, support):
+def reading_context(critic: CriticResult, direction: Direction, row: dict[str, Any], base: dict[str, Any], metadata: dict[str, dict[str, Any]], support: dict[str, Any]) -> dict[str, Any]:
     """Resolve saved evidence for reading, without changing scientific decisions."""
     hid=row['hypothesis_id']
     def paper(pid):
@@ -43,7 +47,7 @@ def reading_context(critic, direction, row, base, metadata, support):
         coverage_threshold=base.get('coverage_threshold',1.0))
 
 
-def saved_metadata(value, result):
+def saved_metadata(value: Any, result: dict[str, dict[str, Any]]) -> None:
     if isinstance(value,list):
         for v in value: saved_metadata(v,result)
     elif isinstance(value,dict):
@@ -56,7 +60,7 @@ def saved_metadata(value, result):
         for v in value.values(): saved_metadata(v,result)
 
 
-def stage16(critic, report):
+def stage16(critic: CriticResult, report: dict[str, Any]) -> dict[str, Any]:
     if report['assessment_sha256'] != digest(critic.novelty.model_dump()):
         raise ValueError('Hypothesis report belongs to a different assessment')
     directions={d.direction_id:d for d in critic.novelty.inputs.generation.directions}
@@ -121,7 +125,7 @@ def stage16(critic, report):
     return dict(schema_version='stage16_hypotheses_v1',status='partial' if counts['approved'] and counts['pending'] else 'ready' if counts['approved'] else 'blocked' if counts['pending'] else 'empty',counts=counts,hypotheses=output,critic_sha256=digest(critic.model_dump()),hypothesis_reviews_sha256=digest(report),scientific_validation='model_reviewed_not_empirically_validated',automatic_revision=False)
 
 
-def markdown(result):
+def markdown(result: dict[str, Any]) -> str:
     lines=['# Stage 16 — reviewed hypotheses','',f"Approved: {result['counts']['approved']}; pending: {result['counts']['pending']}; discarded: {result['counts']['discarded']}.",'','Approval applies to the individual hypothesis, not its entire direction or empirical truth. Linked experiment dependencies are preserved. REFINE remains a proposed next action; no automatic revision or new search ran.','']
     for did in dict.fromkeys(h['direction_id'] for h in result['hypotheses']):
         group=[h for h in result['hypotheses'] if h['direction_id']==did]
@@ -172,7 +176,7 @@ def markdown(result):
     return '\n'.join(lines)
 
 
-def write_stage16(out,critic,report):
+def write_stage16(out: Path, critic: CriticResult, report: dict[str, Any]) -> dict[str, Any]:
     from research.pipeline import atomic_json
     result=stage16(critic,report)
     atomic_json(out/'stage16.json',result)

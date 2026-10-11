@@ -1,16 +1,23 @@
 """Deterministic provenance and coverage gates for cross-paper synthesis."""
+from __future__ import annotations
 import json
+from typing import Any, TypeVar
 
-from novelty.assessment_schemas import TargetCoverage, CoverageRow
+from pydantic import BaseModel
+from novelty.assessment_schemas import AssessmentDraft, AssessmentInputs, AssessmentReport, CandidateAssessment, TargetAssessment, TargetCoverage, CoverageRow
+from novelty.comparison_records import Relationship
+from novelty.comparison_schemas import PairComparison
 from novelty.pipeline import pointer
 
+M = TypeVar('M', bound=BaseModel)
 
-def pair_claims(pair, relationship):
+
+def pair_claims(pair: PairComparison, relationship: Relationship) -> set[str]:
     return (set(pair.hypothesis_claim_ids) | {x for d in pair.dimensions for x in d.claim_ids}
             | relationship.refs())
 
 
-def build_packet(inputs, direction_id):
+def build_packet(inputs: AssessmentInputs, direction_id: str) -> dict[str, Any]:
     direction = next(d for d in inputs.generation.directions if d.direction_id == direction_id)
     c = next(c for c in inputs.comparisons.candidates if c.direction_id == direction_id)
     search = next(c for c in inputs.search.candidates if c.direction_id == direction_id)
@@ -72,11 +79,11 @@ def build_packet(inputs, direction_id):
 
 
 
-def source_aliases(packet):
+def source_aliases(packet: dict[str, Any]) -> dict[str, str]:
     return {p['passage_id']: f'src{i}' for i, p in enumerate(packet['source_passages'])}
 
 
-def map_source_refs(value, mapping):
+def map_source_refs(value: Any, mapping: dict[str, str]) -> Any:
     """Translate only typed source-reference fields; scientific prose is untouched."""
     if isinstance(value, list): return [map_source_refs(x, mapping) for x in value]
     if not isinstance(value, dict): return value
@@ -88,7 +95,7 @@ def map_source_refs(value, mapping):
     return result
 
 
-def model_packet(packet):
+def model_packet(packet: dict[str, Any]) -> dict[str, Any]:
     """Lossless scientific context with short, reversible source labels.
 
     Full IDs/hashes/offsets remain in immutable inputs. Grouping by original page
@@ -109,16 +116,16 @@ def model_packet(packet):
     return packed
 
 
-def restore_response_sources(response, packet):
+def restore_response_sources(response: M, packet: dict[str, Any]) -> M:
     reverse = {alias: original for original, alias in source_aliases(packet).items()}
     return type(response).model_validate(map_source_refs(response.model_dump(), reverse))
 
 
-def evidence_map(packet):
+def evidence_map(packet: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
     return {(e['paper_id'], e['target_id']): e for e in packet['evidence']}
 
 
-def validate_draft(draft, packet):
+def validate_draft(draft: AssessmentDraft, packet: dict[str, Any]) -> None:
     ledger = {c['target_id']: c for c in packet['coverage']}
     if sorted(t.target_id for t in draft.targets) != sorted(ledger):
         raise ValueError('assessment must cover every original target exactly once')
@@ -216,7 +223,7 @@ def validate_draft(draft, packet):
         paths.add(path)
 
 
-def validate_report(report, packet):
+def validate_report(report: AssessmentReport, packet: dict[str, Any]) -> None:
     if sorted(c.target_id for c in report.scope_checks) != sorted(c['target_id'] for c in packet['coverage']):
         raise ValueError('independent scope review must cover every target exactly once')
     available = evidence_map(packet)
@@ -232,7 +239,7 @@ def validate_report(report, packet):
             raise ValueError('reassessment source belongs to another paper')
 
 
-def scope_sources(packet, target_id):
+def scope_sources(packet: dict[str, Any], target_id: str) -> dict[str, Any]:
     """Restrict evidence rows to one target and passages to the full pages they cite.
 
     Sibling targets' evidence and pages are not needed to judge or review one
@@ -246,7 +253,7 @@ def scope_sources(packet, target_id):
     return packet
 
 
-def hypothesis_packet(packet, target_id):
+def hypothesis_packet(packet: dict[str, Any], target_id: str) -> dict[str, Any]:
     """Keep one original hypothesis and all its accepted comparison evidence."""
     from copy import deepcopy
     scoped = deepcopy(packet)
@@ -259,7 +266,7 @@ def hypothesis_packet(packet, target_id):
     return scoped
 
 
-def synthesis_packet(packet):
+def synthesis_packet(packet: dict[str, Any]) -> dict[str, Any]:
     """Direction synthesis context: locked judgments plus the passages its evidence actually cites.
 
     Hypothesis judgments are made (and independently reviewed) against complete
@@ -277,7 +284,7 @@ def synthesis_packet(packet):
     return scoped
 
 
-def hypothesis_draft(target, packet):
+def hypothesis_draft(target: TargetAssessment, packet: dict[str, Any]) -> AssessmentDraft:
     """The model judges novelty; code owns the single-target lifecycle plan."""
     from novelty.assessment_schemas import AssessmentDraft
     complete=packet['coverage'][0]['complete']
@@ -286,7 +293,7 @@ def hypothesis_draft(target, packet):
         retained_hypothesis_ids=[] if action=='reject' else [target.target_id],removed_hypothesis_ids=[target.target_id] if action=='reject' else [],scientific_edits=[]))
 
 
-def locked_targets(packet, children):
+def locked_targets(packet: dict[str, Any], children: list[CandidateAssessment]) -> list[TargetAssessment]:
     from novelty.assessment_schemas import TargetAssessment
     by_id={h.coverage[0].target_id:h for h in children}
     concerns=[q for c in children for r in c.reviews if r.report for q in r.report.reassessment_requests]

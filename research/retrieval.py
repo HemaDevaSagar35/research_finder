@@ -6,16 +6,21 @@ Production uses OpenSearchBackend with a caller-owned OpenSearch client;
 LocalBackend is a development adapter. No evidence artifacts are loaded here.
 """
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .query_planner import QueryPlan, plan_queries
+
+if TYPE_CHECKING:
+    from opensearchpy import OpenSearch
 
 
 class Contract(BaseModel):
@@ -117,7 +122,7 @@ class LocalBackend:
     """Reuse one backend per local corpus; close after draining its retriever."""
 
     def __init__(self, index_dir: Path, *, embedding: str | None = None,
-                 use_vector: bool = True):
+                 use_vector: bool = True) -> None:
         from indexing.search import LocalSearchIndex
         self._index = LocalSearchIndex(index_dir, embedding=embedding,
                                        use_vector=use_vector)
@@ -131,13 +136,13 @@ class LocalBackend:
              **r, "paper_id": p["paper_id"]}
             for p in papers for r in p["records"]])
 
-    def close(self):
+    def close(self) -> None:
         self._index.close()
 
 
 class OpenSearchBackend:
     """Does not create or close the supplied client; the service owns it."""
-    def __init__(self, client):
+    def __init__(self, client: OpenSearch) -> None:
         self.client = client
 
     def search(self, query: str, *, record_k: int,
@@ -205,7 +210,7 @@ def fuse_rankings(queries: list[str], rankings: list[list[PaperHit]], *,
 
 
 class MultiQueryRetriever:
-    def __init__(self, backend: SearchBackend, *, concurrency: int = 4):
+    def __init__(self, backend: SearchBackend, *, concurrency: int = 4) -> None:
         _positive_int("concurrency", concurrency)
         self.backend = backend
         self._executor = ThreadPoolExecutor(max_workers=concurrency,
@@ -243,7 +248,7 @@ class MultiQueryRetriever:
         request_filters = (filters or RetrievalFilters()).model_copy(deep=True)
         loop = asyncio.get_running_loop()
 
-        def search(query):
+        def search(query: str) -> list[PaperHit]:
             try:
                 return self.backend.search(query, record_k=record_k,
                                            filters=request_filters.model_copy(deep=True))
@@ -266,14 +271,14 @@ class MultiQueryRetriever:
         self._closed = True
         await asyncio.to_thread(self._executor.shutdown, wait=True, cancel_futures=True)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> MultiQueryRetriever:
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args: object) -> None:
         await self.aclose()
 
 
-async def _run(args):
+async def _run(args: argparse.Namespace) -> None:
     print("Planning search queries...", file=sys.stderr, flush=True)
     plan = await plan_queries(args.query, max_queries=args.max_queries,
                               provider=args.provider, model=args.model)
@@ -302,7 +307,7 @@ async def _run(args):
             backend.close()
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Expand a query and fuse hybrid paper rankings")
     parser.add_argument("query")
     parser.add_argument("--backend", choices=["local", "opensearch"], default="opensearch")

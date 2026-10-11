@@ -41,17 +41,17 @@ import time
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable
 
 from dotenv import load_dotenv
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from extraction.research_extract import _parse_json
 from llm_client import ChatResult
 from llm_client import errors as llm_errors
 from llm_client import usage
 from reasoning import schemas as S
-from landscape.schemas import LimitationSource, limitation_origin
+from landscape.schemas import LimitationSource, Relationship, limitation_origin
 from reasoning.budget import TOKEN_COUNTER, AttemptBudget, estimate_tokens
 from reasoning.evidence import (BundleBudget, EvidenceCandidate, LoadedPaper, PaperStore,
                                 bundle as make_bundle, candidates as make_candidates)
@@ -156,13 +156,13 @@ def schedule_threads(land: S.Landscape | S.LegacyLandscape, budgets: Budgets) ->
     cap = budgets.max_papers_per_thread
     threads = []
 
-    def relationship_statement(r):
+    def relationship_statement(r: Relationship) -> str:
         return f"{groups[r.source].label} {r.relation} {groups[r.target].label}"
 
-    def related(r):
+    def related(r: Relationship) -> list[set[str]]:
         return [set(groups[gid].paper_ids) for gid in (r.source, r.target)]
 
-    def append(kind, refs, statement, papers, group_ids, omitted=None, sides=None):
+    def append(kind: str, refs: list[str], statement: str, papers: list[str], group_ids: list[str], omitted: list[str] | None = None, sides: list[dict] | None = None) -> None:
         threads.append(Thread(
             thread_id=f"t{len(threads) + 1:03d}", kind=kind, refines=refs,
             statement=statement, papers=papers, group_ids=group_ids,
@@ -308,7 +308,7 @@ an inference may be acceptable only if clearly presented as such and supported.
 Output ONLY one JSON object: {"decisions": [{"candidate_id", "decision", "notes", "page_ids"}]}."""
 
 
-def _fence(obj) -> str:
+def _fence(obj: Any) -> str:
     return "```json\n" + json.dumps(obj, indent=1, ensure_ascii=False) + "\n```"
 
 
@@ -371,7 +371,7 @@ class CrossPaperReasoner:
                  budgets: Budgets | None = None, provider: str | None = None,
                  draft_model: str | None = None, review_model: str | None = None,
                  verify: str = "pages", concurrency: int = 4,
-                 index_dir: Path | None = None, bundle_budget: BundleBudget | None = None):
+                 index_dir: Path | None = None, bundle_budget: BundleBudget | None = None) -> None:
         self.store = store
         self._chat = chat
         self.budgets = budgets or Budgets()
@@ -399,7 +399,7 @@ class CrossPaperReasoner:
         return self._chat
 
     async def _call(self, kind: str, messages: list[dict], model: str | None,
-                    max_tokens: int, schema) -> ChatResult | None:
+                    max_tokens: int, schema: type[BaseModel]) -> ChatResult | None:
         """Reserve an attempt, then call. None = budget exhausted."""
         if not await self.budget.reserve(kind):
             return None
